@@ -76,29 +76,25 @@ const createVehicleIcon = (color: string) => {
     className: "custom-vehicle-icon",
     html: `
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Modern van body -->
-        <path d="M2.5 9h14.5c1.2 0 2.8.4 3.6 1.2L22 12v4H2.5V9z"
-          fill="${color}" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>
-
-        <!-- Front cabin -->
-        <path d="M17 9h2.2c.8 0 1.4.3 1.8.8L22 12h-5V9z"
-          fill="${color}" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>
-
+        <!-- Van body -->
+        <path d="M3 8h13v8H3z" fill="${color}" stroke="white" stroke-width="1.2"/>
+        <path d="M16 10h3l2 3v3h-5v-6z" fill="${color}" stroke="white" stroke-width="1.2"/>
+        
         <!-- Windows -->
-        <rect x="4" y="10" width="3.2" height="2.7" rx="0.4" fill="white" opacity="0.85"/>
-        <rect x="8" y="10" width="3.2" height="2.7" rx="0.4" fill="white" opacity="0.85"/>
-        <rect x="12.2" y="10" width="3.2" height="2.7" rx="0.4" fill="white" opacity="0.85"/>
-        <path d="M17.3 10h2.3l1.4 1.6v1.1h-3.7V10z" fill="white" opacity="0.85"/>
-
+        <rect x="4" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
+        <rect x="8" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
+        <rect x="12" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
+        <path d="M17 11h2.5l1.5 1.5v1.5h-4v-3z" fill="white" opacity="0.8"/>
+        
         <!-- Wheels -->
-        <circle cx="7" cy="17.2" r="1.9" fill="#2d3748" stroke="white" stroke-width="1"/>
-        <circle cx="7" cy="17.2" r="1.1" fill="#4a5568"/>
-        <circle cx="17" cy="17.2" r="1.9" fill="#2d3748" stroke="white" stroke-width="1"/>
-        <circle cx="17" cy="17.2" r="1.1" fill="#4a5568"/>
-
-        <!-- Side details -->
-        <rect x="5" y="13.3" width="1.1" height="1.8" fill="white" opacity="0.6" rx="0.2"/>
-        <rect x="6.7" y="13.3" width="1.1" height="1.8" fill="white" opacity="0.6" rx="0.2"/>
+        <circle cx="7" cy="17" r="1.8" fill="#2d3748" stroke="white" stroke-width="1"/>
+        <circle cx="7" cy="17" r="1" fill="#4a5568"/>
+        <circle cx="17" cy="17" r="1.8" fill="#2d3748" stroke="white" stroke-width="1"/>
+        <circle cx="17" cy="17" r="1" fill="#4a5568"/>
+        
+        <!-- Details -->
+        <rect x="4.5" y="13" width="1" height="2" fill="white" opacity="0.6"/>
+        <rect x="6" y="13" width="1" height="2" fill="white" opacity="0.6"/>
       </svg>
     `,
     iconSize: [36, 36],
@@ -175,35 +171,6 @@ function MapEventHandler({
       }
     },
     [setWeather]
-  );
-
-  const fetchRoute = useCallback(
-    async (start: [number, number], end: [number, number]) => {
-      try {
-        const response = await fetch(
-          `/api/route?startLat=${start[0]}&startLon=${start[1]}&endLat=${end[0]}&endLon=${end[1]}&vehicle=${selectedVehicle.label}`
-        );
-        const data = await response.json();
-        if (data.coordinates) {
-          setRouteData({
-            coordinates: data.coordinates,
-            distance: data.distance,
-            duration: data.duration,
-            instructions: data.instructions,
-          });
-          const bounds = L.latLngBounds(data.coordinates);
-          map.fitBounds(bounds, { padding: [40, 40] });
-          const quarterpoint =
-            data.coordinates[Math.floor(data.coordinates.length / 4)];
-          const midpoint =
-            data.coordinates[Math.floor(data.coordinates.length / 2)];
-          fetchMultipleWeather(start, end, [quarterpoint, midpoint]);
-        }
-      } catch (error) {
-        console.error("Error fetching route:", error);
-      }
-    },
-    [map, setRouteData, fetchMultipleWeather, selectedVehicle.label]
   );
 
   const fetchZones = useCallback(async () => {
@@ -312,12 +279,6 @@ function MapEventHandler({
     setDynamicGasStations,
     selectedVehicle.label,
   ]);
-
-  useEffect(() => {
-    if (routePoints.start && routePoints.end)
-      fetchRoute(routePoints.start, routePoints.end);
-  }, [routePoints.start, routePoints.end, fetchRoute]);
-
   useMapEvents({
     click: (e: LeafletMouseEvent) => {
       const point: [number, number] = [e.latlng.lat, e.latlng.lng];
@@ -358,7 +319,13 @@ function MapEventHandler({
       fetchZones();
     }, 0);
     return () => clearTimeout(timer);
-  }, [layers.lowEmissionZones, layers.restrictedZones, fetchZones]);
+  }, [
+    layers.lowEmissionZones,
+    layers.restrictedZones,
+    selectedVehicle.id,
+    selectedVehicle,
+    fetchZones,
+  ]);
 
   return null;
 }
@@ -405,11 +372,25 @@ export default function MapContainer({
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {
       if (!zone.requiredTags || zone.requiredTags.length === 0) return true;
+
+      // Use the selected fleet vehicle's tags, not the vehicle type selector
+      if (fleetVehicles && selectedVehicleId) {
+        const selectedFleetVehicle = fleetVehicles.find(
+          (v) => v.id === selectedVehicleId
+        );
+        if (selectedFleetVehicle) {
+          return zone.requiredTags.some((tag) =>
+            selectedFleetVehicle.type.tags.includes(tag)
+          );
+        }
+      }
+
+      // Fallback to general vehicle type selector
       return zone.requiredTags.some((tag) =>
         selectedVehicle.tags.includes(tag)
       );
     },
-    [selectedVehicle.tags]
+    [selectedVehicle.tags, fleetVehicles, selectedVehicleId]
   );
 
   const defaultCenter: [number, number] = [40.4168, -3.7038];
@@ -433,6 +414,16 @@ export default function MapContainer({
       </div>
     );
   }
+
+  const getVehicleColor = (vehicleType: VehicleType) => {
+    const colorMap: Record<string, string> = {
+      truck: "#ef4444",
+      van: "#3b82f6",
+      car: "#10b981",
+      motorcycle: "#f59e0b",
+    };
+    return colorMap[vehicleType.id] || "#6b7280";
+  };
 
   return (
     <LeafletMap
@@ -576,12 +567,11 @@ export default function MapContainer({
             )}
           </CircleMarker>
         ))}
-
       {/* Fleet Vehicles - Independent */}
       {fleetVehicles &&
         fleetVehicles.map((vehicle) => {
           const center = normalizeCoords(vehicle.coords);
-          const color = "#ffa202ff";
+          const color = getVehicleColor(vehicle.type);
           const isSelected = selectedVehicleId === vehicle.id;
 
           return (
