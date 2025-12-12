@@ -1,4 +1,4 @@
-import L from "leaflet"
+import L from "leaflet";
 
 export const gasStationIcon = L.divIcon({
   className: "custom-marker",
@@ -13,7 +13,7 @@ export const gasStationIcon = L.divIcon({
   </div>`,
   iconSize: [24, 24],
   iconAnchor: [12, 12],
-})
+});
 
 export const evStationIcon = L.divIcon({
   className: "custom-marker",
@@ -24,7 +24,7 @@ export const evStationIcon = L.divIcon({
   </div>`,
   iconSize: [24, 24],
   iconAnchor: [12, 12],
-})
+});
 
 export const startIcon = L.divIcon({
   className: "custom-marker",
@@ -35,7 +35,7 @@ export const startIcon = L.divIcon({
   </div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 14],
-})
+});
 
 export const endIcon = L.divIcon({
   className: "custom-marker",
@@ -47,4 +47,35 @@ export const endIcon = L.divIcon({
   </div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 14],
-})
+});
+
+export const createVehicleIcon = (color: string) => {
+  return L.divIcon({
+    className: "custom-vehicle-icon",
+    html: `
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Van body -->
+        <path d="M3 8h13v8H3z" fill="${color}" stroke="white" stroke-width="1.2"/>
+        <path d="M16 10h3l2 3v3h-5v-6z" fill="${color}" stroke="white" stroke-width="1.2"/>
+        
+        <!-- Windows -->
+        <rect x="4" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
+        <rect x="8" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
+        <rect x="12" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
+        <path d="M17 11h2.5l1.5 1.5v1.5h-4v-3z" fill="white" opacity="0.8"/>
+        
+        <!-- Wheels -->
+        <circle cx="7" cy="17" r="1.8" fill="#2d3748" stroke="white" stroke-width="1"/>
+        <circle cx="7" cy="17" r="1" fill="#4a5568"/>
+        <circle cx="17" cy="17" r="1.8" fill="#2d3748" stroke="white" stroke-width="1"/>
+        <circle cx="17" cy="17" r="1" fill="#4a5568"/>
+        
+        <!-- Details -->
+        <rect x="4.5" y="13" width="1" height="2" fill="white" opacity="0.6"/>
+        <rect x="6" y="13" width="1" height="2" fill="white" opacity="0.6"/>
+      </svg>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  });
+};

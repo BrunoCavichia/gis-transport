@@ -13,7 +13,6 @@ import {
   Tooltip,
   Marker,
 } from "react-leaflet";
-import L from "leaflet";
 import type {
   RouteData,
   WeatherData,
@@ -23,6 +22,7 @@ import type {
   Zone,
 } from "@/lib/types";
 import { LeafletMouseEvent } from "leaflet";
+import { createVehicleIcon } from "@/lib/map-icons";
 
 interface FleetJob {
   id: string;
@@ -70,38 +70,6 @@ const COLORS = {
   job: "#8b5cf6",
 };
 
-// SVG icon for delivery van
-const createVehicleIcon = (color: string) => {
-  return L.divIcon({
-    className: "custom-vehicle-icon",
-    html: `
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Van body -->
-        <path d="M3 8h13v8H3z" fill="${color}" stroke="white" stroke-width="1.2"/>
-        <path d="M16 10h3l2 3v3h-5v-6z" fill="${color}" stroke="white" stroke-width="1.2"/>
-        
-        <!-- Windows -->
-        <rect x="4" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
-        <rect x="8" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
-        <rect x="12" y="9" width="3" height="2.5" fill="white" opacity="0.8"/>
-        <path d="M17 11h2.5l1.5 1.5v1.5h-4v-3z" fill="white" opacity="0.8"/>
-        
-        <!-- Wheels -->
-        <circle cx="7" cy="17" r="1.8" fill="#2d3748" stroke="white" stroke-width="1"/>
-        <circle cx="7" cy="17" r="1" fill="#4a5568"/>
-        <circle cx="17" cy="17" r="1.8" fill="#2d3748" stroke="white" stroke-width="1"/>
-        <circle cx="17" cy="17" r="1" fill="#4a5568"/>
-        
-        <!-- Details -->
-        <rect x="4.5" y="13" width="1" height="2" fill="white" opacity="0.6"/>
-        <rect x="6" y="13" width="1" height="2" fill="white" opacity="0.6"/>
-      </svg>
-    `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-  });
-};
-
 function normalizeCoords(coords: [number, number]): [number, number] {
   const [a, b] = coords;
   if (a < -90 || a > 90) {
@@ -114,8 +82,6 @@ function MapEventHandler({
   isRouting,
   routePoints,
   setRoutePoints,
-  setRouteData,
-  setWeather,
   setDynamicEVStations,
   setDynamicGasStations,
   setDynamicLEZones,
@@ -147,31 +113,6 @@ function MapEventHandler({
   const lastFetchCenter = useRef<string>("");
   const lastZoneFetch = useRef<{ lat: number; lon: number } | null>(null);
   const isLoadingZones = useRef(false);
-
-  const fetchMultipleWeather = useCallback(
-    async (
-      start: [number, number],
-      end: [number, number],
-      midpoints: [number, number][]
-    ) => {
-      try {
-        const points = [start, ...midpoints.slice(0, 1), end];
-        const weatherPromises = points.map((point) =>
-          fetch(`/api/weather?lat=${point[0]}&lon=${point[1]}`).then((r) =>
-            r.json()
-          )
-        );
-        const results = await Promise.all(weatherPromises);
-        setWeather({
-          ...results[0],
-          multipleLocations: results,
-        } as WeatherData);
-      } catch (error) {
-        console.error("Error fetching multiple weather:", error);
-      }
-    },
-    [setWeather]
-  );
 
   const fetchZones = useCallback(async () => {
     const center = map.getCenter();
@@ -415,16 +356,6 @@ export default function MapContainer({
     );
   }
 
-  const getVehicleColor = (vehicleType: VehicleType) => {
-    const colorMap: Record<string, string> = {
-      truck: "#ef4444",
-      van: "#3b82f6",
-      car: "#10b981",
-      motorcycle: "#f59e0b",
-    };
-    return colorMap[vehicleType.id] || "#6b7280";
-  };
-
   return (
     <LeafletMap
       center={defaultCenter}
@@ -571,7 +502,7 @@ export default function MapContainer({
       {fleetVehicles &&
         fleetVehicles.map((vehicle) => {
           const center = normalizeCoords(vehicle.coords);
-          const color = getVehicleColor(vehicle.type);
+          const color = "#ffa616ff";
           const isSelected = selectedVehicleId === vehicle.id;
 
           return (

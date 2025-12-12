@@ -31,25 +31,11 @@ export interface Zone {
   zone?: string; // "low_emission"
   access?: string; // "no", "permissive", "destination"
   motor_vehicle?: string; // same values as access
-  motorcar?: string;
-  vehicle?: string;
-  hgv?: string;
-  bus?: string;
-  taxi?: string;
-  bicycle?: string;
-  emergency?: string;
-
-  emission_class?: string; // "euro1"..."euro6"
-  emission_class_hgv?: string;
-  emission_class_bus?: string;
-  emission?: string; // "CO2", "NOx"
-
   maxspeed?: string; // "30"
   enforcement?: string; // "yes", "automatic"
   traffic_sign?: string; // "ES:R-505"
   start_date?: string;
   end_date?: string;
-
   restrictions?: string;
 }
 
