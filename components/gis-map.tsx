@@ -355,13 +355,29 @@ export function GISMap() {
         `🗺️ Total coordenadas de ruta: ${allRouteCoordinates.length}`
       );
 
-      setRouteData({
-        // opcional: mantener coordinates solo para bounds/calculos, no para dibujo
-        coordinates: [],
-        distance: totalDistance,
-        duration: totalDuration,
-        vehicleRoutes, // <-- cada vehículo tiene su propio array de coordenadas + color
-      });
+      try {
+        const weatherRes = await fetch("/api/weather", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vehicleRoutes }),
+        });
+        const weatherData = await weatherRes.json();
+        setRouteData({
+          coordinates: [],
+          distance: totalDistance,
+          duration: totalDuration,
+          vehicleRoutes,
+          weatherRoutes: weatherData.routes, // <-- aquí agregas las rutas con info de clima
+        });
+      } catch {
+        setRouteData({
+          coordinates: [],
+          distance: totalDistance,
+          duration: totalDuration,
+          vehicleRoutes,
+          weatherRoutes: [],
+        });
+      }
 
       setLayers((prev) => ({ ...prev, route: true }));
 
@@ -394,6 +410,7 @@ export function GISMap() {
     <div className="relative flex h-full w-full">
       <Sidebar
         layers={layers}
+        setMapCenter={setMapCenter}
         toggleLayer={toggleLayer}
         selectedVehicle={selectedVehicle}
         setSelectedVehicle={setSelectedVehicle}

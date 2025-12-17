@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { LayerVisibility, VehicleType } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
+import { AddressSearch } from "@/components/address-search";
 
 interface FleetJob {
   id: string;
@@ -53,7 +54,8 @@ interface SidebarProps {
   addMode: "vehicle" | "job" | null;
   cancelAddMode: () => void;
   startRouting: () => void;
-  isCalculatingRoute?: boolean; // ⬅️ Nueva prop
+  isCalculatingRoute?: boolean;
+  setMapCenter: (coords: [number, number]) => void;
 }
 
 export function Sidebar({
@@ -75,9 +77,14 @@ export function Sidebar({
   addMode,
   cancelAddMode,
   startRouting,
-  isCalculatingRoute = false, // ⬅️ Valor por defecto
+  isCalculatingRoute = false,
+  setMapCenter,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<{
+    coords: [number, number];
+    label: string;
+  } | null>(null);
 
   return (
     <div
@@ -100,6 +107,21 @@ export function Sidebar({
 
       {!isCollapsed && (
         <div className="flex flex-col gap-4 overflow-y-auto p-4">
+          <AddressSearch
+            onSelectLocation={(coords, label) => {
+              setSelectedAddress({ coords, label });
+              setMapCenter(coords);
+            }}
+            placeholder="Search address..."
+            className="mb-4"
+          />
+
+          {selectedAddress && (
+            <div className="p-2 text-xs text-muted-foreground bg-muted/20 rounded-md mb-2">
+              Selected: {selectedAddress.label}
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold text-foreground">
@@ -109,7 +131,6 @@ export function Sidebar({
 
           <Separator />
 
-          {/* Fleet Mode Toggle */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Fleet Mode</CardTitle>
@@ -128,7 +149,6 @@ export function Sidebar({
 
               {fleetMode && (
                 <div className="mt-4 space-y-3">
-                  {/* Add Mode Indicator */}
                   {addMode && (
                     <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between mb-2">
@@ -156,7 +176,6 @@ export function Sidebar({
                     </div>
                   )}
 
-                  {/* Loading Indicator */}
                   {isCalculatingRoute && (
                     <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                       <div className="flex items-center gap-2">
@@ -168,7 +187,6 @@ export function Sidebar({
                     </div>
                   )}
 
-                  {/* Action Buttons */}
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
@@ -177,8 +195,7 @@ export function Sidebar({
                       disabled={!!addMode || isCalculatingRoute}
                       className="w-full"
                     >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Vehicle
+                      <Plus className="h-3 w-3 mr-1" /> Add Vehicle
                     </Button>
                     <Button
                       variant="outline"
@@ -187,12 +204,10 @@ export function Sidebar({
                       disabled={!!addMode || isCalculatingRoute}
                       className="w-full"
                     >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Job
+                      <Plus className="h-3 w-3 mr-1" /> Add Job
                     </Button>
                   </div>
 
-                  {/* Fleet Summary */}
                   <div className="p-2 bg-muted rounded-lg text-xs text-muted-foreground">
                     <div className="flex justify-between">
                       <span>Total Vehicles:</span>
@@ -206,7 +221,6 @@ export function Sidebar({
                     </div>
                   </div>
 
-                  {/* Vehicle Type Selector */}
                   <div>
                     <Label className="text-xs text-muted-foreground mb-2 block">
                       Vehicle Type for New Vehicles
@@ -232,13 +246,11 @@ export function Sidebar({
 
                   <Separator />
 
-                  {/* Vehicles List */}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground flex items-center gap-1">
                       <Car className="h-3 w-3" />
                       Vehicles ({fleetVehicles.length})
                     </Label>
-
                     {fleetVehicles.length === 0 ? (
                       <div className="p-3 text-center text-xs text-muted-foreground bg-muted/50 rounded-lg">
                         No vehicles. Click "Add Vehicle".
@@ -289,13 +301,11 @@ export function Sidebar({
 
                   <Separator />
 
-                  {/* Jobs List */}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground flex items-center gap-1">
                       <Package className="h-3 w-3" />
                       Jobs ({fleetJobs.length})
                     </Label>
-
                     {fleetJobs.length === 0 ? (
                       <div className="p-3 text-center text-xs text-muted-foreground bg-muted/50 rounded-lg">
                         No jobs. Click "Add Job".
@@ -344,11 +354,9 @@ export function Sidebar({
                       isCalculatingRoute
                     }
                   >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Clear All
+                    <Trash2 className="h-3 w-3 mr-1" /> Clear All
                   </Button>
 
-                  {/* Start Routing Button */}
                   <Button
                     size="sm"
                     className="w-full mt-2"
@@ -361,7 +369,7 @@ export function Sidebar({
                   >
                     {isCalculatingRoute ? (
                       <>
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />{" "}
                         Calculating...
                       </>
                     ) : (
@@ -375,12 +383,10 @@ export function Sidebar({
 
           <Separator />
 
-          {/* Layer Controls */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm">
-                <Layers className="h-4 w-4" />
-                Map Layers
+                <Layers className="h-4 w-4" /> Map Layers
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">

@@ -1,5 +1,5 @@
 // lib/types.ts - Archivo completo actualizado
-
+import type { RouteWeather } from "@/components/weather-panel"; // o define aquí
 export interface POI {
   id: string;
   name: string;
@@ -103,7 +103,8 @@ export interface RouteData {
     name?: string;
     location: [number, number];
   }>;
-  vehicleRoutes?: VehicleRoute[]; // ✅ Nuevo campo para rutas multi-vehículo
+  vehicleRoutes?: VehicleRoute[];
+  weatherRoutes?: RouteWeather[];
 }
 
 export interface RouteInstruction {

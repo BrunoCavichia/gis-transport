@@ -25,6 +25,7 @@ import { LeafletMouseEvent } from "leaflet";
 import { createVehicleIcon } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
 import { useLoadingLayers } from "@/hooks/useLoadingLayers";
+import { WeatherPanel } from "./weather-panel";
 
 function FitBounds({
   routes,
@@ -700,6 +701,9 @@ export default function MapContainer({
             );
           })}
       </LeafletMap>
+      {routeData?.weatherRoutes && (
+        <WeatherPanel routes={routeData.weatherRoutes} />
+      )}
     </div>
   );
 }

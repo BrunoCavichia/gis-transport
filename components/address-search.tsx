@@ -83,7 +83,7 @@ export function AddressSearch({
             lng: Number.parseFloat(item.lon),
           },
           name: item.display_name,
-          country: item.address?.country || "Spain",
+          country: item.address?.country,
           city: city,
           state: item.address?.state,
           street: road,
