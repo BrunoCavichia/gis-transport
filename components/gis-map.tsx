@@ -190,6 +190,16 @@ export function GISMap() {
     removeJob,
   } = useFleet();
 
+  // AQUÍ defines clearAll - DESPUÉS del hook useFleet
+  const clearAll = useCallback(() => {
+    clearFleet(); // limpia vehículos y jobs
+    setRouteData(null); // limpia rutas
+    setRoutePoints({ start: null, end: null }); // limpia puntos
+    setDynamicEVStations([]); // limpia estaciones EV
+    setDynamicGasStations([]); // limpia gasolineras
+    setIsCalculatingRoute(false); // resetea loading
+  }, [clearFleet]);
+
   const toggleLayer = useCallback(
     (layer: keyof LayerVisibility) =>
       setLayers((prev) => ({ ...prev, [layer]: !prev[layer] })),
@@ -388,7 +398,7 @@ export function GISMap() {
         setSelectedVehicle={setSelectedVehicle}
         fleetMode={fleetMode}
         setFleetMode={setFleetMode}
-        clearFleet={clearFleet}
+        clearFleet={clearAll}
         fleetVehicles={fleetVehicles}
         fleetJobs={fleetJobs}
         selectedVehicleId={selectedVehicleId}
