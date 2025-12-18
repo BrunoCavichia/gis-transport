@@ -1,7 +1,7 @@
 "use client";
 // app/components/gis-map.tsx
 import dynamic from "next/dynamic";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Sidebar } from "@/components/sidebar";
 import type {
   LayerVisibility,
@@ -12,7 +12,6 @@ import type {
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
 import { useFleet } from "@/hooks/use-fleet";
-import type { FleetVehicle, FleetJob } from "@/hooks/use-fleet";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
@@ -133,7 +132,19 @@ export function GISMap() {
     [fleetMode, addMode, addVehicleAt, addJobAt, selectedVehicle]
   );
 
+  const lastRoutingKeyRef = useRef<string>("");
   const startRouting = useCallback(async () => {
+    const key = JSON.stringify({
+      vehicles: fleetVehicles.map((v) => ({ id: v.id, coords: v.coords })),
+      jobs: fleetJobs.map((j) => ({ id: j.id, coords: j.coords })),
+    });
+
+    if (key === lastRoutingKeyRef.current) {
+      console.log("Ruta ya calculada, no se recalcula");
+      return;
+    }
+
+    lastRoutingKeyRef.current = key;
     const totalLocations = fleetVehicles.length + fleetJobs.length;
 
     if (totalLocations > 50) {
