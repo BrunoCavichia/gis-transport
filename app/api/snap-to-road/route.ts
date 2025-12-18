@@ -1,13 +1,18 @@
-// app/api/snap-to-road/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 
-/**
- * Snaps coordinates to the nearest road using OpenRouteService.
- * Returns corrected coordinates that are safe for routing.
- */
+const SNAP_RADIUS = 5000; // 5 km
+const REQUEST_TIMEOUT = 30000; // 30 segundos
+const RETRIES = 2;
 
-const SNAP_RADIUS = 5000; // buscar carretera en 5km para zonas rurales
-const REQUEST_TIMEOUT = 15000; // 15 segundos
+async function fetchWithRetry(url: string, options: any, retries = RETRIES) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      if (i === retries) throw err;
+    }
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +27,6 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.OPENROUTESERVICE_API_KEY;
     if (!apiKey) {
-      // Sin API key, devolver coordenadas originales
       return NextResponse.json({
         snapped: coordinates.map(([lat, lon]: number[]) => ({
           location: [lat, lon],
@@ -31,14 +35,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ORS espera [lon, lat]
     const locations = coordinates.map(([lat, lon]: number[]) => [lon, lat]);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     try {
-      const response = await fetch(
+      const response = await fetchWithRetry(
         "https://api.openrouteservice.org/v2/snap/driving-car",
         {
           method: "POST",
@@ -46,76 +49,32 @@ export async function POST(request: NextRequest) {
             Authorization: apiKey,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            locations,
-            radius: SNAP_RADIUS,
-          }),
+          body: JSON.stringify({ locations, radius: SNAP_RADIUS }),
           signal: controller.signal,
         }
       );
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        console.error("ORS snap failed:", response.status);
-        // Devolver coordenadas originales
-        return NextResponse.json({
-          snapped: coordinates.map(([lat, lon]: number[]) => ({
-            location: [lat, lon],
-            snapped: false,
-          })),
-        });
-      }
+      if (!response) throw new Error("ORS snap failed");
+
+      if (!response.ok) throw new Error(`ORS snap failed ${response.status}`);
 
       const data = await response.json();
 
-      // Procesar respuesta con cuidado
       const snapped = data.locations.map((loc: any, idx: number) => {
-        // Verificar que existe y tiene location válido
-        if (
-          loc &&
-          loc.location &&
-          Array.isArray(loc.location) &&
-          loc.location.length === 2
-        ) {
+        if (loc?.location?.length === 2 && loc.distance != null) {
           const [lon, lat] = loc.location;
-          if (isFinite(lon) && isFinite(lat)) {
-            const distance = loc.distance || 0;
-            if (distance > 500) {
-              console.log(
-                `📍 Ubicación ${idx}: ajustada ${Math.round(
-                  distance
-                )}m a carretera más cercana`
-              );
-            }
-            return {
-              location: [lat, lon], // convertir a [lat, lon]
-              snapped: true,
-            };
-          }
+          return { location: [lat, lon], snapped: true };
         }
-
-        // Fallback: usar coordenadas originales
-        console.warn(
-          `⚠️ No se encontró carretera para ubicación ${idx}: [${coordinates[idx][0]}, ${coordinates[idx][1]}]`
-        );
-        return {
-          location: coordinates[idx],
-          snapped: false,
-        };
+        return { location: coordinates[idx], snapped: false };
       });
-
-      const snappedCount = snapped.filter((s: any) => s.snapped).length;
-      console.log(
-        `✅ Snap: ${snappedCount}/${coordinates.length} ubicaciones ajustadas`
-      );
 
       return NextResponse.json({ snapped });
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       console.error("Snap-to-road fetch error:", fetchError.message);
 
-      // Fallback: devolver coordenadas originales
       return NextResponse.json({
         snapped: coordinates.map(([lat, lon]: number[]) => ({
           location: [lat, lon],
@@ -126,7 +85,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Snap-to-road error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", message: (error as Error).message },
       { status: 500 }
     );
   }
