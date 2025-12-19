@@ -1,5 +1,6 @@
 "use client";
 
+//map-container.tsx
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   MapContainer as LeafletMap,
@@ -17,6 +18,7 @@ import type {
   WeatherData,
   LayerVisibility,
   POI,
+  CustomPOI,
   VehicleType,
   Zone,
 } from "@/lib/types";
@@ -31,6 +33,7 @@ import {
   renderPOIs,
   renderVehicleMarkers,
   renderJobMarkers,
+  renderCustomPOIs,
 } from "@/app/helpers/map-render-helpers";
 
 const weatherIcons = createWeatherIcons();
@@ -89,6 +92,7 @@ interface MapContainerProps {
   mapCenter: [number, number];
   setMapCenter: (center: [number, number]) => void;
   selectedVehicle: VehicleType;
+  customPOIs?: CustomPOI[];
   zoneKeySuffix?: string;
   onMapClick?: (coords: [number, number]) => void;
   fleetVehicles?: FleetVehicle[];
@@ -226,6 +230,7 @@ function MapEventHandler({
         onMapClick(point);
         return;
       }
+
       if (!isRouting) return;
       if (!routePoints.start) setRoutePoints({ start: point, end: null });
       else if (!routePoints.end) setRoutePoints({ ...routePoints, end: point });
@@ -283,6 +288,7 @@ export default function MapContainer({
   mapCenter,
   setMapCenter,
   selectedVehicle,
+  customPOIs,
   fleetVehicles,
   fleetJobs,
   selectedVehicleId,
@@ -295,7 +301,10 @@ export default function MapContainer({
   );
 
   const { loading, wrapAsync } = useLoadingLayers();
-
+  const [pickedPOICoords, setPickedPOICoords] = useState<
+    [number, number] | null
+  >(null);
+  const pinIcon = evStationIcon;
   const poiCache = usePOICache();
 
   useEffect(() => setMounted(true), []);
@@ -474,6 +483,11 @@ export default function MapContainer({
           isRouting: isRouting,
         })}
 
+        {renderCustomPOIs({
+          customPOIs: customPOIs || [],
+          isRouting: isRouting,
+        })}
+
         {renderVehicleMarkers({
           vehicles: fleetVehicles || [],
           selectedVehicleId,
@@ -525,6 +539,9 @@ export default function MapContainer({
               </Marker>
             );
           })
+        )}
+        {pickedPOICoords && (
+          <Marker position={pickedPOICoords} icon={pinIcon} />
         )}
       </LeafletMap>
     </div>

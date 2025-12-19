@@ -20,6 +20,15 @@ export interface POI {
   opening_hours?: string;
 }
 
+export interface CustomPOI {
+  id: string;
+  name: string;
+  position: [number, number];
+  type: "custom";
+  description?: string;
+  createdAt: number;
+}
+
 export interface Zone {
   id: string;
   name: string;

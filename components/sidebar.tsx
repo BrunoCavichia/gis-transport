@@ -18,10 +18,14 @@ import {
   MapPinned,
   Package,
   Loader2,
+  Warehouse,
+  Eye,
+  EyeOff,
 } from "lucide-react";
-import type { LayerVisibility, VehicleType } from "@/lib/types";
+import type { LayerVisibility, VehicleType, CustomPOI } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
 import { AddressSearch } from "@/components/address-search";
+import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 
 interface FleetJob {
   id: string;
@@ -56,6 +60,25 @@ interface SidebarProps {
   startRouting: () => void;
   isCalculatingRoute?: boolean;
   setMapCenter: (coords: [number, number]) => void;
+  customPOIs?: CustomPOI[];
+  addCustomPOI?: (
+    name: string,
+    coords: [number, number],
+    description?: string
+  ) => CustomPOI;
+  removeCustomPOI?: (id: string) => void;
+  updateCustomPOI?: (
+    id: string,
+    updates: Partial<Omit<CustomPOI, "id" | "type" | "createdAt">>
+  ) => void;
+  clearAllCustomPOIs?: () => void;
+  showCustomPOIs?: boolean;
+  setShowCustomPOIs?: (value: boolean) => void;
+  mapCenter?: [number, number];
+  onStartPicking?: () => void;
+  pickedCoords?: [number, number] | null;
+  isAddCustomPOIOpen?: boolean;
+  setIsAddCustomPOIOpen?: (value: boolean) => void;
 }
 
 export function Sidebar({
@@ -79,12 +102,33 @@ export function Sidebar({
   startRouting,
   isCalculatingRoute = false,
   setMapCenter,
+  customPOIs = [],
+  addCustomPOI,
+  removeCustomPOI,
+  clearAllCustomPOIs,
+  showCustomPOIs = false,
+  setShowCustomPOIs,
+  mapCenter = [40.4168, -3.7038],
+  onStartPicking,
+  pickedCoords,
+  isAddCustomPOIOpen,
+  setIsAddCustomPOIOpen,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{
     coords: [number, number];
     label: string;
   } | null>(null);
+
+  const [localIsAddCustomPOIOpen, setLocalIsAddCustomPOIOpen] = useState(false);
+
+  const isAddCustomPOIOpenFinal =
+    typeof isAddCustomPOIOpen === "boolean"
+      ? isAddCustomPOIOpen
+      : localIsAddCustomPOIOpen;
+
+  const setIsAddCustomPOIOpenFinal =
+    setIsAddCustomPOIOpen ?? setLocalIsAddCustomPOIOpen;
 
   return (
     <div
@@ -386,6 +430,92 @@ export function Sidebar({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm">
+                <Warehouse className="h-4 w-4" /> Custom POIs (
+                {customPOIs?.length || 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setIsAddCustomPOIOpenFinal(true)}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add Custom POI
+              </Button>
+
+              {customPOIs && customPOIs.length > 0 && (
+                <>
+                  <Button
+                    variant={showCustomPOIs ? "default" : "outline"}
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setShowCustomPOIs?.(!showCustomPOIs)}
+                  >
+                    {showCustomPOIs ? (
+                      <>
+                        <Eye className="h-3 w-3 mr-1" /> Hide Custom POIs
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="h-3 w-3 mr-1" /> Show Custom POIs
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {customPOIs.map((poi) => (
+                      <Card key={poi.id} className="bg-accent/20">
+                        <CardContent className="p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Warehouse className="h-4 w-4 text-cyan-600 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <span className="font-medium text-sm truncate block">
+                                {poi.name}
+                              </span>
+                              <div className="text-xs text-muted-foreground">
+                                {poi.position[0].toFixed(4)},{" "}
+                                {poi.position[1].toFixed(4)}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 flex-shrink-0"
+                            onClick={() => removeCustomPOI?.(poi.id)}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => clearAllCustomPOIs?.()}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" /> Clear All Custom POIs
+                  </Button>
+                </>
+              )}
+
+              {(!customPOIs || customPOIs.length === 0) && (
+                <div className="p-3 text-center text-xs text-muted-foreground bg-muted/50 rounded-lg">
+                  No custom POIs yet. Click "Add Custom POI" to create one.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm">
                 <Layers className="h-4 w-4" /> Map Layers
               </CardTitle>
             </CardHeader>
@@ -407,6 +537,18 @@ export function Sidebar({
           </Card>
         </div>
       )}
+
+      <AddCustomPOIDialog
+        isOpen={isAddCustomPOIOpenFinal}
+        onOpenChange={(value) => setIsAddCustomPOIOpenFinal(value)}
+        onSubmit={(name, coords, description) => {
+          addCustomPOI?.(name, coords, description);
+          setIsAddCustomPOIOpenFinal(false);
+        }}
+        mapCenter={mapCenter}
+        onStartPicking={onStartPicking}
+        pickedCoords={pickedCoords}
+      />
     </div>
   );
 }

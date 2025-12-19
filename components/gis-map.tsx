@@ -6,12 +6,14 @@ import { Sidebar } from "@/components/sidebar";
 import type {
   LayerVisibility,
   POI,
+  CustomPOI,
   VehicleType,
   RouteData,
   WeatherData,
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
 import { useFleet } from "@/hooks/use-fleet";
+import { useCustomPOI } from "@/hooks/use-custom-poi";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
@@ -79,6 +81,14 @@ export function GISMap() {
   );
   const [fleetMode, setFleetMode] = useState(false);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [showCustomPOIs, setShowCustomPOIs] = useState(true);
+  const [addingCustomPOI, setAddingCustomPOI] = useState(false);
+  // Después de los otros estados, añade:
+  const [pickingPOILocation, setPickingPOILocation] = useState(false);
+  const [pickedPOICoords, setPickedPOICoords] = useState<
+    [number, number] | null
+  >(null);
+  const [isAddCustomPOIOpen, setIsAddCustomPOIOpen] = useState(false);
 
   const {
     fleetVehicles,
@@ -94,6 +104,14 @@ export function GISMap() {
     removeJob,
   } = useFleet();
 
+  const {
+    customPOIs,
+    addCustomPOI,
+    removeCustomPOI,
+    updateCustomPOI,
+    clearAllCustomPOIs,
+  } = useCustomPOI();
+
   const clearAll = useCallback(() => {
     clearFleet();
     setRouteData(null);
@@ -101,6 +119,8 @@ export function GISMap() {
     setDynamicEVStations([]);
     setDynamicGasStations([]);
     setIsCalculatingRoute(false);
+    setShowCustomPOIs(false);
+    setAddingCustomPOI(false);
   }, [clearFleet]);
 
   const toggleLayer = useCallback(
@@ -111,6 +131,15 @@ export function GISMap() {
 
   const handleMapClick = useCallback(
     (coords: [number, number]) => {
+      // Primero manejar picking de POI
+      if (pickingPOILocation) {
+        setPickedPOICoords(coords);
+        setPickingPOILocation(false);
+        setIsAddCustomPOIOpen(true);
+        return;
+      }
+
+      // Resto del código existente para fleet mode
       if (!fleetMode || !addMode) return;
 
       if (
@@ -122,14 +151,20 @@ export function GISMap() {
         return;
       }
 
-      // Añadir directamente sin snap (el snap se hará antes del routing)
       if (addMode === "vehicle") {
         addVehicleAt(coords, selectedVehicle);
       } else if (addMode === "job") {
         addJobAt(coords);
       }
     },
-    [fleetMode, addMode, addVehicleAt, addJobAt, selectedVehicle]
+    [
+      fleetMode,
+      addMode,
+      addVehicleAt,
+      addJobAt,
+      selectedVehicle,
+      pickingPOILocation,
+    ]
   );
 
   const lastRoutingKeyRef = useRef<string>("");
@@ -376,6 +411,22 @@ export function GISMap() {
         cancelAddMode={() => setAddMode(null)}
         startRouting={startRouting}
         isCalculatingRoute={isCalculatingRoute}
+        customPOIs={customPOIs}
+        addCustomPOI={addCustomPOI}
+        removeCustomPOI={removeCustomPOI}
+        updateCustomPOI={updateCustomPOI}
+        clearAllCustomPOIs={clearAllCustomPOIs}
+        showCustomPOIs={showCustomPOIs}
+        setShowCustomPOIs={setShowCustomPOIs}
+        mapCenter={mapCenter}
+        onStartPicking={() => {
+          console.log("🎯 onStartPicking triggered in GISMap");
+          setPickingPOILocation(true);
+          setIsAddCustomPOIOpen(false);
+        }}
+        pickedCoords={pickedPOICoords}
+        isAddCustomPOIOpen={isAddCustomPOIOpen}
+        setIsAddCustomPOIOpen={setIsAddCustomPOIOpen}
       />
       <div className="relative flex-1">
         <MapContainer
@@ -393,10 +444,11 @@ export function GISMap() {
           mapCenter={mapCenter}
           setMapCenter={setMapCenter}
           selectedVehicle={selectedVehicle}
+          customPOIs={showCustomPOIs ? customPOIs : []}
           fleetVehicles={fleetVehicles}
           fleetJobs={fleetJobs}
           selectedVehicleId={selectedVehicleId}
-          onMapClick={fleetMode ? handleMapClick : undefined}
+          onMapClick={handleMapClick}
         />
       </div>
     </div>

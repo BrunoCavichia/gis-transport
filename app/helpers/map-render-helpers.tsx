@@ -1,5 +1,5 @@
 import { Marker, Tooltip, Popup, CircleMarker } from "react-leaflet";
-import type { POI, FleetVehicle, FleetJob } from "@/lib/types";
+import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
 
 interface RenderPOIsProps {
   stations: POI[];
@@ -17,6 +17,13 @@ interface RenderVehiclesProps {
 
 interface RenderJobsProps {
   jobs: FleetJob[];
+  isRouting: boolean;
+  markerRadius?: number;
+  color?: string;
+}
+
+interface RenderCustomPOIsProps {
+  customPOIs: CustomPOI[];
   isRouting: boolean;
   markerRadius?: number;
   color?: string;
@@ -137,6 +144,50 @@ export function renderJobMarkers({
               <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
                 {`Lat: ${center[0].toFixed(5)}, Lon: ${center[1].toFixed(5)}`}
               </div>
+            </div>
+          </Popup>
+        )}
+      </CircleMarker>
+    );
+  });
+}
+
+export function renderCustomPOIs({
+  customPOIs,
+  isRouting,
+  markerRadius = 8,
+  color = "#06b6d4",
+}: RenderCustomPOIsProps) {
+  return customPOIs.map((poi) => {
+    const center = normalizeCoords(poi.position);
+
+    return (
+      <CircleMarker
+        key={`custom-poi-${poi.id}`}
+        center={center}
+        radius={markerRadius}
+        pathOptions={{
+          color,
+          fillColor: color,
+          fillOpacity: 0.95,
+          weight: 3,
+        }}
+      >
+        <Tooltip direction="top" offset={[0, -10]} opacity={0.95} permanent={false}>
+          <span style={{ fontSize: 12, fontWeight: "bold" }}>{poi.name}</span>
+        </Tooltip>
+        {!isRouting && (
+          <Popup>
+            <div style={{ fontSize: 12 }}>
+              <strong style={{ color: color }}>{poi.name}</strong>
+              <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
+                {`Lat: ${center[0].toFixed(5)}, Lon: ${center[1].toFixed(5)}`}
+              </div>
+              {poi.description && (
+                <div style={{ marginTop: 6, fontSize: 11, fontStyle: "italic" }}>
+                  {poi.description}
+                </div>
+              )}
             </div>
           </Popup>
         )}
