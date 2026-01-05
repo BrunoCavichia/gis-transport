@@ -51,11 +51,11 @@ export function useZoneCache(
     }
 
     const last = lastZoneFetch.current;
-    const MIN_DISTANCE_METERS = 2000;
+    const MIN_DISTANCE_METERS = 500;
     if (
       last &&
       haversineMeters(last.lat, last.lon, center.lat, center.lng) <
-        MIN_DISTANCE_METERS
+      MIN_DISTANCE_METERS
     ) {
       return;
     }
@@ -66,31 +66,22 @@ export function useZoneCache(
 
     await wrapAsync(async () => {
       try {
-        const promises: Promise<void>[] = [];
+        const res = await fetch(
+          `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=20000&vehicle=${selectedVehicle.label}`
+        );
+        const data = await res.json();
+        const zones: Zone[] = data.zones || [];
 
-        if (shouldFetchLE) {
-          promises.push(
-            fetch(
-              `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=20000&type=lowEmission&vehicle=${selectedVehicle.label}`
-            )
-              .then((r) => r.json())
-              .then((data) => setLEZones(data.zones || []))
-              .catch(() => setLEZones([]))
-          );
-        } else setLEZones([]);
+        // Distribute zones to their respective states
+        const lez = zones.filter(z => z.type === "LEZ" || z.type === "Environmental");
+        const restricted = zones.filter(z => z.type !== "LEZ" && z.type !== "Environmental");
 
-        if (shouldFetchRestricted) {
-          promises.push(
-            fetch(
-              `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=20000&type=restricted&vehicle=${selectedVehicle.label}`
-            )
-              .then((r) => r.json())
-              .then((data) => setRestrictedZones(data.zones || []))
-              .catch(() => setRestrictedZones([]))
-          );
-        } else setRestrictedZones([]);
-
-        await Promise.all(promises);
+        setLEZones(lez);
+        setRestrictedZones(restricted);
+      } catch (err) {
+        console.error("Failed to fetch zones:", err);
+        setLEZones([]);
+        setRestrictedZones([]);
       } finally {
         isLoading.current = false;
       }

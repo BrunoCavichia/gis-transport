@@ -147,8 +147,21 @@ export function GISMap() {
   }, [clearFleet]);
 
   const toggleLayer = useCallback(
-    (layer: keyof LayerVisibility) =>
-      setLayers((prev) => ({ ...prev, [layer]: !prev[layer] })),
+    (layer: keyof LayerVisibility) => {
+      setLayers((prev) => {
+        const newState = { ...prev, [layer]: !prev[layer] };
+
+        // Cleanup immediately if toggled OFF
+        if (layer === "evStations" && !newState.evStations) {
+          setDynamicEVStations([]);
+        }
+        if (layer === "gasStations" && !newState.gasStations) {
+          setDynamicGasStations([]);
+        }
+
+        return newState;
+      });
+    },
     []
   );
 

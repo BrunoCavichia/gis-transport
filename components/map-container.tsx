@@ -195,7 +195,8 @@ function MapEventHandler({
     );
 
     await wrapAsync(async () => {
-      if (willFetchEV) {
+      // EV Stations Fetch
+      if (layers.evStations) {
         const distanceCeil = Math.ceil(distance);
         const evStations = await poiCache.fetchPOI(
           "ev",
@@ -204,12 +205,16 @@ function MapEventHandler({
           distanceCeil,
           selectedVehicle.label
         );
-        setDynamicEVStations(evStations);
+        // Double check layer status before committing to state
+        if (layers.evStations) {
+          setDynamicEVStations(evStations);
+        }
       } else {
         setDynamicEVStations([]);
       }
 
-      if (willFetchGas) {
+      // Gas Stations Fetch
+      if (layers.gasStations) {
         const radius = Math.min(distance * 1000, 10000);
         const radiusCeil = Math.ceil(radius);
         const gasStations = await poiCache.fetchPOI(
@@ -219,7 +224,10 @@ function MapEventHandler({
           radiusCeil,
           selectedVehicle.label
         );
-        setDynamicGasStations(gasStations);
+        // Double check layer status before committing to state
+        if (layers.gasStations) {
+          setDynamicGasStations(gasStations);
+        }
       } else {
         setDynamicGasStations([]);
       }
@@ -488,13 +496,13 @@ export default function MapContainer({
           </>
         ) : null}
 
-        {renderPOIs({
+        {layers.gasStations && renderPOIs({
           stations: dynamicGasStations,
           icon: gasStationIcon,
           isRouting: isRouting,
         })}
 
-        {renderPOIs({
+        {layers.evStations && renderPOIs({
           stations: dynamicEVStations,
           icon: evStationIcon,
           isEV: true,
@@ -528,7 +536,9 @@ export default function MapContainer({
           layers: layers,
         })}
         {routeData?.weatherRoutes && (
-          <WeatherPanel routes={routeData.weatherRoutes} />
+          <WeatherPanel
+            routes={routeData.weatherRoutes}
+          />
         )}
         {routeData?.weatherRoutes?.map((wr, wrIdx) =>
           wr.alerts?.map((alert, idx) => {

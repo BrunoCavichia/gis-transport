@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +14,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Target, Loader2 } from "lucide-react";
+import { MapPin, Target, Loader2, ChevronRight, ChevronLeft, Map as MapIcon, RefreshCw } from "lucide-react";
 import { AddressSearch } from "@/components/address-search";
+
+// Dynamically import Leaflet components to avoid SSR issues
+const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
 
 interface AddCustomPOIDialogProps {
   isOpen: boolean;
@@ -39,6 +45,7 @@ export function AddCustomPOIDialog({
   mapCenter = [40.4168, -3.7038],
   isLoading = false,
 }: AddCustomPOIDialogProps) {
+  const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [latitude, setLatitude] = useState(mapCenter[0].toString());
   const [longitude, setLongitude] = useState(mapCenter[1].toString());
@@ -50,29 +57,37 @@ export function AddCustomPOIDialog({
     if (pickedCoords) {
       setLatitude(pickedCoords[0].toFixed(6));
       setLongitude(pickedCoords[1].toFixed(6));
+      setStep(2); // Automatically show preview when map-picked
     }
   }, [pickedCoords]);
 
-  const handleSubmit = () => {
-    setError(null);
-
+  const handleToPreview = () => {
     const lat = parseFloat(latitude);
     const lon = parseFloat(longitude);
-
     if (isNaN(lat) || isNaN(lon)) {
       setError("Please enter valid coordinates");
       return;
     }
-
     if (lat < -90 || lat > 90) {
       setError("Latitude must be between -90 and 90");
       return;
     }
-
     if (lon < -180 || lon > 180) {
       setError("Longitude must be between -180 and 180");
       return;
     }
+    setError(null);
+    setStep(2);
+  };
+
+  const handleConfirmLocation = () => {
+    setStep(3);
+  };
+
+  const handleSubmit = () => {
+    setError(null);
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
 
     onSubmit(name.trim(), [lat, lon], description.trim() || undefined);
 
@@ -81,140 +96,269 @@ export function AddCustomPOIDialog({
     setLatitude(mapCenter[0].toString());
     setLongitude(mapCenter[1].toString());
     setDescription("");
+    setStep(1);
     setError(null);
-  };
-
-  const handleUseMapCenter = () => {
-    setLatitude(mapCenter[0].toString());
-    setLongitude(mapCenter[1].toString());
   };
 
   const handlePickFromMap = () => {
     if (onStartPicking) {
       onStartPicking();
-    } else {
     }
   };
 
+  const handleCloseChange = (open: boolean) => {
+    if (!open) {
+      setStep(1);
+      setError(null);
+    }
+    onOpenChange(open);
+  };
+
+  const handleAddressSelect = (coords: [number, number], address: string) => {
+    setLatitude(coords[0].toFixed(6));
+    setLongitude(coords[1].toFixed(6));
+  };
+
+  const parsedCoords = useMemo(() => {
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+    return !isNaN(lat) && !isNaN(lon) ? [lat, lon] as [number, number] : null;
+  }, [latitude, longitude]);
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <MapPin className="h-5 w-5 text-primary" />
-            Add Custom POI
-          </DialogTitle>
-          <DialogDescription>
-            Create a custom point of interest like a warehouse or facility
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6 pt-2">
-          {/* Geocoding Search */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Search Address</Label>
-            <AddressSearch
-              onSelectLocation={(coords: [number, number], address: string) => {
-                setLatitude(coords[0].toFixed(6));
-                setLongitude(coords[1].toFixed(6));
-              }}
-              placeholder="Search for a location..."
-              className="w-full"
-            />
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
+    <Dialog open={isOpen} onOpenChange={handleCloseChange}>
+      <DialogContent className="max-w-md p-0 overflow-hidden border-none shadow-2xl">
+        <div className="bg-gradient-to-br from-primary/10 via-background to-background p-6">
+          <DialogHeader className="mb-6">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <MapPin className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold tracking-tight">Add Custom POI</DialogTitle>
+                <DialogDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground/60">
+                  {step === 1 && "Step 1: Location Selection"}
+                  {step === 2 && "Step 2: Confirm Location"}
+                  {step === 3 && "Step 3: POI Details"}
+                </DialogDescription>
+              </div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or pinpoint manually</span>
-            </div>
-          </div>
+          </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="poi-name" className="text-sm font-semibold">POI Name *</Label>
-              <Input
-                id="poi-name"
-                placeholder="e.g., Amazon Warehouse (or leave empty for default)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+          {step === 1 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  Search Address
+                </Label>
+                <AddressSearch
+                  onSelectLocation={handleAddressSelect}
+                  placeholder="Search for a location..."
+                  className="w-full shadow-sm"
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border/50" />
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-black">
+                  <span className="bg-background px-3 text-muted-foreground/50">Or manual input</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground/70 ml-1">Latitude</Label>
+                  <Input
+                    value={latitude}
+                    onChange={(e) => setLatitude(e.target.value)}
+                    disabled={isLoading}
+                    type="number"
+                    step="any"
+                    className="h-10 text-sm font-mono border-muted bg-muted/30 focus:bg-background transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground/70 ml-1">Longitude</Label>
+                  <Input
+                    value={longitude}
+                    onChange={(e) => setLongitude(e.target.value)}
+                    disabled={isLoading}
+                    type="number"
+                    step="any"
+                    className="h-10 text-sm font-mono border-muted bg-muted/30 focus:bg-background transition-all"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 border-dashed border-primary/30 hover:border-primary/60 bg-primary/5 hover:bg-primary/10 text-primary font-bold transition-all group"
+                onClick={handlePickFromMap}
                 disabled={isLoading}
-              />
-            </div>
+              >
+                <Target className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+                Select on Map
+              </Button>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Latitude</Label>
-                <Input
-                  id="poi-lat"
-                  value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
+              {error && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 font-bold flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                  {error}
+                </div>
+              )}
+
+              <DialogFooter className="pt-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleCloseChange(false)}
                   disabled={isLoading}
-                  type="number"
-                  step="any"
-                  className="h-9 text-sm font-mono"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Longitude</Label>
-                <Input
-                  id="poi-lon"
-                  value={longitude}
-                  onChange={(e) => setLongitude(e.target.value)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleToPreview}
                   disabled={isLoading}
-                  type="number"
-                  step="any"
-                  className="h-9 text-sm font-mono"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-10 border-dashed"
-              onClick={handlePickFromMap}
-              disabled={isLoading}
-            >
-              <Target className="h-4 w-4 mr-2" />
-              Pick Exact Point on Map
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="poi-description" className="text-sm font-semibold">Description (optional)</Label>
-            <Textarea
-              id="poi-description"
-              placeholder="Add any notes about this location..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={isLoading}
-              rows={2}
-              className="resize-none"
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
-              {error}
+                  className="min-w-[120px] font-bold shadow-lg shadow-primary/20"
+                >
+                  Ready
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              </DialogFooter>
             </div>
           )}
 
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={isLoading}>
-              {isLoading ? "Adding..." : "Add POI"}
-            </Button>
-          </DialogFooter>
+          {step === 2 && (
+            <div className="space-y-6 animate-in fade-in zoom-in duration-300">
+              <div className="relative h-48 w-full rounded-2xl overflow-hidden border-2 border-primary/20 bg-muted shadow-inner group">
+                {parsedCoords && (
+                  <MapContainer
+                    center={parsedCoords}
+                    zoom={15}
+                    scrollWheelZoom={false}
+                    zoomControl={false}
+                    dragging={false}
+                    touchZoom={false}
+                    doubleClickZoom={false}
+                    className="h-full w-full grayscale-[0.2]"
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <Marker position={parsedCoords} />
+                  </MapContainer>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                <div className="absolute top-3 right-3 flex gap-2">
+                  <div className="px-2 py-1 bg-background/90 backdrop-blur-md rounded-lg border border-border/50 shadow-sm flex items-center gap-1.5">
+                    <MapIcon className="h-3 w-3 text-primary" />
+                    <span className="text-[10px] font-bold">Location Preview</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-4">
+                <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
+                  <Target className="h-5 w-5 text-primary/70" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">Coordinates Locked</p>
+                  <p className="text-xs font-mono font-bold text-foreground/80">
+                    {latitude}, {longitude}
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-2 gap-3 flex-col sm:flex-row">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(1)}
+                  disabled={isLoading}
+                  className="flex-1 h-12 border-dashed hover:bg-muted font-medium transition-all"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Change Localization
+                </Button>
+                <Button
+                  onClick={handleConfirmLocation}
+                  disabled={isLoading}
+                  className="flex-1 h-12 font-bold shadow-lg shadow-primary/25 bg-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Ready
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="poi-name" className="text-sm font-semibold">POI Name *</Label>
+                  <Input
+                    id="poi-name"
+                    placeholder="e.g., Central Warehouse, Logistics Hub..."
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isLoading}
+                    className="h-12 text-base font-medium"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="poi-description" className="text-sm font-semibold">Description (optional)</Label>
+                  <Textarea
+                    id="poi-description"
+                    placeholder="Add specific notes or instructions..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    disabled={isLoading}
+                    rows={3}
+                    className="resize-none bg-muted/20 focus:bg-background transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/50 flex items-center gap-4 opacity-70">
+                <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
+                  <Target className="h-5 w-5 text-muted-foreground/60" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">Position Locked</p>
+                  <p className="text-xs font-mono font-bold text-foreground/80">
+                    {latitude}, {longitude}
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter className="pt-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(2)}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Review Map
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isLoading || !name.trim()}
+                  className="flex-1 font-bold shadow-lg shadow-primary/25"
+                >
+                  {isLoading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> ...</>
+                  ) : (
+                    "Create POI"
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

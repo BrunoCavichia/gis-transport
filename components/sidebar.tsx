@@ -30,6 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface FleetJob {
   id: string;
@@ -91,6 +92,7 @@ interface SidebarProps {
   setIsAddJobOpen?: (value: boolean) => void;
   onStartPickingJob?: () => void;
   pickedJobCoords?: [number, number] | null;
+  isLoadingLayers?: boolean;
 }
 
 export function Sidebar({
@@ -133,6 +135,7 @@ export function Sidebar({
   setIsAddJobOpen,
   onStartPickingJob,
   pickedJobCoords,
+  isLoadingLayers = false,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [localIsAddJobOpen, setLocalIsAddJobOpen] = useState(false);
@@ -213,21 +216,30 @@ export function Sidebar({
                       <h3 className="text-sm font-semibold">Map Layers</h3>
                     </div>
                     <div className="space-y-1.5 rounded-lg border border-border bg-muted/10 p-2.5">
-                      {Object.entries(layers).map(([key, value]) => (
-                        <div key={key} className="flex items-center justify-between px-2 py-2 hover:bg-accent/30 rounded-md transition-colors">
-                          <Label className="text-sm capitalize cursor-pointer flex-1 py-1" htmlFor={`layer-${key}`}>
-                            {key.replace(/([A-Z])/g, " $1").trim()}
-                          </Label>
-                          <Switch
-                            id={`layer-${key}`}
-                            checked={value}
-                            onCheckedChange={() =>
-                              toggleLayer(key as keyof LayerVisibility)
-                            }
-                            className="scale-90"
-                          />
+                      {isLoadingLayers ? (
+                        <div className="space-y-3 p-2">
+                          <Skeleton className="h-8 w-full" />
+                          <Skeleton className="h-8 w-full" />
+                          <Skeleton className="h-8 w-full" />
+                          <Skeleton className="h-8 w-full" />
                         </div>
-                      ))}
+                      ) : (
+                        Object.entries(layers).map(([key, value]) => (
+                          <div key={key} className="flex items-center justify-between px-2 py-2 hover:bg-accent/30 rounded-md transition-colors">
+                            <Label className="text-sm capitalize cursor-pointer flex-1 py-1" htmlFor={`layer-${key}`}>
+                              {key.replace(/([A-Z])/g, " $1").trim()}
+                            </Label>
+                            <Switch
+                              id={`layer-${key}`}
+                              checked={value}
+                              onCheckedChange={() =>
+                                toggleLayer(key as keyof LayerVisibility)
+                              }
+                              className="scale-90"
+                            />
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
 

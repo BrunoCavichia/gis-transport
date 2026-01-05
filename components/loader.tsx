@@ -4,34 +4,39 @@ export function Loader() {
     <div
       style={{
         position: "absolute",
-        inset: 0,
+        top: 20,
+        right: 20,
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
+        flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.25)",
+        gap: 8,
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        padding: "8px 12px",
+        borderRadius: "8px",
+        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
         zIndex: 9999,
+        pointerEvents: "none",
+        border: "1px solid rgba(0, 0, 0, 0.05)",
       }}
     >
       <div
         style={{
-          width: 60,
-          height: 60,
-          border: "6px solid #f3f3f3",
-          borderTop: "6px solid #3b82f6",
+          width: 16,
+          height: 16,
+          border: "2px solid #f3f3f3",
+          borderTop: "2px solid #3b82f6",
           borderRadius: "50%",
           animation: "spin 1s linear infinite",
-          marginBottom: 16,
         }}
       />
       <span
         style={{
-          color: "#ffffffff",
-          fontSize: 14,
-          fontWeight: 300,
+          color: "#374151",
+          fontSize: 12,
+          fontWeight: 600,
         }}
       >
-        Loading...
+        Updating Layers...
       </span>
       <style>
         {`

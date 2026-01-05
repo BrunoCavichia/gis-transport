@@ -7,9 +7,8 @@ const cache = new Map<string, { data: Zone[]; timestamp: number }>();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos
 
 function getCacheKey(lat: number, lon: number, radius: number, type: string) {
-  return `${Math.round(lat * 100) / 100},${
-    Math.round(lon * 100) / 100
-  },${Math.round(radius / 1000)},${type}`;
+  return `${Math.round(lat * 100) / 100},${Math.round(lon * 100) / 100
+    },${Math.round(radius / 1000)},${type}`;
 }
 
 function getFromCache(key: string) {
@@ -60,62 +59,72 @@ export async function GET(req: NextRequest) {
 
   const radiusKm = Math.min(radius / 1000, 15);
 
-  const zoneTypes: { type: string; filter: string }[] = [
-    { type: "LEZ", filter: '["boundary"="low_emission_zone"]' },
-    { type: "LimitedTraffic", filter: '["boundary"="limited_traffic_zone"]' },
-    { type: "Environmental", filter: '["zone:environmental"]' },
-    { type: "Pedestrian", filter: '["highway"="pedestrian"]["area"="yes"]' },
-    { type: "Restricted", filter: '["access"="no"]["area"="yes"]' },
-  ];
-
-  const allZones: Zone[] = [];
-
-  for (const { type, filter } of zoneTypes) {
-    const cacheKey = getCacheKey(lat, lon, radius, type);
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      allZones.push(...cached);
-      continue;
-    }
-
-    const query = `[out:json][timeout:60];
-      (relation${filter}(around:${radiusKm * 1000},${lat},${lon});
-       way${filter}(around:${radiusKm * 1000},${lat},${lon}););
-      (._;>;);
-      out geom;`;
-
-    const elements = await fetchZonesSafe(query);
-
-    const zones: Zone[] = elements
-      .map((el: any) => {
-        const coordinates: [number, number][] =
-          el.geometry?.map((p: any) => [p.lat, p.lon]) ||
-          el.members?.flatMap(
-            (m: any) => m.geometry?.map((p: any) => [p.lat, p.lon]) || []
-          ) ||
-          [];
-        if (coordinates.length < 3) return null;
-
-        let zoneName = el.tags?.name || type;
-        const requiredTags = type === "LEZ" ? ["eco", "zero_emissions"] : [];
-
-        return {
-          id: `${el.type}-${el.id}`,
-          name: zoneName,
-          type,
-          description: el.tags ? JSON.stringify(el.tags) : "",
-          coordinates,
-          requiredTags,
-        } as Zone;
-      })
-      .filter((z): z is Zone => z !== null);
-
-    setCache(cacheKey, zones);
-    allZones.push(...zones);
+  const cacheKey = getCacheKey(lat, lon, radius, "combined");
+  const cached = getFromCache(cacheKey);
+  if (cached) {
+    return NextResponse.json(
+      { zones: cached },
+      { headers: { "X-Cache": "HIT" } }
+    );
   }
 
+  // Combined Overpass query for all relevant boundaries/zones
+  const query = `[out:json][timeout:60];
+    (
+      relation["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
+      way["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
+      relation["boundary"="limited_traffic_zone"](around:${radiusKm * 1000},${lat},${lon});
+      way["boundary"="limited_traffic_zone"](around:${radiusKm * 1000},${lat},${lon});
+      relation["zone:environmental"](around:${radiusKm * 1000},${lat},${lon});
+      way["zone:environmental"](around:${radiusKm * 1000},${lat},${lon});
+      relation["highway"="pedestrian"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
+      way["highway"="pedestrian"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
+      relation["access"="no"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
+      way["access"="no"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
+    );
+    (._;>;);
+    out geom;`;
+
+  const elements = await fetchZonesSafe(query);
+
+  const zones: Zone[] = elements
+    .map((el: any) => {
+      const coordinates: [number, number][] =
+        el.geometry?.map((p: any) => [p.lat, p.lon]) ||
+        el.members?.flatMap(
+          (m: any) => m.geometry?.map((p: any) => [p.lat, p.lon]) || []
+        ) ||
+        [];
+      if (coordinates.length < 3) return null;
+
+      // Determine type based on tags
+      let type = "Restricted";
+      if (el.tags?.boundary === "low_emission_zone" || el.tags?.["zone:environmental"]) {
+        type = "LEZ";
+      } else if (el.tags?.boundary === "limited_traffic_zone") {
+        type = "LimitedTraffic";
+      } else if (el.tags?.highway === "pedestrian") {
+        type = "Pedestrian";
+      }
+
+      let zoneName = el.tags?.name || type;
+      const requiredTags = type === "LEZ" ? ["eco", "zero_emissions"] : [];
+
+      return {
+        id: `${el.type}-${el.id}`,
+        name: zoneName,
+        type,
+        description: el.tags ? JSON.stringify(el.tags) : "",
+        coordinates,
+        requiredTags,
+      } as Zone;
+    })
+    .filter((z): z is Zone => z !== null);
+
+  setCache(cacheKey, zones);
+
   return NextResponse.json(
-    { zones: allZones },
+    { zones },
     { headers: { "X-Cache": "MISS" } }
   );
 }
