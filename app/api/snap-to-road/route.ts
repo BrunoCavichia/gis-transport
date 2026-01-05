@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-const SNAP_RADIUS = 5000; // 5 km
+const SNAP_RADIUS = 5000;
 const REQUEST_TIMEOUT = 30000; // 30 segundos
 const RETRIES = 2;
 

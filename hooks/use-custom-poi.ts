@@ -69,12 +69,21 @@ export function useCustomPOI() {
     setCustomPOIs([]);
   }, []);
 
+  const togglePOISelectionForFleet = useCallback((id: string) => {
+    setCustomPOIs((prev) =>
+      prev.map((poi) =>
+        poi.id === id ? { ...poi, selectedForFleet: !poi.selectedForFleet } : poi
+      )
+    );
+  }, []);
+
   return {
     customPOIs,
     addCustomPOI,
     removeCustomPOI,
     updateCustomPOI,
     clearAllCustomPOIs,
+    togglePOISelectionForFleet,
     isLoading,
   };
 }

@@ -27,6 +27,7 @@ export interface CustomPOI {
   type: "custom";
   description?: string;
   createdAt: number;
+  selectedForFleet?: boolean;
 }
 
 export interface Zone {

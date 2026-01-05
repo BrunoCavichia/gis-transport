@@ -2,7 +2,7 @@
 import { useState, useCallback } from "react";
 import type { VehicleType } from "@/lib/types";
 
-// Interfaces que usa el hook
+// Hook interfaces
 export interface FleetJob {
   id: string;
   coords: [number, number];
@@ -16,16 +16,16 @@ export interface FleetVehicle {
 }
 
 /**
- * Hook personalizado para manejar el estado y operaciones de la flota
- * @param initialVehicles - Vehículos iniciales (opcional)
- * @param initialJobs - Trabajos iniciales (opcional)
- * @returns Objeto con estado y funciones para manipular la flota
+ * Custom hook to manage fleet state and operations
+ * @param initialVehicles - Optional initial vehicles
+ * @param initialJobs - Optional initial jobs
+ * @returns Object with state and functions to manipulate the fleet
  */
 export function useFleet(
   initialVehicles: FleetVehicle[] = [],
   initialJobs: FleetJob[] = []
 ) {
-  // Estados del hook
+  // Hook states
   const [fleetVehicles, setFleetVehicles] =
     useState<FleetVehicle[]>(initialVehicles);
   const [fleetJobs, setFleetJobs] = useState<FleetJob[]>(initialJobs);
@@ -33,8 +33,9 @@ export function useFleet(
     null
   );
   const [addMode, setAddMode] = useState<"vehicle" | "job" | null>(null);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
 
-  // Función para limpiar toda la flota
+  // Function to clear all fleet data
   const clearFleet = useCallback(() => {
     setFleetVehicles([]);
     setFleetJobs([]);
@@ -42,7 +43,49 @@ export function useFleet(
     setAddMode(null);
   }, []);
 
-  // Función para añadir un vehículo en coordenadas específicas
+  // Simulate vehicle fetching from a physical device
+  const fetchVehicles = useCallback(async () => {
+    setIsLoadingVehicles(true);
+    try {
+      // Simulating network/device delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // For now, generate some test vehicles or keep current ones
+      // In the future, this will do a real fetch: fetch('http://physical-device/api/vehicles')
+      const mockVehicles: FleetVehicle[] = [
+        {
+          id: `phys-${Date.now()}-1`,
+          coords: [40.4233, -3.7121],
+          type: initialVehicles[0]?.type || {
+            id: "zero",
+            label: "Zero Emission Vehicle",
+            tags: ["0", "eco"],
+            description: "Full electric",
+            vroomType: "car",
+          },
+        },
+        {
+          id: `phys-${Date.now()}-2`,
+          coords: [40.415, -3.702],
+          type: initialVehicles[0]?.type || {
+            id: "eco",
+            label: "ECO Vehicle",
+            tags: ["eco"],
+            description: "Hybrid",
+            vroomType: "car",
+          },
+        },
+      ];
+
+      setFleetVehicles((prev) => [...prev, ...mockVehicles]);
+    } catch (error) {
+      console.error("Failed to fetch vehicles from device:", error);
+    } finally {
+      setIsLoadingVehicles(false);
+    }
+  }, [initialVehicles]);
+
+  // Function to add a vehicle at specific coordinates
   const addVehicleAt = useCallback(
     (coords: [number, number], type: VehicleType) => {
       const id =
@@ -52,7 +95,7 @@ export function useFleet(
       const newVehicle: FleetVehicle = { id, coords, type };
       setFleetVehicles((prev) => {
         const next = [...prev, newVehicle];
-        // Seleccionar automáticamente el nuevo vehículo
+        // Automatically select the new vehicle
         setSelectedVehicleId(newVehicle.id);
         return next;
       });
@@ -61,7 +104,7 @@ export function useFleet(
     []
   );
 
-  // Función para añadir un trabajo en coordenadas específicas
+  // Function to add a job at specific coordinates
   const addJobAt = useCallback((coords: [number, number]) => {
     const id =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -74,11 +117,11 @@ export function useFleet(
     setAddMode(null);
   }, []);
 
-  // Función para eliminar un vehículo por ID
+  // Function to remove a vehicle by ID
   const removeVehicle = useCallback((vehicleId: string) => {
     setFleetVehicles((prev) => {
       const remaining = prev.filter((v) => v.id !== vehicleId);
-      // Si se elimina el vehículo seleccionado, seleccionar el primero disponible
+      // If the selected vehicle is removed, select the first available one
       setSelectedVehicleId((curr) =>
         curr === vehicleId ? remaining[0]?.id ?? null : curr
       );
@@ -86,25 +129,27 @@ export function useFleet(
     });
   }, []);
 
-  // Función para eliminar un trabajo por ID
+  // Function to remove a job by ID
   const removeJob = useCallback((jobId: string) => {
     setFleetJobs((prev) => prev.filter((j) => j.id !== jobId));
   }, []);
 
-  // Retornar el estado y las funciones que otros componentes pueden usar
+  // Return state and functions that other components can use
   return {
-    // Estado
+    // State
     fleetVehicles,
     fleetJobs,
     selectedVehicleId,
     addMode,
+    isLoadingVehicles,
 
-    // Setters directos
+    // Direct setters
     setAddMode,
     setSelectedVehicleId,
 
-    // Funciones de manipulación
+    // Manipulation functions
     clearFleet,
+    fetchVehicles,
     addVehicleAt,
     addJobAt,
     removeVehicle,

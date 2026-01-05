@@ -102,6 +102,8 @@ export function GISMap() {
     addJobAt,
     removeVehicle,
     removeJob,
+    isLoadingVehicles,
+    fetchVehicles,
   } = useFleet();
 
   const {
@@ -110,6 +112,7 @@ export function GISMap() {
     removeCustomPOI,
     updateCustomPOI,
     clearAllCustomPOIs,
+    togglePOISelectionForFleet,
   } = useCustomPOI();
 
   const clearAll = useCallback(() => {
@@ -172,6 +175,9 @@ export function GISMap() {
     const key = JSON.stringify({
       vehicles: fleetVehicles.map((v) => ({ id: v.id, coords: v.coords })),
       jobs: fleetJobs.map((j) => ({ id: j.id, coords: j.coords })),
+      selectedPOIs: customPOIs
+        .filter((poi) => poi.selectedForFleet)
+        .map((p) => ({ id: p.id, coords: p.position })),
     });
 
     if (key === lastRoutingKeyRef.current) {
@@ -179,17 +185,27 @@ export function GISMap() {
     }
 
     lastRoutingKeyRef.current = key;
-    const totalLocations = fleetVehicles.length + fleetJobs.length;
+    const selectedPOIsAsJobs = customPOIs
+      .filter((poi) => poi.selectedForFleet)
+      .map((poi) => ({
+        id: poi.id,
+        coords: poi.position,
+        label: `POI: ${poi.name}`,
+      }));
+
+    const allFleetJobs = [...fleetJobs, ...selectedPOIsAsJobs];
+
+    const totalLocations = fleetVehicles.length + allFleetJobs.length;
 
     if (totalLocations > 50) {
       alert(
-        `Demasiadas ubicaciones (${totalLocations}). El máximo es 50 (vehículos + jobs).`
+        `Too many locations (${totalLocations}). The maximum is 50 (vehicles + jobs).`
       );
       return;
     }
 
-    if (fleetVehicles.length === 0 || fleetJobs.length === 0) {
-      alert("Necesitas al menos 1 vehículo y 1 trabajo");
+    if (fleetVehicles.length === 0 || allFleetJobs.length === 0) {
+      alert("You need at least 1 vehicle and 1 job or selected POI");
       return;
     }
 
@@ -199,7 +215,7 @@ export function GISMap() {
       // Recopilar todas las coordenadas
       const allCoords = [
         ...fleetVehicles.map((v) => v.coords),
-        ...fleetJobs.map((j) => j.coords),
+        ...allFleetJobs.map((j) => j.coords),
       ];
 
       let correctedLocations = allCoords;
@@ -239,7 +255,7 @@ export function GISMap() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ coordinates: coordinatesForMatrix }),
       });
-      if (!matrixRes.ok) throw new Error("Error en matrix API");
+      if (!matrixRes.ok) throw new Error("Error in matrix API");
       const matrixData = await matrixRes.json();
       const cleanedMatrix = matrixData.cost.map((row: number[]) =>
         row.map((val: number) =>
@@ -247,7 +263,9 @@ export function GISMap() {
         )
       );
 
-      const jobsPerVehicle = Math.ceil(fleetJobs.length / fleetVehicles.length);
+      const jobsPerVehicle = Math.ceil(
+        allFleetJobs.length / fleetVehicles.length
+      );
       const vroomPayload = {
         vehicles: fleetVehicles.map((v, idx) => ({
           id: idx,
@@ -255,7 +273,7 @@ export function GISMap() {
           profile: "car",
           capacity: [jobsPerVehicle + 1],
         })),
-        jobs: fleetJobs.map((j, jidx) => ({
+        jobs: allFleetJobs.map((j, jidx) => ({
           id: fleetVehicles.length + jidx,
           location_index: fleetVehicles.length + jidx,
           service: 300,
@@ -269,11 +287,11 @@ export function GISMap() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(vroomPayload),
       });
-      if (!vroomRes.ok) throw new Error("Error en VROOM");
+      if (!vroomRes.ok) throw new Error("Error in VROOM");
       const vroomResult = await vroomRes.json();
 
       if (!vroomResult.routes || vroomResult.routes.length === 0) {
-        throw new Error("VROOM no devolvió rutas");
+        throw new Error("VROOM did not return any routes");
       }
 
       const vehicleRoutes: Array<{
@@ -317,7 +335,7 @@ export function GISMap() {
             const fallbackCoords = errorData.coordinates || waypoints;
 
             console.warn(
-              `⚠️ Routing falló para vehículo ${route.vehicle}, usando línea recta`
+              `⚠️ Routing failed for vehicle ${route.vehicle}, using straight line`
             );
 
             vehicleRoutes.push({
@@ -347,7 +365,7 @@ export function GISMap() {
 
       const allRouteCoordinates = vehicleRoutes.flatMap((r) => r.coordinates);
       if (allRouteCoordinates.length === 0)
-        throw new Error("No se generaron coordenadas de ruta");
+        throw new Error("No route coordinates were generated");
 
       try {
         const weatherRes = await fetch("/api/weather", {
@@ -377,12 +395,12 @@ export function GISMap() {
 
       setLayers((prev) => ({ ...prev, route: true }));
     } catch (err) {
-      console.error("Error en enrutamiento:", err);
+      console.error("Routing error:", err);
       alert(`Error: ${(err as Error).message}`);
     } finally {
       setIsCalculatingRoute(false);
     }
-  }, [fleetVehicles, fleetJobs, setLayers]);
+  }, [fleetVehicles, fleetJobs, customPOIs, setLayers]);
 
   return (
     <div className="relative flex h-full w-full">
@@ -422,6 +440,9 @@ export function GISMap() {
         pickedCoords={pickedPOICoords}
         isAddCustomPOIOpen={isAddCustomPOIOpen}
         setIsAddCustomPOIOpen={setIsAddCustomPOIOpen}
+        isLoadingVehicles={isLoadingVehicles}
+        fetchVehicles={fetchVehicles}
+        togglePOISelectionForFleet={togglePOISelectionForFleet}
       />
       <div className="relative flex-1">
         <MapContainer

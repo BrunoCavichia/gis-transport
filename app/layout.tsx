@@ -2,7 +2,15 @@ import type React from "react";
 import type { Viewport } from "next";
 
 import { Analytics } from "@vercel/analytics/next";
+import { Roboto } from "next/font/google";
 import "./globals.css";
+
+const roboto = Roboto({
+  weight: ["300", "400", "500", "700"],
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-roboto",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -25,7 +33,7 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className={`font-sans antialiased`}>
+      <body className={`${roboto.variable} font-roboto antialiased`}>
         {children}
         <Analytics />
       </body>

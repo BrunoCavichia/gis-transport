@@ -105,8 +105,8 @@ export function AddCustomPOIDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <MapPin className="h-5 w-5 text-primary" />
             Add Custom POI
           </DialogTitle>
           <DialogDescription>
@@ -145,7 +145,7 @@ export function AddCustomPOIDialog({
             {/* Coordenadas (solo lectura visual, pero editables si quieren) */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label htmlFor="poi-lat" className="text-xs">
+                <Label htmlFor="poi-lat" className="text-sm">
                   Latitude
                 </Label>
                 <Input
@@ -156,11 +156,11 @@ export function AddCustomPOIDialog({
                   disabled={isLoading}
                   type="number"
                   step="any"
-                  className="text-xs"
+                  className="text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="poi-lon" className="text-xs">
+                <Label htmlFor="poi-lon" className="text-sm">
                   Longitude
                 </Label>
                 <Input
@@ -171,7 +171,7 @@ export function AddCustomPOIDialog({
                   disabled={isLoading}
                   type="number"
                   step="any"
-                  className="text-xs"
+                  className="text-sm"
                 />
               </div>
             </div>
@@ -182,7 +182,7 @@ export function AddCustomPOIDialog({
               size="sm"
               onClick={handleUseMapCenter}
               disabled={isLoading}
-              className="w-full text-xs"
+              className="w-full text-sm"
             >
               Use Current Map Center
             </Button>
