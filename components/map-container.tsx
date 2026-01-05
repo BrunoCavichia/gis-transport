@@ -34,6 +34,7 @@ import {
   renderVehicleMarkers,
   renderJobMarkers,
   renderCustomPOIs,
+  renderSupplyRiskMarkers,
 } from "@/app/helpers/map-render-helpers";
 
 const weatherIcons = createWeatherIcons();
@@ -49,6 +50,9 @@ const {
   jobIcon,
   customPOIIcon,
   pickingIcon,
+  alertOctagonIcon,
+  alertTriangleIcon,
+  suggestedStationIcon,
 } = weatherIcons;
 
 function FitBounds({
@@ -103,6 +107,7 @@ interface MapContainerProps {
   selectedVehicleId?: string | null;
   pickedPOICoords?: [number, number] | null;
   pickedJobCoords?: [number, number] | null;
+  toggleLayer: (layer: keyof LayerVisibility) => void;
 }
 
 const COLORS = {
@@ -127,6 +132,7 @@ function MapEventHandler({
   onMapClick,
   wrapAsync,
   poiCache,
+  mapCenter,
 }: {
   isRouting: boolean;
   routePoints: { start: [number, number] | null; end: [number, number] | null };
@@ -146,13 +152,14 @@ function MapEventHandler({
   onMapClick?: (coords: [number, number]) => void;
   wrapAsync: (fn: () => Promise<void>) => Promise<void>;
   poiCache: ReturnType<typeof usePOICache>;
+  mapCenter: [number, number];
 }) {
   const map = useMap();
   const zoneCache = useZoneCache(map, layers, selectedVehicle, wrapAsync);
   useEffect(() => {
     setDynamicLEZones(zoneCache.LEZones);
     setDynamicRestrictedZones(zoneCache.restrictedZones);
-  }, [zoneCache.LEZones, zoneCache.restrictedZones]);
+  }, [zoneCache.LEZones, zoneCache.restrictedZones, setDynamicLEZones, setDynamicRestrictedZones]);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchCenter = useRef<string>("");
 
@@ -241,7 +248,13 @@ function MapEventHandler({
       else if (!routePoints.end) setRoutePoints({ ...routePoints, end: point });
     },
     moveend: () => {
-      setMapCenter([map.getCenter().lat, map.getCenter().lng]);
+      const newCenter = map.getCenter();
+      // Only update if moved more than ~1 meter to avoid infinite loops with programmatic pans
+      const dist = map.getCenter().distanceTo({ lat: mapCenter[0], lng: mapCenter[1] });
+      if (dist > 1) {
+        setMapCenter([newCenter.lat, newCenter.lng]);
+      }
+
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
         zoneCache.fetchZones();
@@ -300,6 +313,7 @@ export default function MapContainer({
   onMapClick,
   pickedPOICoords,
   pickedJobCoords,
+  toggleLayer,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicLEZones, setDynamicLEZones] = useState<Zone[]>([]);
@@ -381,11 +395,12 @@ export default function MapContainer({
           setDynamicLEZones={setDynamicLEZones}
           setDynamicRestrictedZones={setDynamicRestrictedZones}
           setMapCenter={setMapCenter}
-          layers={layers}
-          selectedVehicle={selectedVehicle}
           onMapClick={onMapClick}
           wrapAsync={wrapAsync}
           poiCache={poiCache}
+          mapCenter={mapCenter}
+          layers={layers}
+          selectedVehicle={selectedVehicle}
         />
 
         {mergedZones
@@ -503,6 +518,14 @@ export default function MapContainer({
           jobs: fleetJobs || [],
           isRouting,
           icon: jobIcon,
+        })}
+
+        {routeData?.supplyRisk && renderSupplyRiskMarkers({
+          supplyRisk: routeData.supplyRisk,
+          riskIcon: alertOctagonIcon,
+          warningIcon: alertTriangleIcon,
+          suggestionIcon: suggestedStationIcon,
+          layers: layers,
         })}
         {routeData?.weatherRoutes && (
           <WeatherPanel routes={routeData.weatherRoutes} />

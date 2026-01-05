@@ -152,5 +152,48 @@ export const createWeatherIcons = () => {
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     }),
+
+    alertOctagonIcon: L.divIcon({
+      className: "custom-marker",
+      html: `<div style="background-image: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); width: 26px; height: 26px; border-radius: 4px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.3); clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    }),
+
+    alertTriangleIcon: L.divIcon({
+      className: "custom-marker",
+      html: `<div style="background-image: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); width: 26px; height: 26px; border-radius: 4px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.3); clip-path: polygon(50% 0%, 0% 100%, 100% 100%);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 4px;">
+          <path d="m12 9v4"/>
+          <path d="M12 17h.01"/>
+        </svg>
+      </div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    }),
+
+    suggestedStationIcon: L.divIcon({
+      className: "custom-marker suggestion-marker",
+      html: `<div style="background-color: #facc15; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #ef4444; box-shadow: 0 0 10px rgba(234, 179, 8, 0.5); animation: pulse-yellow 2s infinite;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+        </svg>
+      </div>
+      <style>
+        @keyframes pulse-yellow {
+          0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+        }
+      </style>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+    }),
   };
 };

@@ -65,6 +65,7 @@ export function GISMap() {
     lowEmissionZones: false,
     restrictedZones: false,
     route: true,
+    supplyRisk: true,
   });
 
   const [routeData, setRouteData] = useState<RouteData | null>(null);
@@ -134,6 +135,15 @@ export function GISMap() {
     setPickedJobCoords(null);
     setPickingPOILocation(false);
     setPickingJobLocation(false);
+    setLayers({
+      gasStations: false,
+      evStations: false,
+      lowEmissionZones: false,
+      restrictedZones: false,
+      route: true,
+      supplyRisk: true,
+    });
+    setSelectedVehicle(VEHICLE_TYPES[0]);
   }, [clearFleet]);
 
   const toggleLayer = useCallback(
@@ -395,12 +405,30 @@ export function GISMap() {
         const weatherData = weatherRes.ok
           ? await weatherRes.json()
           : { routes: [] };
+
+        // --- Integrated Supply Risk Decision Engine ---
+        let supplyRiskResults = [];
+        try {
+          const riskRes = await fetch("/api/supply-risk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ vehicleRoutes, fleetVehicles, layers }),
+          });
+          if (riskRes.ok) {
+            const data = await riskRes.json();
+            supplyRiskResults = data.results || [];
+          }
+        } catch (riskErr) {
+          console.error("Supply risk analysis failed:", riskErr);
+        }
+
         setRouteData({
           coordinates: [],
           distance: totalDistance,
           duration: totalDuration,
           vehicleRoutes,
           weatherRoutes: weatherData.routes || [],
+          supplyRisk: supplyRiskResults,
         });
       } catch {
         setRouteData({
@@ -483,6 +511,7 @@ export function GISMap() {
       <div className="relative flex-1">
         <MapContainer
           layers={layers}
+          toggleLayer={toggleLayer}
           routeData={routeData}
           setRouteData={setRouteData}
           setWeather={setWeather}

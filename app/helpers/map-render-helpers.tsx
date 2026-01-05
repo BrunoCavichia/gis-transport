@@ -1,5 +1,6 @@
-import { Marker, Tooltip, Popup, CircleMarker } from "react-leaflet";
-import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
+import React from "react";
+import { Marker, Tooltip, Popup, CircleMarker, Polyline } from "react-leaflet";
+import type { POI, FleetVehicle, FleetJob, CustomPOI, SupplyRiskResult, LayerVisibility } from "@/lib/types";
 
 interface RenderPOIsProps {
   stations: POI[];
@@ -25,6 +26,15 @@ interface RenderCustomPOIsProps {
   customPOIs: CustomPOI[];
   isRouting: boolean;
   icon: L.Icon;
+}
+
+interface RenderSupplyRiskProps {
+  supplyRisk: SupplyRiskResult[];
+  riskIcon: L.DivIcon;
+  warningIcon: L.DivIcon;
+  suggestionIcon: L.DivIcon;
+  layers: LayerVisibility;
+  onFindStation?: (position: [number, number], type: 'ev' | 'gas') => void;
 }
 
 function normalizeCoords(coords: [number, number]): [number, number] {
@@ -178,4 +188,90 @@ export function renderCustomPOIs({
       </Marker>
     );
   });
+}
+
+export function renderSupplyRiskMarkers({
+  supplyRisk,
+  riskIcon,
+  warningIcon,
+  suggestionIcon,
+  layers,
+}: RenderSupplyRiskProps) {
+  if (!layers.supplyRisk) return null;
+
+  const components: React.ReactNode[] = [];
+
+  supplyRisk.forEach((res) => {
+    // 1. Alerts (Critical Risk Points)
+    res.alerts.forEach((alert, idx) => {
+      const center = normalizeCoords(alert.coords);
+      const icon = alert.riskLevel === "HIGH" ? riskIcon : warningIcon;
+
+      components.push(
+        <Marker
+          key={`risk-alert-${res.vehicleId}-${idx}`}
+          position={center}
+          icon={icon}
+        >
+          <Popup>
+            <div className="p-2 max-w-[220px]">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                  {alert.riskLevel} Risk
+                </div>
+                <span className="text-[10px] text-gray-400">#Segment {alert.segmentIndex}</span>
+              </div>
+              <div className="text-sm font-bold text-gray-900 mb-1">Supply Critical Alert</div>
+              <p className="text-xs text-gray-600 mb-3">{alert.reason}</p>
+              <div className="bg-gray-50 border border-gray-100 rounded p-2">
+                <div className="text-[10px] text-gray-500 uppercase font-semibold mb-1">Status</div>
+                <div className="flex justify-between items-center text-xs">
+                  <span>Remaining Supply:</span>
+                  <span className={`font-bold ${alert.riskLevel === 'HIGH' ? 'text-red-600' : 'text-orange-600'}`}>{alert.remainingSupply.toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+          </Popup>
+        </Marker>
+      );
+    });
+
+    // 2. Suggested Stations
+    res.suggestedStations.forEach((suggestion, idx) => {
+      const center = normalizeCoords(suggestion.station.position);
+
+      components.push(
+        <Marker
+          key={`suggested-station-${res.vehicleId}-${idx}`}
+          position={center}
+          icon={suggestionIcon}
+        >
+          <Popup>
+            <div className="p-2 min-w-[200px]">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-bold uppercase">
+                  Recommended Stop
+                </div>
+              </div>
+              <div className="text-base font-bold text-gray-900 mb-1">{suggestion.station.name}</div>
+              <p className="text-xs text-gray-600 mb-3">{suggestion.reason}</p>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-[11px] border-b pb-1">
+                  <span className="text-gray-500">Deviation:</span>
+                  <span className="font-medium text-gray-900">+{suggestion.deviationDistance.toFixed(1)} km</span>
+                </div>
+                <div className="flex justify-between text-[11px] border-b pb-1">
+                  <span className="text-gray-500">Type:</span>
+                  <span className="font-medium text-gray-900 capitalize">{suggestion.station.type === 'ev' ? 'Electric Station' : 'Fuel Station'}</span>
+                </div>
+              </div>
+            </div>
+          </Popup>
+        </Marker>
+      );
+    });
+  });
+
+  return components;
 }

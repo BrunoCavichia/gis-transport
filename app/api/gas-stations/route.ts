@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
   }
   const lat = parseFloat(latStr),
     lon = parseFloat(lonStr),
-    radius = Math.min(parseInt(radiusStr), 10000);
+    radius = Math.min(parseInt(radiusStr), 100000);
 
   const cacheKey = getCacheKey(lat, lon, radius);
   const cached = getFromCache(cacheKey);
@@ -68,19 +68,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(cached, { headers: { "X-Cache": "HIT" } });
   }
 
-  // Reduce radio a 5km si es mayor
-  const radiusKm = Math.min(radius / 1000, 5);
+  // Reduce radio a 100km si es mayor
+  const radiusKm = Math.min(radius / 1000, 100);
 
   try {
     // Query en dos partes para nodos y ways por separado
     const qNodes = `
-      [out:json][timeout:15];
+      [out:json][timeout:30];
       node["amenity"="fuel"](around:${radiusKm * 1000},${lat},${lon});
       out;
     `;
 
     const qWays = `
-      [out:json][timeout:15];
+      [out:json][timeout:30];
       way["amenity"="fuel"](around:${radiusKm * 1000},${lat},${lon});
       out center;
     `;
