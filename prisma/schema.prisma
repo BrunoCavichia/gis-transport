@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model OptimizationSnapshot {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  
+  // We use String for SQLite JSON compatibility (Prisma handles serialization usually, 
+  // but explicit String is safer if we want to control parsing manually or if Json type issues arise)
+  // Actually, let's try native Json if supported, otherwise String. 
+  // For SQLite, Prisma implies Json is supported.
+  
+  fleetData       String // JSON content of FleetOverview
+  optimizationData String // JSON content of OptimizationSummary
+  weatherData     String // JSON content of WeatherSummary
+  supplyRiskData  String // JSON content of SupplyRiskSummary
+  kpiData         String // JSON content of DashboardKPIs
+  
+  status String // "optimized", "failed", etc.
+}

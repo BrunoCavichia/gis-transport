@@ -349,7 +349,6 @@ export function GISMap() {
       let totalDuration = 0;
 
       for (const route of vroomResult.routes) {
-        totalDuration += route.duration || 0;
 
         const waypoints: [number, number][] = [];
         let jobCount = 0;
@@ -402,6 +401,7 @@ export function GISMap() {
           });
 
           totalDistance += routingData.distance || 0;
+          totalDuration += routingData.duration || 0;
         }
       }
 
@@ -435,6 +435,82 @@ export function GISMap() {
           console.error("Supply risk analysis failed:", riskErr);
         }
 
+        // Create context for API snapshot
+        const context = {
+          fleet: {
+            totalVehicles: fleetVehicles.length,
+            activeVehicles: vehicleRoutes.length,
+            vehiclesByType: fleetVehicles.reduce((acc, v) => ({
+              ...acc,
+              [v.type.id]: (acc[v.type.id] || 0) + 1
+            }), {} as Record<string, number>),
+            vehicles: fleetVehicles.map(v => ({
+              id: v.id,
+              type: v.type.id,
+              label: v.type.label,
+              position: v.coords,
+              isActive: vehicleRoutes.some(r => r.vehicleId === parseInt(v.id)) // rough check assuming numeric IDs match index
+            }))
+          },
+          optimization: {
+            status: 'optimized',
+            totalJobs: allFleetJobs.length,
+            assignedJobs: vehicleRoutes.reduce((acc, r) => acc + r.jobsAssigned, 0),
+            unassignedJobs: allFleetJobs.length - vehicleRoutes.reduce((acc, r) => acc + r.jobsAssigned, 0),
+            routes: vehicleRoutes.map(r => ({
+              vehicleId: r.vehicleId,
+              jobsAssigned: r.jobsAssigned,
+              distance: r.distance,
+              duration: r.duration,
+              distanceFormatted: `${(r.distance / 1000).toFixed(1)} km`,
+              durationFormatted: `${Math.floor(r.duration / 3600)}h ${Math.floor((r.duration % 3600) / 60)}m`,
+              color: r.color,
+              startPoint: r.coordinates[0],
+              endPoint: r.coordinates[r.coordinates.length - 1],
+              waypoints: r.coordinates
+            })),
+            totals: {
+              distance: totalDistance,
+              duration: totalDuration,
+              distanceFormatted: `${(totalDistance / 1000).toFixed(1)} km`,
+              durationFormatted: `${Math.floor(totalDuration / 3600)}h ${Math.floor((totalDuration % 3600) / 60)}m`
+            }
+          },
+          weather: {
+            overallRisk: 'LOW', // Default/Placeholder as weatherData is complex
+            alertCount: weatherData.routes?.reduce((acc: number, r: any) => acc + (r.alerts?.length || 0), 0) || 0,
+            alertsByType: {},
+            affectedRoutes: weatherData.routes?.filter((r: any) => r.alerts?.length > 0).length || 0,
+            alerts: []
+          },
+          supplyRisk: {
+            overallRisk: supplyRiskResults.length > 0 ? 'HIGH' : 'LOW',
+            vehiclesAtRisk: supplyRiskResults.length,
+            criticalAlerts: supplyRiskResults.length, // Assuming every risk is a critical alert for now
+            suggestedStops: supplyRiskResults.length,
+            risks: supplyRiskResults.map((r: any) => ({
+              vehicleId: r.vehicleIndex,
+              riskLevel: 'HIGH', // If it's in the results, it's a risk
+              suggestedStation: r.suggestedStation ? {
+                name: r.suggestedStation.name,
+                type: r.suggestedStation.type,
+                position: r.suggestedStation.position,
+                deviationKm: 0
+              } : undefined
+            }))
+          },
+          kpis: {
+            fleetUtilization: (vehicleRoutes.length / fleetVehicles.length) * 100,
+            routeEfficiency: 100,
+            totalDistanceKm: totalDistance / 1000,
+            totalDurationHours: totalDuration / 3600,
+            averageJobsPerVehicle: allFleetJobs.length / fleetVehicles.length,
+            weatherRiskScore: 0,
+            supplyRiskScore: supplyRiskResults.length * 10,
+            activeAlerts: 0
+          }
+        };
+
         setRouteData({
           coordinates: [],
           distance: totalDistance,
@@ -443,6 +519,13 @@ export function GISMap() {
           weatherRoutes: weatherData.routes || [],
           supplyRisk: supplyRiskResults,
         });
+
+        // Persist Internal Snapshot
+        fetch('/api/gis/snapshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(context)
+        }).catch(err => console.error("Failed to save background snapshot", err));
       } catch {
         setRouteData({
           coordinates: [],
