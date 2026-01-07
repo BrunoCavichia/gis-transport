@@ -89,7 +89,9 @@ export function AddCustomPOIDialog({
     const lat = parseFloat(latitude);
     const lon = parseFloat(longitude);
 
-    onSubmit(name.trim(), [lat, lon], description.trim() || undefined);
+    const finalName = name.trim() || `POI (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+
+    onSubmit(finalName, [lat, lon], description.trim() || undefined);
 
     // Reset form
     setName("");
@@ -297,7 +299,7 @@ export function AddCustomPOIDialog({
             <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="poi-name" className="text-sm font-semibold">POI Name *</Label>
+                  <Label htmlFor="poi-name" className="text-sm font-semibold">POI Name</Label>
                   <Input
                     id="poi-name"
                     placeholder="e.g., Central Warehouse, Logistics Hub..."
@@ -347,7 +349,7 @@ export function AddCustomPOIDialog({
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={isLoading || !name.trim()}
+                  disabled={isLoading}
                   className="flex-1 font-bold shadow-lg shadow-primary/25"
                 >
                   {isLoading ? (

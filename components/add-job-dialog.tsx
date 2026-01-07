@@ -75,7 +75,9 @@ export function AddJobDialog({
         const lat = parseFloat(latitude);
         const lon = parseFloat(longitude);
 
-        onSubmit([lat, lon], label.trim());
+        const finalLabel = label.trim() || `Job (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+
+        onSubmit([lat, lon], finalLabel);
 
         // Reset
         setLabel("");
@@ -281,7 +283,7 @@ export function AddJobDialog({
                     {step === 3 && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-300">
                             <div className="space-y-2">
-                                <Label htmlFor="job-label" className="text-sm font-semibold">Job Reference Name *</Label>
+                                <Label htmlFor="job-label" className="text-sm font-semibold">Job Reference Name</Label>
                                 <Input
                                     id="job-label"
                                     placeholder="e.g., Client A Delivery, Zone 4 Pickup..."
@@ -320,7 +322,7 @@ export function AddJobDialog({
                                 </Button>
                                 <Button
                                     onClick={handleSubmit}
-                                    disabled={isLoading || !label.trim()}
+                                    disabled={isLoading}
                                     className="flex-1 font-bold shadow-lg shadow-primary/25"
                                 >
                                     {isLoading ? (
