@@ -32,5 +32,9 @@ Thumbs.db
 *.sublime-workspace
 *.sublime-project
 
-# Misc
+# TypeScript
 *.tsbuildinfo
+
+# Prisma
+prisma/*.db
+prisma/migrations/*/migration_lock.toml
