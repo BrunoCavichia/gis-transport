@@ -23,4 +23,41 @@ model OptimizationSnapshot {
   kpiData         String // JSON content of DashboardKPIs
   
   status String // "optimized", "failed", etc.
+
+  // Link to relational analytics data (Optional 1:1 relation)
+  runDetails OptimizationRun?
 }
+
+model OptimizationRun {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  snapshotId String @unique
+  snapshot   OptimizationSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  // Aggregated Metrics
+  totalDistanceMeters Int
+  totalDurationSeconds Int
+  totalJobs           Int
+  utilityScore        Float? // Placeholder for an efficiency score
+
+  // Relations
+  vehicleMetrics VehicleMetric[]
+}
+
+model VehicleMetric {
+  id        String   @id @default(uuid())
+  
+  runId     String
+  run       OptimizationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  vehicleId String // The identifier used in the fleet/optimization
+  vehicleType String
+  
+  // Metrics
+  totalDistanceMeters Int
+  totalDurationSeconds Int
+  jobsAssigned        Int
+  efficiencyFactor    Float? // Custom metric (e.g., loaded distance / total distance)
+}
+

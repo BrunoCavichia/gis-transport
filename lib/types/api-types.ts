@@ -19,8 +19,30 @@ export interface GisDashboardData {
     fleet: FleetOverview;
     optimization: OptimizationSummary;
     weather: WeatherSummary;
-    supplyRisk: SupplyRiskSummary;
+    supplyRisk: {
+        overallRisk: 'LOW' | 'MEDIUM' | 'HIGH';
+        vehiclesAtRisk: number;
+        criticalAlerts: number;
+        suggestedStops: number;
+        risks: VehicleRiskSummary[];
+    };
     kpis: DashboardKPIs;
+    analytics?: DashboardAnalytics; // New section for Historical/BI data
+}
+
+export interface DashboardAnalytics {
+    period: string; // e.g. "Last 7 Days"
+    summary: {
+        totalOptimizations: number;
+        totalDistanceKm: number;
+        totalDurationHours: number;
+        averageEfficiencyScore: number;
+    };
+    trend: Array<{
+        date: string;
+        efficiency: number;
+        distanceKm: number;
+    }>;
 }
 
 export interface DashboardMeta {
