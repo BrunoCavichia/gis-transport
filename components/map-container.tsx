@@ -34,7 +34,6 @@ import {
   renderVehicleMarkers,
   renderJobMarkers,
   renderCustomPOIs,
-  renderSupplyRiskMarkers,
 } from "@/app/helpers/map-render-helpers";
 
 const weatherIcons = createWeatherIcons();
@@ -50,9 +49,6 @@ const {
   jobIcon,
   customPOIIcon,
   pickingIcon,
-  alertOctagonIcon,
-  alertTriangleIcon,
-  suggestedStationIcon,
 } = weatherIcons;
 
 function FitBounds({
@@ -526,14 +522,6 @@ export default function MapContainer({
           jobs: fleetJobs || [],
           isRouting,
           icon: jobIcon,
-        })}
-
-        {routeData?.supplyRisk && renderSupplyRiskMarkers({
-          supplyRisk: routeData.supplyRisk,
-          riskIcon: alertOctagonIcon,
-          warningIcon: alertTriangleIcon,
-          suggestionIcon: suggestedStationIcon,
-          layers: layers,
         })}
         {routeData?.weatherRoutes && (
           <WeatherPanel

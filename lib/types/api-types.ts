@@ -19,13 +19,6 @@ export interface GisDashboardData {
     fleet: FleetOverview;
     optimization: OptimizationSummary;
     weather: WeatherSummary;
-    supplyRisk: {
-        overallRisk: 'LOW' | 'MEDIUM' | 'HIGH';
-        vehiclesAtRisk: number;
-        criticalAlerts: number;
-        suggestedStops: number;
-        risks: VehicleRiskSummary[];
-    };
     kpis: DashboardKPIs;
     analytics?: DashboardAnalytics; // New section for Historical/BI data
 }
@@ -114,27 +107,6 @@ export interface WeatherAlertSummary {
     timeWindow: string;
 }
 
-// Supply Risk summary
-export interface SupplyRiskSummary {
-    overallRisk: 'LOW' | 'MEDIUM' | 'HIGH';
-    vehiclesAtRisk: number;
-    criticalAlerts: number;
-    suggestedStops: number;
-    risks: VehicleRiskSummary[];
-}
-
-export interface VehicleRiskSummary {
-    vehicleId: number;
-    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-    remainingSupply?: number;
-    suggestedStation?: {
-        name: string;
-        type: 'gas' | 'ev';
-        position: [number, number];
-        deviationKm: number;
-    };
-}
-
 // Dashboard KPIs
 export interface DashboardKPIs {
     fleetUtilization: number;        // % of vehicles with assigned jobs
@@ -143,6 +115,5 @@ export interface DashboardKPIs {
     totalDurationHours: number;
     averageJobsPerVehicle: number;
     weatherRiskScore: number;        // 0-100
-    supplyRiskScore: number;         // 0-100
     activeAlerts: number;
 }

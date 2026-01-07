@@ -124,27 +124,6 @@ export interface WeatherMarker {
   message: string;
   timeWindow: string;
 }
-export interface SupplyRiskAlert {
-  segmentIndex: number;
-  coords: [number, number];
-  riskLevel: "LOW" | "MEDIUM" | "HIGH";
-  remainingSupply: number; // Percent 0-100
-  message: string;
-  reason: string;
-}
-
-export interface StationSuggestion {
-  station: POI;
-  deviationDistance: number;
-  reason: string;
-}
-
-export interface SupplyRiskResult {
-  vehicleId: number;
-  overallRisk: "LOW" | "MEDIUM" | "HIGH";
-  alerts: SupplyRiskAlert[];
-  suggestedStations: StationSuggestion[];
-}
 
 export interface RouteData {
   coordinates: [number, number][];
@@ -158,7 +137,6 @@ export interface RouteData {
   vehicleRoutes?: VehicleRoute[];
   weatherRoutes?: RouteWeather[];
   weatherMarkers?: WeatherMarker[];
-  supplyRisk?: SupplyRiskResult[];
 }
 
 export interface RouteInstruction {
@@ -185,7 +163,6 @@ export interface LayerVisibility {
   lowEmissionZones: boolean;
   restrictedZones: boolean;
   route: boolean;
-  supplyRisk: boolean;
 }
 
 export interface SearchLocation {

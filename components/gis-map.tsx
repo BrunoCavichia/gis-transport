@@ -65,11 +65,10 @@ export function GISMap() {
     lowEmissionZones: false,
     restrictedZones: false,
     route: true,
-    supplyRisk: true,
   });
 
   const [routeData, setRouteData] = useState<RouteData | null>(null);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [, setWeather] = useState<WeatherData | null>(null);
   const [routePoints, setRoutePoints] = useState<{
     start: [number, number] | null;
     end: [number, number] | null;
@@ -83,7 +82,7 @@ export function GISMap() {
   const [fleetMode, setFleetMode] = useState(false);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const [showCustomPOIs, setShowCustomPOIs] = useState(true);
-  const [addingCustomPOI, setAddingCustomPOI] = useState(false);
+
   // Después de los otros estados, añade:
   const [pickingPOILocation, setPickingPOILocation] = useState(false);
   const [pickedPOICoords, setPickedPOICoords] = useState<
@@ -130,7 +129,7 @@ export function GISMap() {
     setDynamicGasStations([]);
     setIsCalculatingRoute(false);
     setShowCustomPOIs(false);
-    setAddingCustomPOI(false);
+
     setPickedPOICoords(null);
     setPickedJobCoords(null);
     setPickingPOILocation(false);
@@ -141,7 +140,6 @@ export function GISMap() {
       lowEmissionZones: false,
       restrictedZones: false,
       route: true,
-      supplyRisk: true,
     });
     setSelectedVehicle(VEHICLE_TYPES[0]);
   }, [clearFleet]);
@@ -222,11 +220,9 @@ export function GISMap() {
         .map((p) => ({ id: p.id, coords: p.position })),
     });
 
-    if (key === lastRoutingKeyRef.current) {
-      return;
-    }
-
+    if (key === lastRoutingKeyRef.current) return;
     lastRoutingKeyRef.current = key;
+
     const selectedPOIsAsJobs = customPOIs
       .filter((poi) => poi.selectedForFleet)
       .map((poi) => ({
@@ -236,16 +232,6 @@ export function GISMap() {
       }));
 
     const allFleetJobs = [...fleetJobs, ...selectedPOIsAsJobs];
-
-    const totalLocations = fleetVehicles.length + allFleetJobs.length;
-
-    if (totalLocations > 50) {
-      alert(
-        `Too many locations (${totalLocations}). The maximum is 50 (vehicles + jobs).`
-      );
-      return;
-    }
-
     if (fleetVehicles.length === 0 || allFleetJobs.length === 0) {
       alert("You need at least 1 vehicle and 1 job or selected POI");
       return;
@@ -254,288 +240,23 @@ export function GISMap() {
     setIsCalculatingRoute(true);
 
     try {
-      // Recopilar todas las coordenadas
-      const allCoords = [
-        ...fleetVehicles.map((v) => v.coords),
-        ...allFleetJobs.map((j) => j.coords),
-      ];
-
-      let correctedLocations = allCoords;
-
-      // Intentar snap de todas las coordenadas ANTES de routing
-      try {
-        const snapResponse = await fetch("/api/snap-to-road", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ coordinates: allCoords }),
-        });
-
-        if (snapResponse.ok) {
-          const snapData = await snapResponse.json();
-          correctedLocations = snapData.snapped.map((s: any) => s.location);
-
-          const snappedCount = snapData.snapped.filter(
-            (s: any) => s.snapped
-          ).length;
-          if (snappedCount > 0) {
-          }
-        }
-      } catch (snapError) {
-        console.warn("Snap validation failed, using original coordinates");
-      }
-
-      // Normalizar coordenadas a [lon, lat] para ORS
-      const allLocations: [number, number][] =
-        correctedLocations.map(normalizeToLonLat);
-
-      // ORS matrix espera [lat, lon]
-      const coordinatesForMatrix = allLocations.map(([lon, lat]) => [lat, lon]);
-
-      // Request matrix
-      const matrixRes = await fetch("/api/matrix", {
+      const res = await fetch("/api/gis/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coordinates: coordinatesForMatrix }),
+        body: JSON.stringify({
+          vehicles: fleetVehicles,
+          jobs: allFleetJobs,
+          startTime: new Date().toISOString()
+        }),
       });
-      if (!matrixRes.ok) throw new Error("Error in matrix API");
-      const matrixData = await matrixRes.json();
-      const cleanedMatrix = matrixData.cost.map((row: number[]) =>
-        row.map((val: number) =>
-          isFinite(val) && val >= 0 ? Math.round(val) : 999999
-        )
-      );
 
-      const jobsPerVehicle = Math.ceil(
-        allFleetJobs.length / fleetVehicles.length
-      );
-      const vroomPayload = {
-        vehicles: fleetVehicles.map((v, idx) => ({
-          id: idx,
-          start_index: idx,
-          profile: "car",
-          capacity: [jobsPerVehicle + 1],
-        })),
-        jobs: allFleetJobs.map((j, jidx) => ({
-          id: fleetVehicles.length + jidx,
-          location_index: fleetVehicles.length + jidx,
-          service: 300,
-          delivery: [1],
-        })),
-        matrix: cleanedMatrix,
-      };
-
-      const vroomRes = await fetch("/api/vroom", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(vroomPayload),
-      });
-      if (!vroomRes.ok) throw new Error("Error in VROOM");
-      const vroomResult = await vroomRes.json();
-
-      if (!vroomResult.routes || vroomResult.routes.length === 0) {
-        throw new Error("VROOM did not return any routes");
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Optimization failed");
       }
 
-      const vehicleRoutes: Array<{
-        vehicleId: number;
-        coordinates: [number, number][];
-        distance: number;
-        duration: number;
-        color: string;
-        jobsAssigned: number;
-      }> = [];
-
-      let totalDistance = 0;
-      let totalDuration = 0;
-
-      for (const route of vroomResult.routes) {
-
-        const waypoints: [number, number][] = [];
-        let jobCount = 0;
-
-        for (const step of route.steps || []) {
-          if (typeof step.location_index === "number") {
-            const [lon, lat] = allLocations[step.location_index];
-            waypoints.push([lat, lon]);
-            if (step.type === "job") jobCount++;
-          }
-        }
-
-        if (waypoints.length >= 2) {
-          const routingRes = await fetch("/api/routing", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ coordinates: waypoints }),
-          });
-
-          // Si el routing falla (502), intentar con las coordenadas del fallback
-          if (!routingRes.ok) {
-            const errorData = await routingRes.json().catch(() => ({}));
-
-            // Si tiene fallback coordinates, usar esas
-            const fallbackCoords = errorData.coordinates || waypoints;
-
-            console.warn(
-              `⚠️ Routing failed for vehicle ${route.vehicle}, using straight line`
-            );
-
-            vehicleRoutes.push({
-              vehicleId: route.vehicle,
-              coordinates: fallbackCoords,
-              distance: 0,
-              duration: route.duration || 0,
-              color: ROUTE_COLORS[route.vehicle % ROUTE_COLORS.length],
-              jobsAssigned: jobCount,
-            });
-            continue;
-          }
-
-          const routingData = await routingRes.json();
-          vehicleRoutes.push({
-            vehicleId: route.vehicle,
-            coordinates: routingData.coordinates,
-            distance: routingData.distance || 0,
-            duration: routingData.duration || 0,
-            color: ROUTE_COLORS[route.vehicle % ROUTE_COLORS.length],
-            jobsAssigned: jobCount,
-          });
-
-          totalDistance += routingData.distance || 0;
-          totalDuration += routingData.duration || 0;
-        }
-      }
-
-      const allRouteCoordinates = vehicleRoutes.flatMap((r) => r.coordinates);
-      if (allRouteCoordinates.length === 0)
-        throw new Error("No route coordinates were generated");
-
-      try {
-        const weatherRes = await fetch("/api/weather", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ vehicleRoutes }),
-        });
-        const weatherData = weatherRes.ok
-          ? await weatherRes.json()
-          : { routes: [] };
-
-        // --- Integrated Supply Risk Decision Engine ---
-        let supplyRiskResults = [];
-        try {
-          const riskRes = await fetch("/api/supply-risk", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ vehicleRoutes, fleetVehicles, layers }),
-          });
-          if (riskRes.ok) {
-            const data = await riskRes.json();
-            supplyRiskResults = data.results || [];
-          }
-        } catch (riskErr) {
-          console.error("Supply risk analysis failed:", riskErr);
-        }
-
-        // Create context for API snapshot
-        const context = {
-          fleet: {
-            totalVehicles: fleetVehicles.length,
-            activeVehicles: vehicleRoutes.length,
-            vehiclesByType: fleetVehicles.reduce((acc, v) => ({
-              ...acc,
-              [v.type.id]: (acc[v.type.id] || 0) + 1
-            }), {} as Record<string, number>),
-            vehicles: fleetVehicles.map(v => ({
-              id: v.id,
-              type: v.type.id,
-              label: v.type.label,
-              position: v.coords,
-              isActive: vehicleRoutes.some(r => r.vehicleId === parseInt(v.id)) // rough check assuming numeric IDs match index
-            }))
-          },
-          optimization: {
-            status: 'optimized',
-            totalJobs: allFleetJobs.length,
-            assignedJobs: vehicleRoutes.reduce((acc, r) => acc + r.jobsAssigned, 0),
-            unassignedJobs: allFleetJobs.length - vehicleRoutes.reduce((acc, r) => acc + r.jobsAssigned, 0),
-            routes: vehicleRoutes.map(r => ({
-              vehicleId: r.vehicleId,
-              jobsAssigned: r.jobsAssigned,
-              distance: r.distance,
-              duration: r.duration,
-              distanceFormatted: `${(r.distance / 1000).toFixed(1)} km`,
-              durationFormatted: `${Math.floor(r.duration / 3600)}h ${Math.floor((r.duration % 3600) / 60)}m`,
-              color: r.color,
-              startPoint: r.coordinates[0],
-              endPoint: r.coordinates[r.coordinates.length - 1],
-              waypoints: r.coordinates
-            })),
-            totals: {
-              distance: totalDistance,
-              duration: totalDuration,
-              distanceFormatted: `${(totalDistance / 1000).toFixed(1)} km`,
-              durationFormatted: `${Math.floor(totalDuration / 3600)}h ${Math.floor((totalDuration % 3600) / 60)}m`
-            }
-          },
-          weather: {
-            overallRisk: 'LOW', // Default/Placeholder as weatherData is complex
-            alertCount: weatherData.routes?.reduce((acc: number, r: any) => acc + (r.alerts?.length || 0), 0) || 0,
-            alertsByType: {},
-            affectedRoutes: weatherData.routes?.filter((r: any) => r.alerts?.length > 0).length || 0,
-            alerts: []
-          },
-          supplyRisk: {
-            overallRisk: supplyRiskResults.length > 0 ? 'HIGH' : 'LOW',
-            vehiclesAtRisk: supplyRiskResults.length,
-            criticalAlerts: supplyRiskResults.length, // Assuming every risk is a critical alert for now
-            suggestedStops: supplyRiskResults.length,
-            risks: supplyRiskResults.map((r: any) => ({
-              vehicleId: r.vehicleIndex,
-              riskLevel: 'HIGH', // If it's in the results, it's a risk
-              suggestedStation: r.suggestedStation ? {
-                name: r.suggestedStation.name,
-                type: r.suggestedStation.type,
-                position: r.suggestedStation.position,
-                deviationKm: 0
-              } : undefined
-            }))
-          },
-          kpis: {
-            fleetUtilization: (vehicleRoutes.length / fleetVehicles.length) * 100,
-            routeEfficiency: 100,
-            totalDistanceKm: totalDistance / 1000,
-            totalDurationHours: totalDuration / 3600,
-            averageJobsPerVehicle: allFleetJobs.length / fleetVehicles.length,
-            weatherRiskScore: 0,
-            supplyRiskScore: supplyRiskResults.length * 10,
-            activeAlerts: 0
-          }
-        };
-
-        setRouteData({
-          coordinates: [],
-          distance: totalDistance,
-          duration: totalDuration,
-          vehicleRoutes,
-          weatherRoutes: weatherData.routes || [],
-          supplyRisk: supplyRiskResults,
-        });
-
-        // Persist Internal Snapshot
-        fetch('/api/gis/snapshot', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(context)
-        }).catch(err => console.error("Failed to save background snapshot", err));
-      } catch {
-        setRouteData({
-          coordinates: [],
-          distance: totalDistance,
-          duration: totalDuration,
-          vehicleRoutes,
-          weatherRoutes: [],
-        });
-      }
-
+      const routeData: RouteData = await res.json();
+      setRouteData(routeData);
       setLayers((prev) => ({ ...prev, route: true }));
     } catch (err) {
       console.error("Routing error:", err);

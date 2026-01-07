@@ -19,7 +19,6 @@ model OptimizationSnapshot {
   fleetData       String // JSON content of FleetOverview
   optimizationData String // JSON content of OptimizationSummary
   weatherData     String // JSON content of WeatherSummary
-  supplyRiskData  String // JSON content of SupplyRiskSummary
   kpiData         String // JSON content of DashboardKPIs
   
   status String // "optimized", "failed", etc.

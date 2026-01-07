@@ -4,7 +4,6 @@ import {
     FleetOverview,
     OptimizationSummary,
     WeatherSummary,
-    SupplyRiskSummary,
     DashboardKPIs
 } from '@/lib/types/api-types';
 
@@ -12,7 +11,6 @@ export interface GisDataContext {
     fleet: FleetOverview;
     optimization: OptimizationSummary;
     weather: WeatherSummary;
-    supplyRisk: SupplyRiskSummary;
     kpis: DashboardKPIs;
 }
 
@@ -51,7 +49,6 @@ export class GisDataService {
                 fleetData: JSON.stringify(context.fleet),
                 optimizationData: JSON.stringify(context.optimization),
                 weatherData: JSON.stringify(context.weather),
-                supplyRiskData: JSON.stringify(context.supplyRisk),
                 kpiData: JSON.stringify(context.kpis),
                 status: context.optimization.status,
                 // Create the analytics relation
@@ -94,13 +91,12 @@ export class GisDataService {
             const fleet = JSON.parse(snapshot.fleetData) as FleetOverview;
             const optimization = JSON.parse(snapshot.optimizationData) as OptimizationSummary;
             const weather = JSON.parse(snapshot.weatherData) as WeatherSummary;
-            const supplyRisk = JSON.parse(snapshot.supplyRiskData) as SupplyRiskSummary;
             const kpis = JSON.parse(snapshot.kpiData) as DashboardKPIs;
 
             // Calculate Analytics Aggregates
-            const totalDistance = recentRuns.reduce((acc, run) => acc + run.totalDistanceMeters, 0);
-            const totalDuration = recentRuns.reduce((acc, run) => acc + run.totalDurationSeconds, 0);
-            const totalScore = recentRuns.reduce((acc, run) => acc + (run.utilityScore || 0), 0);
+            const totalDistance = recentRuns.reduce((acc: number, run) => acc + run.totalDistanceMeters, 0);
+            const totalDuration = recentRuns.reduce((acc: number, run) => acc + run.totalDurationSeconds, 0);
+            const totalScore = recentRuns.reduce((acc: number, run) => acc + (run.utilityScore || 0), 0);
             const avgScore = recentRuns.length > 0 ? totalScore / recentRuns.length : 0;
 
             const analytics = {
@@ -127,7 +123,6 @@ export class GisDataService {
                 fleet,
                 optimization,
                 weather,
-                supplyRisk,
                 kpis,
                 analytics
             };
