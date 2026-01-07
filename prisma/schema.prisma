@@ -60,4 +60,3 @@ model VehicleMetric {
   jobsAssigned        Int
   efficiencyFactor    Float? // Custom metric (e.g., loaded distance / total distance)
 }
-

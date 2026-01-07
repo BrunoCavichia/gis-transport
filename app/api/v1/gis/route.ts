@@ -15,7 +15,22 @@ export async function GET(request: Request) {
             );
         }
 
-        return NextResponse.json(successResponse(dashboardData));
+        // Generate ETag based on valid generatedAt timestamp
+        // We use a simple Weak ETag format: W/"<timestamp-epoch>"
+        const etag = `W/"${new Date(dashboardData.meta.generatedAt).getTime().toString()}"`;
+
+        // Check for Conditional Request
+        const ifNoneMatch = request.headers.get('if-none-match');
+
+        if (ifNoneMatch === etag) {
+            return new NextResponse(null, { status: 304 });
+        }
+
+        const response = NextResponse.json(successResponse(dashboardData));
+        response.headers.set('ETag', etag);
+        response.headers.set('Cache-Control', 'private, must-revalidate, max-age=10'); // Client checks every 10s max
+
+        return response;
     } catch (err) {
         return NextResponse.json(
             errorResponse('INTERNAL_ERROR', 'Failed to fetch GIS data', String(err)),
