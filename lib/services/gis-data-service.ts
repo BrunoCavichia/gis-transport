@@ -5,7 +5,7 @@ import {
     OptimizationSummary,
     WeatherSummary,
     DashboardKPIs,
-    DashboardMeta
+    
 } from '@/lib/types/api-types';
 import { ZoneService } from './zone-service';
 import { POIService } from './poi-service';

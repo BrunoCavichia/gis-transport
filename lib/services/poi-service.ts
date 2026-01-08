@@ -60,13 +60,7 @@ export class POIService {
                 type: "ev",
                 operator: station.OperatorInfo?.Title || "Unknown",
                 address: station.AddressInfo?.AddressLine1,
-                town: station.AddressInfo?.Town,
-                postcode: station.AddressInfo?.Postcode,
                 connectors: station.Connections?.length || 0,
-                connectionTypes: (station.Connections || []).map((c: any) => c.ConnectionType?.Title).filter(Boolean),
-                powerKW: station.Connections?.[0]?.PowerKW,
-                status: station.StatusType?.Title || "Unknown",
-                isOperational: station.StatusType?.IsOperational ?? true,
             })).filter((s: any) => s.position[0] !== null && s.position[1] !== null);
 
             this.evCache.set(key, { data: stations, timestamp: Date.now() });
@@ -117,10 +111,6 @@ export class POIService {
                     brand: el.tags?.brand,
                     operator: el.tags?.operator,
                     address: el.tags?.["addr:street"],
-                    fuel_diesel: el.tags?.["fuel:diesel"] === "yes",
-                    fuel_octane_95: el.tags?.["fuel:octane_95"] === "yes",
-                    fuel_octane_98: el.tags?.["fuel:octane_98"] === "yes",
-                    opening_hours: el.tags?.opening_hours,
                 };
             }).filter((s: any) => s !== null);
 
