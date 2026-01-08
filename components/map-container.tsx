@@ -25,7 +25,7 @@ import type {
 import { LeafletMouseEvent } from "leaflet";
 import { createWeatherIcons } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
-import { useLoadingLayers } from "@/hooks/useLoadingLayers";
+import { useLoadingLayers } from "@/hooks/use-loading-layers";
 import { usePOICache } from "@/hooks/use-poi-cache";
 import { useZoneCache } from "@/hooks/use-zone-cache";
 import { WeatherPanel } from "./weather-panel";

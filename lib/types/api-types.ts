@@ -20,6 +20,8 @@ export interface GisDashboardData {
     optimization: OptimizationSummary;
     weather: WeatherSummary;
     kpis: DashboardKPIs;
+    zones?: any[]; // Simplified for now, or use Zone[] if imported
+    pois?: any[];  // Simplified for now, or use POI[] if imported
     analytics?: DashboardAnalytics; // New section for Historical/BI data
 }
 
@@ -116,4 +118,6 @@ export interface DashboardKPIs {
     averageJobsPerVehicle: number;
     weatherRiskScore: number;        // 0-100
     activeAlerts: number;
+    nearbyZonesCount?: number;
+    nearbyPOIsCount?: number;
 }

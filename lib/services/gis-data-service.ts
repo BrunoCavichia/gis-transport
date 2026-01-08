@@ -4,14 +4,18 @@ import {
     FleetOverview,
     OptimizationSummary,
     WeatherSummary,
-    DashboardKPIs
+    DashboardKPIs,
+    DashboardMeta
 } from '@/lib/types/api-types';
+import { ZoneService } from './zone-service';
+import { POIService } from './poi-service';
 
 export interface GisDataContext {
     fleet: FleetOverview;
     optimization: OptimizationSummary;
     weather: WeatherSummary;
     kpis: DashboardKPIs;
+    includeGeoData?: boolean;
 }
 
 export class GisDataService {
@@ -63,8 +67,9 @@ export class GisDataService {
 
     /**
      * Retrieves the latest GIS state snapshot from SQLite.
+     * Optionally fetches real-time geo-data (zones/POIs) if requested.
      */
-    static async getLatestSnapshot(): Promise<GisDashboardData | null> {
+    static async getLatestSnapshot(options: { includeGeoData?: boolean } = {}): Promise<GisDashboardData | null> {
         const snapshot = await prisma.optimizationSnapshot.findFirst({
             orderBy: { createdAt: 'desc' },
         });
@@ -92,6 +97,28 @@ export class GisDataService {
             const optimization = JSON.parse(snapshot.optimizationData) as OptimizationSummary;
             const weather = JSON.parse(snapshot.weatherData) as WeatherSummary;
             const kpis = JSON.parse(snapshot.kpiData) as DashboardKPIs;
+
+            let zones: any[] | undefined;
+            let pois: any[] | undefined;
+
+            // If geo-data requested, pick a representative point (e.g. first vehicle or map center if we had it)
+            if (options.includeGeoData && fleet.vehicles.length > 0) {
+                const samplePos = fleet.vehicles[0].position;
+                if (samplePos) {
+                    const [lat, lon] = samplePos;
+                    // Run in parallel
+                    [zones, pois] = await Promise.all([
+                        ZoneService.getZones(lat, lon, 10000),
+                        Promise.all([
+                            POIService.getEVStations(lat, lon, 5),
+                            POIService.getGasStations(lat, lon, 5000)
+                        ]).then(([ev, gas]) => [...ev, ...gas])
+                    ]);
+
+                    kpis.nearbyZonesCount = zones.length;
+                    kpis.nearbyPOIsCount = pois.length;
+                }
+            }
 
             // Calculate Analytics Aggregates
             const totalDistance = recentRuns.reduce((acc: number, run) => acc + run.totalDistanceMeters, 0);
@@ -124,7 +151,9 @@ export class GisDataService {
                 optimization,
                 weather,
                 kpis,
-                analytics
+                analytics,
+                zones,
+                pois
             };
         } catch (e) {
             console.error("Failed to parse snapshot data", e);
