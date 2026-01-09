@@ -5,7 +5,5 @@ CREATE TABLE "OptimizationSnapshot" (
     "fleetData" TEXT NOT NULL,
     "optimizationData" TEXT NOT NULL,
     "weatherData" TEXT NOT NULL,
-    "supplyRiskData" TEXT NOT NULL,
-    "kpiData" TEXT NOT NULL,
     "status" TEXT NOT NULL
 );

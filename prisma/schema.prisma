@@ -19,7 +19,6 @@ model OptimizationSnapshot {
   fleetData       String // JSON content of FleetOverview
   optimizationData String // JSON content of OptimizationSummary
   weatherData     String // JSON content of WeatherSummary
-  kpiData         String // JSON content of DashboardKPIs
   
   status String // "optimized", "failed", etc.
 
@@ -35,10 +34,7 @@ model OptimizationRun {
   snapshot   OptimizationSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
 
   // Aggregated Metrics
-  totalDistanceMeters Int
-  totalDurationSeconds Int
   totalJobs           Int
-  utilityScore        Float? // Placeholder for an efficiency score
 
   // Relations
   vehicleMetrics VehicleMetric[]
@@ -54,8 +50,5 @@ model VehicleMetric {
   vehicleType String
   
   // Metrics
-  totalDistanceMeters Int
-  totalDurationSeconds Int
   jobsAssigned        Int
-  efficiencyFactor    Float? // Custom metric (e.g., loaded distance / total distance)
 }
