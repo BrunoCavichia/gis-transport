@@ -110,8 +110,7 @@ interface MapContainerProps {
   pickedPOICoords?: [number, number] | null;
   pickedJobCoords?: [number, number] | null;
   toggleLayer: (layer: keyof LayerVisibility) => void;
-  onLEZonesUpdate?: (zones: Zone[]) => void;
-  onRestrictedZonesUpdate?: (zones: Zone[]) => void;
+  onZonesUpdate?: (zones: Zone[]) => void;
   isInteracting?: boolean;
 }
 
@@ -127,10 +126,11 @@ function MapEventHandler({
   isRouting,
   routePoints,
   setRoutePoints,
+  setRouteData,
+  setWeather,
   setDynamicEVStations,
   setDynamicGasStations,
-  setDynamicLEZones,
-  setDynamicRestrictedZones,
+  setDynamicZones,
   setMapCenter,
   layers,
   selectedVehicle,
@@ -138,8 +138,7 @@ function MapEventHandler({
   wrapAsync,
   poiCache,
   mapCenter,
-  onLEZonesUpdate,
-  onRestrictedZonesUpdate,
+  onZonesUpdate,
   setZoom,
 }: {
   isRouting: boolean;
@@ -152,8 +151,7 @@ function MapEventHandler({
   setWeather: (data: WeatherData | null) => void;
   setDynamicEVStations: (stations: POI[]) => void;
   setDynamicGasStations: (stations: POI[]) => void;
-  setDynamicLEZones: (zones: Zone[]) => void;
-  setDynamicRestrictedZones: (zones: Zone[]) => void;
+  setDynamicZones: (zones: Zone[]) => void;
   setMapCenter: (center: [number, number]) => void;
   layers: LayerVisibility;
   selectedVehicle: VehicleType;
@@ -161,18 +159,15 @@ function MapEventHandler({
   wrapAsync: (fn: () => Promise<void>) => Promise<void>;
   poiCache: ReturnType<typeof usePOICache>;
   mapCenter: [number, number];
-  onLEZonesUpdate?: (zones: Zone[]) => void;
-  onRestrictedZonesUpdate?: (zones: Zone[]) => void;
+  onZonesUpdate?: (zones: Zone[]) => void;
   setZoom: (zoom: number) => void;
 }) {
   const map = useMap();
   const zoneCache = useZoneCache(map, layers, selectedVehicle, wrapAsync);
   useEffect(() => {
-    setDynamicLEZones(zoneCache.LEZones);
-    setDynamicRestrictedZones(zoneCache.restrictedZones);
-    onLEZonesUpdate?.(zoneCache.LEZones);
-    onRestrictedZonesUpdate?.(zoneCache.restrictedZones);
-  }, [zoneCache.LEZones, zoneCache.restrictedZones, setDynamicLEZones, setDynamicRestrictedZones, onLEZonesUpdate, onRestrictedZonesUpdate]);
+    setDynamicZones(zoneCache.zones);
+    onZonesUpdate?.(zoneCache.zones);
+  }, [zoneCache.zones, setDynamicZones, onZonesUpdate]);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchCenter = useRef<string>("");
 
@@ -259,6 +254,7 @@ function MapEventHandler({
   useMapEvents({
     click: (e: LeafletMouseEvent) => {
       const point: [number, number] = [e.latlng.lat, e.latlng.lng];
+      console.log("Map clicked at (lat, lon):", point[0], point[1]);
       if (onMapClick) {
         onMapClick(point);
         return;
@@ -339,19 +335,21 @@ export default function MapContainer({
   pickedPOICoords,
   pickedJobCoords,
   toggleLayer,
-  onLEZonesUpdate,
-  onRestrictedZonesUpdate,
+  onZonesUpdate,
   isInteracting = false,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [zoom, setZoom] = useState(12);
-  const [dynamicLEZones, setDynamicLEZones] = useState<Zone[]>([]);
-  const [dynamicRestrictedZones, setDynamicRestrictedZones] = useState<Zone[]>(
-    []
-  );
+  const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
 
   const { loading, wrapAsync } = useLoadingLayers();
   const poiCache = usePOICache();
+
+  useEffect(() => {
+    if (fleetJobs && fleetJobs.length > 0) {
+      console.log("MapContainer rendering jobs:", fleetJobs.length, fleetJobs);
+    }
+  }, [fleetJobs]);
 
   useEffect(() => setMounted(true), []);
 
@@ -391,15 +389,6 @@ export default function MapContainer({
 
   const defaultCenter: [number, number] = [40.4168, -3.7038];
   const defaultZoom = 12;
-  const mergedZones = useMemo(() => {
-    const allZones = [...dynamicLEZones, ...dynamicRestrictedZones];
-    const mapById = new Map<string, Zone>();
-    allZones.forEach((z, idx) => {
-      const key = `${z.id}-${idx}`;
-      mapById.set(key, z);
-    });
-    return Array.from(mapById.values());
-  }, [dynamicLEZones, dynamicRestrictedZones]);
 
   if (!mounted) {
     return (
@@ -435,8 +424,7 @@ export default function MapContainer({
           setWeather={setWeather}
           setDynamicEVStations={setDynamicEVStations}
           setDynamicGasStations={setDynamicGasStations}
-          setDynamicLEZones={setDynamicLEZones}
-          setDynamicRestrictedZones={setDynamicRestrictedZones}
+          setDynamicZones={setDynamicZones}
           setMapCenter={setMapCenter}
           onMapClick={onMapClick}
           wrapAsync={wrapAsync}
@@ -444,65 +432,58 @@ export default function MapContainer({
           mapCenter={mapCenter}
           layers={layers}
           selectedVehicle={selectedVehicle}
-          onLEZonesUpdate={onLEZonesUpdate}
-          onRestrictedZonesUpdate={onRestrictedZonesUpdate}
+          onZonesUpdate={onZonesUpdate}
           setZoom={setZoom}
         />
 
-        {mergedZones
-          .filter(
-            (zone) =>
-              (zone.type?.toUpperCase() === "LEZ" && layers.lowEmissionZones) ||
-              (zone.type?.toUpperCase() === "RESTRICTED" && layers.restrictedZones)
-          )
-          .map((zone, idx) => {
-            const hasAccess = canAccessZone(zone);
-            const zType = zone.type?.toUpperCase();
-            return (
-              <Polygon
-                key={`${zone.id}-${idx}`}
-                positions={zone.coordinates}
-                pathOptions={{
-                  color:
-                    zType === "LEZ"
-                      ? hasAccess
-                        ? "#10b981"
-                        : "#ef4444"
-                      : "#ef4444",
-                  fillColor:
-                    zType === "LEZ"
-                      ? hasAccess
-                        ? "#10b981"
-                        : "#ef4444"
-                      : "#ef4444",
-                  fillOpacity:
-                    zType === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
-                  weight: zType === "LEZ" ? 1 : 0.5,
-                  dashArray: zType === "LEZ" ? undefined : "4,4",
-                }}
-                interactive={!isInteracting}
-                bubblingMouseEvents={false}
-              >
-                {!isInteracting && (
-                  <Popup closeButton={false} autoClose={false} className="zone-popup">
-                    <div style={{ fontSize: 12 }}>
-                      <strong>{zone.name}</strong>
-                      {zType === "LEZ" && (
-                        <div
-                          style={{
-                            color: hasAccess ? "#10b981" : "#ef4444",
-                            marginTop: 4,
-                          }}
-                        >
-                          {hasAccess ? "Access OK" : "Restricted"}
-                        </div>
-                      )}
-                    </div>
-                  </Popup>
-                )}
-              </Polygon>
-            );
-          })}
+        {layers.cityZones && dynamicZones.map((zone, idx) => {
+          const hasAccess = canAccessZone(zone);
+          const zType = zone.type?.toUpperCase() === "LEZ" || zone.type === "Environmental" ? "LEZ" : "RESTRICTED";
+          return (
+            <Polygon
+              key={`${zone.id}-${idx}`}
+              positions={zone.coordinates}
+              pathOptions={{
+                color:
+                  zType === "LEZ"
+                    ? hasAccess
+                      ? "#10b981"
+                      : "#ef4444"
+                    : "#ef4444",
+                fillColor:
+                  zType === "LEZ"
+                    ? hasAccess
+                      ? "#10b981"
+                      : "#ef4444"
+                    : "#ef4444",
+                fillOpacity:
+                  zType === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
+                weight: zType === "LEZ" ? 1 : 0.5,
+                dashArray: zType === "LEZ" ? undefined : "4,4",
+              }}
+              interactive={!isInteracting}
+              bubblingMouseEvents={false}
+            >
+              {!isInteracting && (
+                <Popup closeButton={false} autoClose={false} className="zone-popup">
+                  <div style={{ fontSize: 12 }}>
+                    <strong>{zone.name}</strong>
+                    {zType === "LEZ" && (
+                      <div
+                        style={{
+                          color: hasAccess ? "#10b981" : "#ef4444",
+                          marginTop: 4,
+                        }}
+                      >
+                        {hasAccess ? "Access OK" : "Restricted"}
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              )}
+            </Polygon>
+          );
+        })}
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
           <>

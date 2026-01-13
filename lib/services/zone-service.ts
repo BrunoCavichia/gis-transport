@@ -55,7 +55,8 @@ export class ZoneService {
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
 
-        const query = `[out:json][timeout:60];
+        // Optimized query: Only fetch LEZ and limited traffic zones for speed
+        const query = `[out:json][timeout:30];
             (
                 relation["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
                 way["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
@@ -63,10 +64,6 @@ export class ZoneService {
                 way["boundary"="limited_traffic_zone"](around:${radiusKm * 1000},${lat},${lon});
                 relation["zone:environmental"](around:${radiusKm * 1000},${lat},${lon});
                 way["zone:environmental"](around:${radiusKm * 1000},${lat},${lon});
-                relation["highway"="pedestrian"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
-                way["highway"="pedestrian"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
-                relation["access"="no"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
-                way["access"="no"]["area"="yes"](around:${radiusKm * 1000},${lat},${lon});
             );
             (._;>;);
             out geom;`;

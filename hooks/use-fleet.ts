@@ -137,6 +137,19 @@ export function useFleet(
     setFleetJobs((prev) => prev.filter((j) => j.id !== jobId));
   }, []);
 
+  /**
+   * Update a vehicle's position (used for live GPS tracking)
+   * This function is called when receiving GPS updates from the API.
+   * In the future, this will be called with real GPS coordinates.
+   */
+  const updateVehiclePosition = useCallback((vehicleId: string, newCoords: [number, number]) => {
+    setFleetVehicles((prev) =>
+      prev.map((v) =>
+        v.id === vehicleId ? { ...v, coords: newCoords } : v
+      )
+    );
+  }, []);
+
   // Return state and functions that other components can use
   return {
     // State
@@ -157,5 +170,6 @@ export function useFleet(
     addJobAt,
     removeVehicle,
     removeJob,
+    updateVehiclePosition,
   };
 }

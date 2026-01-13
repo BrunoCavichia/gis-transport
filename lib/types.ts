@@ -175,8 +175,7 @@ export interface WeatherData {
 export interface LayerVisibility {
   gasStations: boolean;
   evStations: boolean;
-  lowEmissionZones: boolean;
-  restrictedZones: boolean;
+  cityZones: boolean;
   route: boolean;
 }
 

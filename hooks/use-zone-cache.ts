@@ -9,8 +9,7 @@ export function useZoneCache(
   selectedVehicle: VehicleType,
   wrapAsync: (fn: () => Promise<void>) => Promise<void>
 ) {
-  const [LEZones, setLEZones] = useState<Zone[]>([]);
-  const [restrictedZones, setRestrictedZones] = useState<Zone[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
   const lastZoneFetch = useRef<{ lat: number; lon: number } | null>(null);
   const isLoading = useRef(false);
 
@@ -33,13 +32,8 @@ export function useZoneCache(
   const fetchZones = useCallback(async () => {
     if (!map) return;
 
-    const center = map.getCenter();
-    const shouldFetchLE = layers.lowEmissionZones;
-    const shouldFetchRestricted = layers.restrictedZones;
-
-    if (!shouldFetchLE && !shouldFetchRestricted) {
-      setLEZones([]);
-      setRestrictedZones([]);
+    if (!layers.cityZones) {
+      setZones([]);
       return;
     }
 
@@ -49,6 +43,7 @@ export function useZoneCache(
       return;
     }
 
+    const center = map.getCenter();
     const last = lastZoneFetch.current;
     const MIN_DISTANCE_METERS = 500;
     if (
@@ -69,29 +64,21 @@ export function useZoneCache(
           `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=20000&vehicle=${selectedVehicle.label}`
         );
         const data = await res.json();
-        const zones: Zone[] = data.zones || [];
-
-        // Distribute zones to their respective states
-        const lez = zones.filter(z => z.type === "LEZ" || z.type === "Environmental");
-        const restricted = zones.filter(z => z.type !== "LEZ" && z.type !== "Environmental");
-
-        setLEZones(lez);
-        setRestrictedZones(restricted);
+        const fetchedZones: Zone[] = data.zones || [];
+        setZones(fetchedZones);
       } catch (err) {
         console.error("Failed to fetch zones:", err);
-        setLEZones([]);
-        setRestrictedZones([]);
+        setZones([]);
       } finally {
         isLoading.current = false;
       }
     });
   }, [
     map,
-    layers.lowEmissionZones,
-    layers.restrictedZones,
+    layers.cityZones,
     selectedVehicle.label,
     wrapAsync,
   ]);
 
-  return { LEZones, restrictedZones, fetchZones };
+  return { zones, fetchZones };
 }

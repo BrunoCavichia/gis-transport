@@ -6,12 +6,10 @@ import { Sidebar } from "@/components/sidebar";
 import type {
   LayerVisibility,
   POI,
-  CustomPOI,
   VehicleType,
   RouteData,
   WeatherData,
   Zone,
-  ROUTE_COLORS,
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
 import { useFleet } from "@/hooks/use-fleet";
@@ -24,39 +22,11 @@ const MapContainer = dynamic(() => import("@/components/map-container"), {
 
 const DEFAULT_CENTER: [number, number] = [40.4168, -3.7038];
 
-
-// Util: normaliza entrada a [lon, lat] de forma determinista
-function normalizeToLonLat(coords: [number, number]): [number, number] {
-  const [a, b] = coords;
-  if (!Number.isFinite(a) || !Number.isFinite(b)) {
-    throw new Error("Coordinates must be finite numbers");
-  }
-
-  if (Math.abs(a) <= 90 && Math.abs(b) <= 180 && Math.abs(b) > 90) {
-    return [b, a];
-  }
-
-  if (Math.abs(a) > 90 && Math.abs(b) <= 90) {
-    return [a, b];
-  }
-
-  if (Math.abs(a - 40) < 20 && Math.abs(b + 4) < 10) {
-    return [b, a];
-  }
-
-  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
-    return [b, a];
-  }
-
-  return [a, b];
-}
-
 export function GISMap() {
   const [layers, setLayers] = useState<LayerVisibility>({
     gasStations: false,
     evStations: false,
-    lowEmissionZones: false,
-    restrictedZones: false,
+    cityZones: false,
     route: true,
   });
 
@@ -88,10 +58,13 @@ export function GISMap() {
     [number, number] | null
   >(null);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
-  const [activeLEZones, setActiveLEZones] = useState<Zone[]>([]);
-  const [activeRestrictedZones, setActiveRestrictedZones] = useState<Zone[]>([]);
+  const [activeZones, setActiveZones] = useState<Zone[]>([]);
   const [routeErrors, setRouteErrors] = useState<RouteError[]>([]);
   const [routeNotices, setRouteNotices] = useState<RouteNotice[]>([]);
+
+  // Live Tracking state
+  const [isTracking, setIsTracking] = useState(false);
+  const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     fleetVehicles,
@@ -107,6 +80,7 @@ export function GISMap() {
     removeJob,
     isLoadingVehicles,
     fetchVehicles,
+    updateVehiclePosition,
   } = useFleet();
 
   // useEffect to clear route data when vehicles/jobs are removed
@@ -125,6 +99,15 @@ export function GISMap() {
       }
     }
   }, [fleetVehicles, fleetJobs, routeData]);
+
+  // Cleanup tracking on unmount
+  useEffect(() => {
+    return () => {
+      if (trackingIntervalRef.current) {
+        clearInterval(trackingIntervalRef.current);
+      }
+    };
+  }, []);
 
   const {
     customPOIs,
@@ -146,6 +129,11 @@ export function GISMap() {
     setDynamicGasStations([]);
     setIsCalculatingRoute(false);
     setShowCustomPOIs(false);
+    setIsTracking(false);
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current);
+      trackingIntervalRef.current = null;
+    }
 
     setPickedPOICoords(null);
     setPickedJobCoords(null);
@@ -154,8 +142,7 @@ export function GISMap() {
     setLayers({
       gasStations: false,
       evStations: false,
-      lowEmissionZones: false,
-      restrictedZones: false,
+      cityZones: false,
       route: true,
     });
     setSelectedVehicle(VEHICLE_TYPES[0]);
@@ -256,8 +243,6 @@ export function GISMap() {
 
     setIsCalculatingRoute(true);
 
-    const allZones = [...activeLEZones, ...activeRestrictedZones];
-
     try {
       const res = await fetch("/api/gis/optimize", {
         method: "POST",
@@ -266,7 +251,7 @@ export function GISMap() {
           vehicles: fleetVehicles,
           jobs: allFleetJobs,
           startTime: new Date().toISOString(),
-          zones: allZones
+          zones: activeZones
         }),
       });
 
@@ -308,7 +293,59 @@ export function GISMap() {
     } finally {
       setIsCalculatingRoute(false);
     }
-  }, [fleetVehicles, fleetJobs, customPOIs, setLayers, activeLEZones, activeRestrictedZones, selectedVehicle, removeJob]);
+  }, [fleetVehicles, fleetJobs, customPOIs, setLayers, activeZones, selectedVehicle, removeJob]);
+
+  /**
+   * Toggle Live Tracking mode.
+   * When enabled, the system polls the GPS API to update vehicle positions.
+   * The API is structured so that only the endpoint implementation needs to change
+   * when switching from mock data to real GPS devices.
+   */
+  const toggleTracking = useCallback(() => {
+    if (isTracking) {
+      // Stop tracking
+      if (trackingIntervalRef.current) {
+        clearInterval(trackingIntervalRef.current);
+        trackingIntervalRef.current = null;
+      }
+      setIsTracking(false);
+    } else {
+      // Start tracking - pass route data to the API for simulation
+      if (routeData?.vehicleRoutes) {
+        const activeRoutes: Record<string, [number, number][]> = {};
+        routeData.vehicleRoutes.forEach(route => {
+          if (route.vehicleId && route.coordinates) {
+            activeRoutes[route.vehicleId] = route.coordinates;
+          }
+        });
+
+        // Initialize simulation with routes
+        fetch("/api/gps/simulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ routes: activeRoutes, action: "start" })
+        }).catch(err => console.error("Failed to start simulation:", err));
+      }
+
+      setIsTracking(true);
+
+      // Start polling for GPS updates
+      trackingIntervalRef.current = setInterval(async () => {
+        try {
+          const res = await fetch("/api/gps/positions");
+          if (res.ok) {
+            const data = await res.json();
+            // Update each vehicle's position
+            Object.entries(data.positions || {}).forEach(([vehicleId, coords]) => {
+              updateVehiclePosition(vehicleId, coords as [number, number]);
+            });
+          }
+        } catch (err) {
+          console.error("GPS poll error:", err);
+        }
+      }, 2000); // Poll every 2 seconds
+    }
+  }, [isTracking, routeData, updateVehiclePosition]);
 
   return (
     <div className="relative flex h-full w-full">
@@ -368,6 +405,8 @@ export function GISMap() {
         isLoadingVehicles={isLoadingVehicles}
         fetchVehicles={fetchVehicles}
         togglePOISelectionForFleet={togglePOISelectionForFleet}
+        isTracking={isTracking}
+        toggleTracking={toggleTracking}
       />
       <div className="relative flex-1">
         <MapContainer
@@ -393,8 +432,7 @@ export function GISMap() {
           onMapClick={handleMapClick}
           pickedPOICoords={pickedPOICoords}
           pickedJobCoords={pickedJobCoords}
-          onLEZonesUpdate={setActiveLEZones}
-          onRestrictedZonesUpdate={setActiveRestrictedZones}
+          onZonesUpdate={setActiveZones}
           isInteracting={!!addMode || pickingJobLocation || pickingPOILocation || isCalculatingRoute}
         />
 

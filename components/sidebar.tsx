@@ -20,6 +20,7 @@ import {
   Warehouse,
   Eye,
   EyeOff,
+  Radio,
 } from "lucide-react";
 import type { LayerVisibility, VehicleType, CustomPOI } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
@@ -98,6 +99,8 @@ interface SidebarProps {
   onStartPickingJob?: () => void;
   pickedJobCoords?: [number, number] | null;
   isLoadingLayers?: boolean;
+  isTracking?: boolean;
+  toggleTracking?: () => void;
 }
 
 export function Sidebar({
@@ -140,6 +143,8 @@ export function Sidebar({
   onStartPickingJob,
   pickedJobCoords,
   isLoadingLayers = false,
+  isTracking = false,
+  toggleTracking,
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [localIsAddJobOpen, setLocalIsAddJobOpen] = useState(false);
@@ -600,7 +605,7 @@ export function Sidebar({
               {/* Sticky Footer Actions within tab */}
               {fleetMode && (
                 <div className="flex-none p-5 border-t border-border/60 bg-card/95 backdrop-blur-md shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.05)]">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -610,11 +615,26 @@ export function Sidebar({
                         (fleetVehicles.length === 0 &&
                           fleetJobs.length === 0 &&
                           !customPOIs.some((p) => p.selectedForFleet)) ||
-                        isCalculatingRoute
+                        isCalculatingRoute ||
+                        isTracking
                       }
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Clear
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={isTracking ? "default" : "outline"}
+                      size="sm"
+                      className={cn(
+                        "h-11 font-bold transition-all",
+                        isTracking
+                          ? "bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/25"
+                          : "border-green-600/50 text-green-600 hover:bg-green-50"
+                      )}
+                      onClick={toggleTracking}
+                      disabled={fleetVehicles.length === 0 || isCalculatingRoute}
+                    >
+                      <Radio className={cn("h-4 w-4 mr-1", isTracking && "animate-pulse")} />
+                      {isTracking ? "Live" : "Live"}
                     </Button>
                     <Button
                       size="sm"
@@ -624,13 +644,14 @@ export function Sidebar({
                         fleetVehicles.length === 0 ||
                         (fleetJobs.length === 0 &&
                           !customPOIs.some((p) => p.selectedForFleet)) ||
-                        isCalculatingRoute
+                        isCalculatingRoute ||
+                        isTracking
                       }
                     >
                       {isCalculatingRoute ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> ...</>
+                        <><Loader2 className="h-4 w-4 mr-1 animate-spin" /></>
                       ) : (
-                        "Run Routing"
+                        "Route"
                       )}
                     </Button>
                   </div>
