@@ -84,17 +84,20 @@ export class ZoneService {
                 if (coordinates.length < 3) return null;
 
                 // Determine type based on tags
-                let type = "Restricted";
-                if (el.tags?.boundary === "low_emission_zone" || el.tags?.["zone:environmental"]) {
+                let type = "RESTRICTED";
+                const tags = el.tags || {};
+                if (tags.boundary === "low_emission_zone" || tags["zone:environmental"]) {
                     type = "LEZ";
-                } else if (el.tags?.boundary === "limited_traffic_zone") {
-                    type = "LimitedTraffic";
-                } else if (el.tags?.highway === "pedestrian") {
-                    type = "Pedestrian";
+                } else if (tags.boundary === "limited_traffic_zone") {
+                    type = "RESTRICTED";
+                } else if (tags.highway === "pedestrian") {
+                    type = "PEDESTRIAN";
                 }
 
-                let zoneName = el.tags?.name || type;
-                const requiredTags = type === "LEZ" ? ["eco", "zero_emissions"] : [];
+                let zoneName = tags.name || type;
+                // Madrid central and most LEZs allow ECO and Zero Emission
+                const isRestriction = type === "LEZ" || type === "RESTRICTED" || tags["zone:environmental"];
+                const requiredTags = isRestriction ? ["eco", "zero"] : [];
 
                 return {
                     id: `${el.type}-${el.id}`,

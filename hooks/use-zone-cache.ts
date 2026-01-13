@@ -45,8 +45,7 @@ export function useZoneCache(
 
     const MIN_ZOOM_FOR_ZONES = 12;
     if (map.getZoom() < MIN_ZOOM_FOR_ZONES) {
-      setLEZones([]);
-      setRestrictedZones([]);
+      // Keep existing zones for routing context
       return;
     }
 

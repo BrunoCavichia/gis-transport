@@ -10,10 +10,13 @@ import type {
   VehicleType,
   RouteData,
   WeatherData,
+  Zone,
+  ROUTE_COLORS,
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
 import { useFleet } from "@/hooks/use-fleet";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
+import { RouteErrorAlert, type RouteError, type RouteNotice } from "@/components/route-error-alert";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
@@ -21,16 +24,6 @@ const MapContainer = dynamic(() => import("@/components/map-container"), {
 
 const DEFAULT_CENTER: [number, number] = [40.4168, -3.7038];
 
-const ROUTE_COLORS = [
-  "#3B82F6",
-  "#EF4444",
-  "#10B981",
-  "#F59E0B",
-  "#8B5CF6",
-  "#EC4899",
-  "#14B8A6",
-  "#F97316",
-];
 
 // Util: normaliza entrada a [lon, lat] de forma determinista
 function normalizeToLonLat(coords: [number, number]): [number, number] {
@@ -95,6 +88,10 @@ export function GISMap() {
     [number, number] | null
   >(null);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
+  const [activeLEZones, setActiveLEZones] = useState<Zone[]>([]);
+  const [activeRestrictedZones, setActiveRestrictedZones] = useState<Zone[]>([]);
+  const [routeErrors, setRouteErrors] = useState<RouteError[]>([]);
+  const [routeNotices, setRouteNotices] = useState<RouteNotice[]>([]);
 
   const {
     fleetVehicles,
@@ -123,7 +120,9 @@ export function GISMap() {
 
   const clearAll = useCallback(() => {
     clearFleet();
-    setRouteData(null);
+    setRouteErrors([]);
+    setRouteNotices([]);
+    lastRoutingKeyRef.current = "";
     setRoutePoints({ start: null, end: null });
     setDynamicEVStations([]);
     setDynamicGasStations([]);
@@ -239,6 +238,8 @@ export function GISMap() {
 
     setIsCalculatingRoute(true);
 
+    const allZones = [...activeLEZones, ...activeRestrictedZones];
+
     try {
       const res = await fetch("/api/gis/optimize", {
         method: "POST",
@@ -246,7 +247,8 @@ export function GISMap() {
         body: JSON.stringify({
           vehicles: fleetVehicles,
           jobs: allFleetJobs,
-          startTime: new Date().toISOString()
+          startTime: new Date().toISOString(),
+          zones: allZones
         }),
       });
 
@@ -258,13 +260,30 @@ export function GISMap() {
       const routeData: RouteData = await res.json();
       setRouteData(routeData);
       setLayers((prev) => ({ ...prev, route: true }));
+
+      // Process unassigned jobs as errors
+      const unassignedErrors: RouteError[] = (routeData.unassignedJobs || []).map(uj => ({
+        vehicleId: "Unassigned",
+        errorMessage: `${uj.description}: ${uj.reason}`
+      }));
+
+      // Check for errors in individual routes
+      const failedRoutes = routeData.vehicleRoutes?.filter(r => r.error) || [];
+      const routeErrors: RouteError[] = failedRoutes.map(r => ({
+        vehicleId: `Vehicle ${r.vehicleId}`,
+        errorMessage: r.error || "Unknown error"
+      }));
+
+      setRouteErrors([...unassignedErrors, ...routeErrors]);
+      setRouteNotices(routeData.notices || []);
     } catch (err) {
       console.error("Routing error:", err);
+      lastRoutingKeyRef.current = ""; // Allow retry on error
       alert(`Error: ${(err as Error).message}`);
     } finally {
       setIsCalculatingRoute(false);
     }
-  }, [fleetVehicles, fleetJobs, customPOIs, setLayers]);
+  }, [fleetVehicles, fleetJobs, customPOIs, setLayers, activeLEZones, activeRestrictedZones, selectedVehicle]);
 
   return (
     <div className="relative flex h-full w-full">
@@ -349,6 +368,18 @@ export function GISMap() {
           onMapClick={handleMapClick}
           pickedPOICoords={pickedPOICoords}
           pickedJobCoords={pickedJobCoords}
+          onLEZonesUpdate={setActiveLEZones}
+          onRestrictedZonesUpdate={setActiveRestrictedZones}
+          isInteracting={!!addMode || pickingJobLocation || pickingPOILocation || isCalculatingRoute}
+        />
+
+        <RouteErrorAlert
+          errors={routeErrors}
+          notices={routeNotices}
+          onClear={() => {
+            setRouteErrors([]);
+            setRouteNotices([]);
+          }}
         />
       </div>
     </div>

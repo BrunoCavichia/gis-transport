@@ -75,7 +75,7 @@ export function AddJobDialog({
         const lat = parseFloat(latitude);
         const lon = parseFloat(longitude);
 
-        const finalLabel = label.trim() || `Job (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+        const finalLabel = label.trim();
 
         onSubmit([lat, lon], finalLabel);
 

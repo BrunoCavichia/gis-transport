@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Try Nominatim (OSM) for geocoding - no API key required
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         query
@@ -23,7 +22,6 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
 
     const hits = data.map((item: any) => {
-      // Extraer ciudad de varias formas posibles
       const city =
         item.address?.city ||
         item.address?.town ||

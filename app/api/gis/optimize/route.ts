@@ -7,7 +7,7 @@ import { GisDataContext } from "@/lib/services/gis-data-service";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { vehicles, jobs, startTime } = body;
+    const { vehicles, jobs, startTime, zones } = body;
 
     if (!vehicles || !jobs) {
       return NextResponse.json(
@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     // 1. Run the heavy lifting
     const routeData = await RoutingService.optimize(vehicles, jobs, {
       startTime,
+      zones,
     });
 
     const vehicleRoutes = routeData.vehicleRoutes || [];
@@ -77,8 +78,8 @@ export async function POST(req: Request) {
         overallRisk: weatherRoutes.some((r: any) => r.riskLevel === "HIGH")
           ? "HIGH"
           : weatherRoutes.some((r: any) => r.riskLevel === "MEDIUM")
-          ? "MEDIUM"
-          : "LOW",
+            ? "MEDIUM"
+            : "LOW",
         alertCount: weatherRoutes.reduce(
           (acc: number, r: any) => acc + (r.alerts?.length || 0),
           0

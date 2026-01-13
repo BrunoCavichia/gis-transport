@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
-    // Only protect /api/v1/* routes
+export function proxy(request: NextRequest) {
+
     if (request.nextUrl.pathname.startsWith('/api/v1/')) {
         const apiKey = request.headers.get('x-api-key');
         const validKey = process.env.GIS_API_KEY;

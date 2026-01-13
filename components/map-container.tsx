@@ -104,6 +104,9 @@ interface MapContainerProps {
   pickedPOICoords?: [number, number] | null;
   pickedJobCoords?: [number, number] | null;
   toggleLayer: (layer: keyof LayerVisibility) => void;
+  onLEZonesUpdate?: (zones: Zone[]) => void;
+  onRestrictedZonesUpdate?: (zones: Zone[]) => void;
+  isInteracting?: boolean;
 }
 
 const COLORS = {
@@ -129,6 +132,8 @@ function MapEventHandler({
   wrapAsync,
   poiCache,
   mapCenter,
+  onLEZonesUpdate,
+  onRestrictedZonesUpdate,
 }: {
   isRouting: boolean;
   routePoints: { start: [number, number] | null; end: [number, number] | null };
@@ -149,13 +154,17 @@ function MapEventHandler({
   wrapAsync: (fn: () => Promise<void>) => Promise<void>;
   poiCache: ReturnType<typeof usePOICache>;
   mapCenter: [number, number];
+  onLEZonesUpdate?: (zones: Zone[]) => void;
+  onRestrictedZonesUpdate?: (zones: Zone[]) => void;
 }) {
   const map = useMap();
   const zoneCache = useZoneCache(map, layers, selectedVehicle, wrapAsync);
   useEffect(() => {
     setDynamicLEZones(zoneCache.LEZones);
     setDynamicRestrictedZones(zoneCache.restrictedZones);
-  }, [zoneCache.LEZones, zoneCache.restrictedZones, setDynamicLEZones, setDynamicRestrictedZones]);
+    onLEZonesUpdate?.(zoneCache.LEZones);
+    onRestrictedZonesUpdate?.(zoneCache.restrictedZones);
+  }, [zoneCache.LEZones, zoneCache.restrictedZones, setDynamicLEZones, setDynamicRestrictedZones, onLEZonesUpdate, onRestrictedZonesUpdate]);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchCenter = useRef<string>("");
 
@@ -318,6 +327,9 @@ export default function MapContainer({
   pickedPOICoords,
   pickedJobCoords,
   toggleLayer,
+  onLEZonesUpdate,
+  onRestrictedZonesUpdate,
+  isInteracting = false,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicLEZones, setDynamicLEZones] = useState<Zone[]>([]);
@@ -333,19 +345,33 @@ export default function MapContainer({
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {
       if (!zone.requiredTags || zone.requiredTags.length === 0) return true;
-      if (fleetVehicles && selectedVehicleId) {
-        const selectedFleetVehicle = fleetVehicles.find(
-          (v) => v.id === selectedVehicleId
-        );
-        if (selectedFleetVehicle) {
-          return zone.requiredTags.some((tag) =>
-            selectedFleetVehicle.type.tags.includes(tag)
-          );
+
+      // 1. If a specific vehicle is selected (either from fleet or base type), use IT for color
+      if (selectedVehicleId && fleetVehicles) {
+        const selected = fleetVehicles.find(v => v.id === selectedVehicleId);
+        if (selected) {
+          return zone.requiredTags.some(tag => selected.type.tags.includes(tag));
         }
       }
-      return zone.requiredTags.some((tag) =>
-        selectedVehicle.tags.includes(tag)
-      );
+
+      // If no fleet selection but we have a base selected vehicle (from dropdown)
+      if (!selectedVehicleId && selectedVehicle?.tags) {
+        const hasAccess = zone.requiredTags.some(tag => selectedVehicle.tags.includes(tag));
+
+        // If the base selection has NO access, BUT we are in fleet mode, check if ANYONE in fleet has access
+        // to avoid "perma-red" zones if a Zero vehicle is present in the background.
+        // Actually, user explicitly asked to change color when selecting No-Label, so we prioritize the selection.
+        return hasAccess;
+      }
+
+      // 2. Default: Fleet Mode (if no selection, check if ANY vehicle can access)
+      if (fleetVehicles && fleetVehicles.length > 0) {
+        return fleetVehicles.some(v =>
+          zone.requiredTags?.some(tag => v.type.tags.includes(tag))
+        );
+      }
+
+      return false;
     },
     [selectedVehicle.tags, fleetVehicles, selectedVehicleId]
   );
@@ -405,44 +431,49 @@ export default function MapContainer({
           mapCenter={mapCenter}
           layers={layers}
           selectedVehicle={selectedVehicle}
+          onLEZonesUpdate={onLEZonesUpdate}
+          onRestrictedZonesUpdate={onRestrictedZonesUpdate}
         />
 
         {mergedZones
           .filter(
             (zone) =>
-              (zone.type === "LEZ" && layers.lowEmissionZones) ||
-              (zone.type === "RESTRICTED" && layers.restrictedZones)
+              (zone.type?.toUpperCase() === "LEZ" && layers.lowEmissionZones) ||
+              (zone.type?.toUpperCase() === "RESTRICTED" && layers.restrictedZones)
           )
           .map((zone, idx) => {
             const hasAccess = canAccessZone(zone);
+            const zType = zone.type?.toUpperCase();
             return (
               <Polygon
                 key={`${zone.id}-${idx}`}
                 positions={zone.coordinates}
                 pathOptions={{
                   color:
-                    zone.type === "LEZ"
+                    zType === "LEZ"
                       ? hasAccess
                         ? "#10b981"
                         : "#ef4444"
                       : "#ef4444",
                   fillColor:
-                    zone.type === "LEZ"
+                    zType === "LEZ"
                       ? hasAccess
                         ? "#10b981"
                         : "#ef4444"
                       : "#ef4444",
                   fillOpacity:
-                    zone.type === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
-                  weight: zone.type === "LEZ" ? 1 : 0.5,
-                  dashArray: zone.type === "LEZ" ? undefined : "4,4",
+                    zType === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
+                  weight: zType === "LEZ" ? 1 : 0.5,
+                  dashArray: zType === "LEZ" ? undefined : "4,4",
                 }}
+                interactive={!isInteracting}
+                bubblingMouseEvents={false}
               >
-                {!isRouting && (
-                  <Popup closeButton={false} autoClose={false}>
+                {!isInteracting && (
+                  <Popup closeButton={false} autoClose={false} className="zone-popup">
                     <div style={{ fontSize: 12 }}>
                       <strong>{zone.name}</strong>
-                      {zone.type === "LEZ" && (
+                      {zType === "LEZ" && (
                         <div
                           style={{
                             color: hasAccess ? "#10b981" : "#ef4444",

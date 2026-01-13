@@ -57,6 +57,17 @@ export interface VehicleType {
   vroomType: "car";
 }
 
+export const ROUTE_COLORS = [
+  "#3B82F6",
+  "#EF4444",
+  "#10B981",
+  "#F59E0B",
+  "#8B5CF6",
+  "#EC4899",
+  "#14B8A6",
+  "#F97316",
+];
+
 export interface FleetVehicle {
   id: string;
   coords: [number, number];
@@ -114,6 +125,7 @@ export interface VehicleRoute {
   duration: number;
   color: string;
   jobsAssigned: number;
+  error?: string;
 }
 
 export interface WeatherMarker {
@@ -137,6 +149,9 @@ export interface RouteData {
   vehicleRoutes?: VehicleRoute[];
   weatherRoutes?: RouteWeather[];
   weatherMarkers?: WeatherMarker[];
+  unassignedJobs?: Array<{ id: string; description: string; reason?: string }>;
+  notices?: Array<{ title: string; message: string; type: "info" | "warning" }>;
+  avoidPolygons?: [number, number][][];
 }
 
 export interface RouteInstruction {

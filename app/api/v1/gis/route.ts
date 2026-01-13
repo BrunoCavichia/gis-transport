@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       return new NextResponse(null, { status: 304 });
     }
 
-    // Crea el response con timestamp en el body, pero ETag ya es independiente
+    // Crea el response con timestamp en el body
     const response = NextResponse.json(successResponse(dashboardData));
     response.headers.set("ETag", etag);
     response.headers.set(
