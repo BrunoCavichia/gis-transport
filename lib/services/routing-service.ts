@@ -157,7 +157,7 @@ export class RoutingService {
         }
 
         // 5. Individual Routing with per-vehicle avoidance
-        const vehicleRoutes = await this.calculateVehicleRoutesMulti(vroomResult, snappedLocations, vehicleToProfile);
+        const vehicleRoutes = await this.calculateVehicleRoutesMulti(vroomResult, snappedLocations, vehicleToProfile, vehicles);
 
         // 6. Weather Analysis
         const weatherRoutes = await this.getWeatherAlerts(vehicleRoutes, startTime);
@@ -334,7 +334,8 @@ export class RoutingService {
     private static async calculateVehicleRoutesMulti(
         vroomResult: any,
         allLocations: [number, number][],
-        vehicleToProfile: any[]
+        vehicleToProfile: any[],
+        originalVehicles: FleetVehicle[]
     ): Promise<any[]> {
         const results = [];
 
@@ -381,7 +382,7 @@ export class RoutingService {
                 if (data.features && data.features.length > 0) {
                     const feat = data.features[0];
                     results.push({
-                        vehicleId: vIdx,
+                        vehicleId: originalVehicles[vIdx].id,
                         coordinates: feat.geometry.coordinates.map(([lon, lat]: any) => [lat, lon]),
                         distance: Math.round(feat.properties.summary.distance),
                         duration: Math.round(feat.properties.summary.duration),
@@ -398,7 +399,7 @@ export class RoutingService {
                 } catch (e) { }
 
                 results.push({
-                    vehicleId: vIdx,
+                    vehicleId: originalVehicles[vIdx].id,
                     coordinates: [],
                     distance: 0,
                     duration: route.duration,

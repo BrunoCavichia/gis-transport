@@ -3,7 +3,7 @@ export const createWeatherIcons = () => {
 
   return {
     gasStationIcon: L.divIcon({
-      className: "custom-marker",
+      className: "custom-marker-full",
       html: `<div style="background-color: #f97316; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 22V6a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v16"/>
@@ -17,8 +17,15 @@ export const createWeatherIcons = () => {
       iconAnchor: [12, 12],
     }),
 
+    gasStationIconMinimal: L.divIcon({
+      className: "custom-marker-minimal",
+      html: `<div style="background-color: transparent; width: 12px; height: 12px; border-radius: 50%; border: 2.5px solid #f97316; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],
+    }),
+
     evStationIcon: L.divIcon({
-      className: "custom-marker",
+      className: "custom-marker-full",
       html: `<div style="background-color: #22c55e; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
@@ -26,6 +33,13 @@ export const createWeatherIcons = () => {
       </div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 12],
+    }),
+
+    evStationIconMinimal: L.divIcon({
+      className: "custom-marker-minimal",
+      html: `<div style="background-color: transparent; width: 12px; height: 12px; border-radius: 50%; border: 2.5px solid #22c55e; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],
     }),
 
     startIcon: L.divIcon({

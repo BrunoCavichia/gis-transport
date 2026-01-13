@@ -58,14 +58,14 @@ export interface VehicleType {
 }
 
 export const ROUTE_COLORS = [
-  "#3B82F6",
-  "#EF4444",
-  "#10B981",
-  "#F59E0B",
-  "#8B5CF6",
-  "#EC4899",
-  "#14B8A6",
-  "#F97316",
+  "#4F46E5", // Indigo - Primary route
+  "#0891B2", // Cyan - Cool, professional
+  "#7C3AED", // Violet - Elegant accent
+  "#0D9488", // Teal - Fresh, modern
+  "#6366F1", // Periwinkle - Soft, refined
+  "#2563EB", // Blue - Classic, trustworthy
+  "#8B5CF6", // Purple - Premium accent
+  "#0EA5E9", // Sky - Light, airy
 ];
 
 export interface FleetVehicle {
@@ -119,7 +119,7 @@ export const VEHICLE_TYPES: VehicleType[] = [
 ];
 
 export interface VehicleRoute {
-  vehicleId: number;
+  vehicleId: string;
   coordinates: [number, number][];
   distance: number;
   duration: number;
@@ -129,7 +129,7 @@ export interface VehicleRoute {
 }
 
 export interface WeatherMarker {
-  vehicleId: number;
+  vehicleId: string;
   segmentIndex: number;
   coords: [number, number];
   icon: L.DivIcon;

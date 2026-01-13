@@ -1,7 +1,7 @@
 "use client";
 // app/components/gis-map.tsx
 import dynamic from "next/dynamic";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import type {
   LayerVisibility,
@@ -109,6 +109,23 @@ export function GISMap() {
     fetchVehicles,
   } = useFleet();
 
+  // useEffect to clear route data when vehicles/jobs are removed
+  // This ensures we don't show routes for things that are no longer there
+  useEffect(() => {
+    if (routeData) {
+      // Check if all vehicleIds in routeData still exist in fleetVehicles
+      const currentVehicleIds = new Set(fleetVehicles.map(v => v.id));
+      const hasMissingVehicle = routeData.vehicleRoutes?.some(r => !currentVehicleIds.has(r.vehicleId));
+
+      if (hasMissingVehicle || (fleetVehicles.length === 0 && routeData.vehicleRoutes?.length)) {
+        setRouteData(null);
+        setRouteErrors([]);
+        setRouteNotices([]);
+        lastRoutingKeyRef.current = "";
+      }
+    }
+  }, [fleetVehicles, fleetJobs, routeData]);
+
   const {
     customPOIs,
     addCustomPOI,
@@ -120,6 +137,7 @@ export function GISMap() {
 
   const clearAll = useCallback(() => {
     clearFleet();
+    setRouteData(null); // Clear routes from map
     setRouteErrors([]);
     setRouteNotices([]);
     lastRoutingKeyRef.current = "";
@@ -276,6 +294,13 @@ export function GISMap() {
 
       setRouteErrors([...unassignedErrors, ...routeErrors]);
       setRouteNotices(routeData.notices || []);
+
+      // If there are unassigned jobs, remove them from the fleet as requested
+      if (routeData.unassignedJobs && routeData.unassignedJobs.length > 0) {
+        routeData.unassignedJobs.forEach(uj => {
+          removeJob(uj.id);
+        });
+      }
     } catch (err) {
       console.error("Routing error:", err);
       lastRoutingKeyRef.current = ""; // Allow retry on error
@@ -283,7 +308,7 @@ export function GISMap() {
     } finally {
       setIsCalculatingRoute(false);
     }
-  }, [fleetVehicles, fleetJobs, customPOIs, setLayers, activeLEZones, activeRestrictedZones, selectedVehicle]);
+  }, [fleetVehicles, fleetJobs, customPOIs, setLayers, activeLEZones, activeRestrictedZones, selectedVehicle, removeJob]);
 
   return (
     <div className="relative flex h-full w-full">

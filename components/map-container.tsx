@@ -60,7 +60,13 @@ function FitBounds({
   useEffect(() => {
     const all = routes.flatMap((r) => r.coordinates || []);
     if (all.length === 0) return;
-    map.fitBounds(all as [number, number][], { padding: [40, 40] });
+    map.flyToBounds(all as [number, number][], {
+      padding: [180, 180],
+      duration: 0.8,
+      easeLinearity: 0.35,
+      animate: true,
+      maxZoom: 14
+    });
   }, [routes, map]);
   return null;
 }
@@ -134,6 +140,7 @@ function MapEventHandler({
   mapCenter,
   onLEZonesUpdate,
   onRestrictedZonesUpdate,
+  setZoom,
 }: {
   isRouting: boolean;
   routePoints: { start: [number, number] | null; end: [number, number] | null };
@@ -156,6 +163,7 @@ function MapEventHandler({
   mapCenter: [number, number];
   onLEZonesUpdate?: (zones: Zone[]) => void;
   onRestrictedZonesUpdate?: (zones: Zone[]) => void;
+  setZoom: (zoom: number) => void;
 }) {
   const map = useMap();
   const zoneCache = useZoneCache(map, layers, selectedVehicle, wrapAsync);
@@ -264,7 +272,8 @@ function MapEventHandler({
       const newCenter = map.getCenter();
       // Only update if moved more than ~1 meter to avoid infinite loops with programmatic pans
       const dist = map.getCenter().distanceTo({ lat: mapCenter[0], lng: mapCenter[1] });
-      if (dist > 1) {
+      // Use a larger threshold (5m) to prevent vibration loops from floating point drift during animations
+      if (dist > 5) {
         setMapCenter([newCenter.lat, newCenter.lng]);
       }
 
@@ -275,6 +284,7 @@ function MapEventHandler({
       }, 100);
     },
     zoomend: () => {
+      setZoom(map.getZoom());
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
         zoneCache.fetchZones();
@@ -295,10 +305,12 @@ function MapCenterHandler({ center }: { center: [number, number] }) {
   const map = useMap();
   const prevCenter = useRef<string>("");
   useEffect(() => {
-    const centerKey = `${center[0]},${center[1]}`;
-    if (centerKey !== prevCenter.current) {
-      prevCenter.current = centerKey;
-      map.panTo(center, { animate: true });
+    const dist = map.getCenter().distanceTo({ lat: center[0], lng: center[1] });
+    if (dist > 5) {
+      map.flyTo(center, map.getZoom(), {
+        animate: true,
+        duration: 0.8
+      });
     }
   }, [center, map]);
   return null;
@@ -332,6 +344,7 @@ export default function MapContainer({
   isInteracting = false,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
+  const [zoom, setZoom] = useState(12);
   const [dynamicLEZones, setDynamicLEZones] = useState<Zone[]>([]);
   const [dynamicRestrictedZones, setDynamicRestrictedZones] = useState<Zone[]>(
     []
@@ -433,6 +446,7 @@ export default function MapContainer({
           selectedVehicle={selectedVehicle}
           onLEZonesUpdate={onLEZonesUpdate}
           onRestrictedZonesUpdate={onRestrictedZonesUpdate}
+          setZoom={setZoom}
         />
 
         {mergedZones
@@ -492,14 +506,32 @@ export default function MapContainer({
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
           <>
+            {/* Shadow/border layer for premium route effect */}
+            {routeData.vehicleRoutes.map((r) => (
+              <Polyline
+                key={`vehicle-route-shadow-${r.vehicleId}`}
+                positions={r.coordinates}
+                pathOptions={{
+                  color: "#1e293b",
+                  weight: 7,
+                  opacity: 0.15,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+            ))}
+            {/* Main route line - dashed for premium effect */}
             {routeData.vehicleRoutes.map((r) => (
               <Polyline
                 key={`vehicle-route-${r.vehicleId}`}
                 positions={r.coordinates}
                 pathOptions={{
                   color: r.color ?? COLORS.route,
-                  weight: 5,
+                  weight: 4,
                   opacity: 1,
+                  lineCap: "round",
+                  lineJoin: "round",
+                  dashArray: "12, 8",
                 }}
               />
             ))}
@@ -525,13 +557,13 @@ export default function MapContainer({
 
         {layers.gasStations && renderPOIs({
           stations: dynamicGasStations,
-          icon: gasStationIcon,
+          icon: (zoom >= 15 && weatherIcons.gasStationIcon) ? weatherIcons.gasStationIcon : (weatherIcons as any).gasStationIconMinimal,
           isRouting: isRouting,
         })}
 
         {layers.evStations && renderPOIs({
           stations: dynamicEVStations,
-          icon: evStationIcon,
+          icon: (zoom >= 15 && weatherIcons.evStationIcon) ? weatherIcons.evStationIcon : (weatherIcons as any).evStationIconMinimal,
           isEV: true,
           isRouting: isRouting,
         })}

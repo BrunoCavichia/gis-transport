@@ -16,7 +16,7 @@ interface Alert {
 }
 
 export interface RouteWeather {
-  vehicle: number;
+  vehicle: string;
   riskLevel: "LOW" | "MEDIUM" | "HIGH";
   alerts: Alert[];
 }
@@ -96,8 +96,8 @@ export function WeatherPanel({ routes }: WeatherPanelProps) {
                   </span>
                 </div>
                 <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${route.riskLevel === 'HIGH' ? 'bg-red-500/10 text-red-600' :
-                    route.riskLevel === 'MEDIUM' ? 'bg-amber-500/10 text-amber-600' :
-                      'bg-emerald-500/10 text-emerald-600'
+                  route.riskLevel === 'MEDIUM' ? 'bg-amber-500/10 text-amber-600' :
+                    'bg-emerald-500/10 text-emerald-600'
                   }`}>
                   <AlertTriangle className="h-2.5 w-2.5" />
                   {route.riskLevel} Risk
@@ -109,8 +109,8 @@ export function WeatherPanel({ routes }: WeatherPanelProps) {
                   <div
                     key={`${route.vehicle}-${idx}`}
                     className={`group relative flex items-start gap-3 p-3 rounded-xl border transition-all hover:translate-x-0.5 ${alert.severity === 'HIGH' ? 'bg-red-50/30 border-red-100/50' :
-                        alert.severity === 'MEDIUM' ? 'bg-amber-50/30 border-amber-100/50' :
-                          'bg-blue-50/30 border-blue-100/50'
+                      alert.severity === 'MEDIUM' ? 'bg-amber-50/30 border-amber-100/50' :
+                        'bg-blue-50/30 border-blue-100/50'
                       }`}
                   >
                     <div className="mt-0.5 shrink-0 p-2 bg-white/50 rounded-lg shadow-sm border border-white/80">
