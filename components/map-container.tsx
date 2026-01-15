@@ -34,6 +34,7 @@ import {
   renderVehicleMarkers,
   renderJobMarkers,
   renderCustomPOIs,
+  fixCoords,
 } from "@/app/helpers/map-render-helpers";
 
 const weatherIcons = createWeatherIcons();
@@ -61,11 +62,11 @@ function FitBounds({
     const all = routes.flatMap((r) => r.coordinates || []);
     if (all.length === 0) return;
     map.flyToBounds(all as [number, number][], {
-      padding: [180, 180],
-      duration: 0.8,
+      padding: [80, 80],
+      duration: 1.2,
       easeLinearity: 0.35,
       animate: true,
-      maxZoom: 14
+      maxZoom: 16
     });
   }, [routes, map]);
   return null;
@@ -600,7 +601,7 @@ export default function MapContainer({
             return (
               <Marker
                 key={`weather-${wrIdx}-${idx}`}
-                position={[alert.lat, alert.lon]}
+                position={fixCoords([alert.lat, alert.lon])}
                 icon={icon}
               >
                 <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
@@ -611,10 +612,10 @@ export default function MapContainer({
           })
         )}
         {pickedPOICoords && (
-          <Marker position={pickedPOICoords} icon={pickingIcon} />
+          <Marker position={fixCoords(pickedPOICoords)} icon={pickingIcon} />
         )}
         {pickedJobCoords && (
-          <Marker position={pickedJobCoords} icon={pickingIcon} />
+          <Marker position={fixCoords(pickedJobCoords)} icon={pickingIcon} />
         )}
       </LeafletMap>
     </div>
