@@ -37,7 +37,7 @@ export function useZoneCache(
       return;
     }
 
-    const MIN_ZOOM_FOR_ZONES = 12;
+    const MIN_ZOOM_FOR_ZONES = 13;
     if (map.getZoom() < MIN_ZOOM_FOR_ZONES) {
       // Keep existing zones for routing context
       return;
@@ -45,7 +45,7 @@ export function useZoneCache(
 
     const center = map.getCenter();
     const last = lastZoneFetch.current;
-    const MIN_DISTANCE_METERS = 500;
+    const MIN_DISTANCE_METERS = 2000;
     if (
       last &&
       haversineMeters(last.lat, last.lon, center.lat, center.lng) <

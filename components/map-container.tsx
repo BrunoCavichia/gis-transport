@@ -182,7 +182,7 @@ function MapEventHandler({
     if (centerKey === lastFetchCenter.current) return;
     lastFetchCenter.current = centerKey;
 
-    if (zoom < 13) {
+    if (zoom < 14) {
       setDynamicEVStations([]);
       setDynamicGasStations([]);
       return;
@@ -267,10 +267,9 @@ function MapEventHandler({
     },
     moveend: () => {
       const newCenter = map.getCenter();
-      // Only update if moved more than ~1 meter to avoid infinite loops with programmatic pans
+      // Only update if moved more than 100 meters to avoid constant refetching
       const dist = map.getCenter().distanceTo({ lat: mapCenter[0], lng: mapCenter[1] });
-      // Use a larger threshold (5m) to prevent vibration loops from floating point drift during animations
-      if (dist > 5) {
+      if (dist > 100) {
         setMapCenter([newCenter.lat, newCenter.lng]);
       }
 
@@ -278,7 +277,7 @@ function MapEventHandler({
       fetchTimeoutRef.current = setTimeout(() => {
         zoneCache.fetchZones();
         fetchPOIs();
-      }, 100);
+      }, 800);
     },
     zoomend: () => {
       setZoom(map.getZoom());
@@ -286,7 +285,7 @@ function MapEventHandler({
       fetchTimeoutRef.current = setTimeout(() => {
         zoneCache.fetchZones();
         fetchPOIs();
-      }, 100);
+      }, 1000);
     },
   });
 
