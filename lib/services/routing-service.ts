@@ -1,9 +1,7 @@
 // lib/services/routing-service.ts
-import { FleetVehicle, FleetJob, RouteData, WeatherData, POI, Zone, ROUTE_COLORS } from "@/lib/types";
+import { FleetVehicle, FleetJob, RouteData, Zone, ROUTE_COLORS } from "@/lib/types";
 
-const OPENROUTESERVICE_URL = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
-const VROOM_INTERNAL_URL = "http://localhost:3002";
-const SNAP_INTERNAL_URL = "http://localhost:3005/api/snap-to-road";
+import { ORS_URL, VROOM_URL, SNAP_URL } from "@/lib/config";
 
 export interface OptimizeOptions {
     startTime?: string;
@@ -11,12 +9,6 @@ export interface OptimizeOptions {
 }
 
 export class RoutingService {
-    private static getApiKey() {
-        const key = process.env.OPENROUTESERVICE_API_KEY;
-        // if (!key) console.warn("⚠️ OPENROUTESERVICE_API_KEY is not defined");
-        return key;
-    }
-
     private static getWeatherApiKey() {
         return process.env.OPENWEATHERMAP_API_KEY;
     }
@@ -216,7 +208,7 @@ export class RoutingService {
 
     private static async snapCoordinates(coordinates: [number, number][]): Promise<[number, number][]> {
         try {
-            const res = await fetch(SNAP_INTERNAL_URL, {
+            const res = await fetch(SNAP_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ coordinates })
@@ -246,7 +238,7 @@ export class RoutingService {
         // triggers "Search exceeds limit of visited nodes" (Error 6020) on complex LEZ areas.
         // Instead, we rely on our Manual Matrix Penalization below to block jobs inside LEZs.
 
-        const res = await fetch(`${OPENROUTESERVICE_URL}/matrix/driving-car`, {
+        const res = await fetch(`${ORS_URL}/matrix/driving-car`, {
             method: "POST",
             headers: {
                 // Authorization: this.getApiKey()!,
@@ -321,7 +313,7 @@ export class RoutingService {
             }, {})
         };
 
-        const res = await fetch(VROOM_INTERNAL_URL, {
+        const res = await fetch(VROOM_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -368,7 +360,7 @@ export class RoutingService {
                 console.log(`📡 ORS Directions: Profile ${profile.name} avoiding zones for vehicle ${vIdx}`);
             }
 
-            const res = await fetch(`${OPENROUTESERVICE_URL}/directions/driving-car/geojson`, {
+            const res = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
                 method: "POST",
                 headers: {
                     // Authorization: this.getApiKey()!,

@@ -1,7 +1,5 @@
-// lib/services/zone-service.ts
 import type { Zone } from "@/lib/types";
-
-const OVERPASS_URL = "https://overpass.private.coffee/api/interpreter";
+import { OVERPASS_URL } from "@/lib/config";
 
 export class ZoneService {
     private static cache = new Map<string, { data: Zone[]; timestamp: number }>();
