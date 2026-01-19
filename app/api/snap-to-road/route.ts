@@ -25,15 +25,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({
-        snapped: coordinates.map(([lat, lon]: number[]) => ({
-          location: [lat, lon],
-          snapped: false,
-        })),
-      });
-    }
+    // const apiKey = process.env.OPENROUTESERVICE_API_KEY;
+    // if (!apiKey) {
+    //   return NextResponse.json({
+    //     snapped: coordinates.map(([lat, lon]: number[]) => ({
+    //       location: [lat, lon],
+    //       snapped: false,
+    //     })),
+    //   });
+    // }
 
     const locations = coordinates.map(([lat, lon]: number[]) => [lon, lat]);
 
@@ -41,12 +41,13 @@ export async function POST(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     try {
+      const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
       const response = await fetchWithRetry(
-        "https://api.openrouteservice.org/v2/snap/driving-car",
+        `${orsUrl}/snap/driving-car`,
         {
           method: "POST",
           headers: {
-            Authorization: apiKey,
+            // Authorization: apiKey,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ locations, radius: SNAP_RADIUS }),

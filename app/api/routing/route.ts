@@ -49,13 +49,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "OpenRouteService API key not configured" },
-        { status: 500 }
-      );
-    }
+    // const apiKey = process.env.OPENROUTESERVICE_API_KEY;
+    // if (!apiKey) {
+    //   return NextResponse.json(
+    //     { error: "OpenRouteService API key not configured" },
+    //     { status: 500 }
+    //   );
+    // }
 
     // SNAP usando tu endpoint interno
     let finalCoordinates = await snapCoordinatesInternal(coordinates);
@@ -70,12 +70,13 @@ export async function POST(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     try {
+      const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
       const response = await fetch(
-        "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
+        `${orsUrl}/directions/driving-car/geojson`,
         {
           method: "POST",
           headers: {
-            Authorization: apiKey,
+            // Authorization: apiKey,
             "Content-Type": "application/json",
             Accept:
               "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8",

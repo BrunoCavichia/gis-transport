@@ -1,77 +1,14 @@
 import { NextResponse } from "next/server";
 
-type LatLon = [number, number];
-
-interface Location {
-  lat: number;
-  lon: number;
-}
-
-interface Vehicle {
-  id: number;
-  type?: string;
-}
-
-interface Job {
-  id: number;
-  location_index: number;
-  service: number;
-}
-
-interface Segment {
-  lat: number;
-  lon: number;
-  eta: string;
-}
-
-interface VroomStep {
-  type: string;
-  location_index: number;
-  arrival: number;
-}
-
-interface VroomRoute {
-  vehicle: number;
-  steps: VroomStep[];
-}
-
-interface Alert {
-  segmentIndex: number;
-  event: "SNOW" | "RAIN" | "ICE" | "WIND" | "FOG" | "HEAT" | "COLD";
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  timeWindow: string;
-  lat: number;
-  lon: number;
-  message: string;
-}
-
-interface RouteAlerts {
-  vehicle: number;
-  riskLevel: "LOW" | "MEDIUM" | "HIGH";
-  alerts: Alert[];
-}
-
-interface WeatherRiskRequestFull {
-  vehicles: Vehicle[];
-  jobs: Job[];
-  locations: Location[];
-  matrix: number[][];
-  startTime?: string;
-}
-
-interface VehicleRouteSimple {
-  vehicleId: number;
-  coordinates: LatLon[];
-  distance?: number;
-  duration?: number;
-  color?: string;
-  jobsAssigned?: number;
-}
-
-type IncomingBody =
-  | WeatherRiskRequestFull
-  | { vehicleRoutes?: VehicleRouteSimple[]; startTime?: string }
-  | any;
+import {
+  Segment,
+  VroomRoute,
+  Alert,
+  RouteAlerts,
+  WeatherRiskRequestFull,
+  VehicleRouteSimple,
+  IncomingBody,
+} from "@/lib/types/weather-types";
 
 export const runtime = "nodejs";
 
@@ -275,8 +212,8 @@ export async function POST(req: Request) {
         alerts.length === 0
           ? "LOW"
           : alerts.some((a) => a.severity === "HIGH")
-          ? "HIGH"
-          : "MEDIUM";
+            ? "HIGH"
+            : "MEDIUM";
 
       results.push({ vehicle: route.vehicle, riskLevel, alerts });
     }

@@ -1,7 +1,7 @@
 // lib/services/routing-service.ts
 import { FleetVehicle, FleetJob, RouteData, WeatherData, POI, Zone, ROUTE_COLORS } from "@/lib/types";
 
-const OPENROUTESERVICE_URL = "https://api.openrouteservice.org/v2";
+const OPENROUTESERVICE_URL = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
 const VROOM_INTERNAL_URL = "http://localhost:3002";
 const SNAP_INTERNAL_URL = "http://localhost:3005/api/snap-to-road";
 
@@ -13,7 +13,7 @@ export interface OptimizeOptions {
 export class RoutingService {
     private static getApiKey() {
         const key = process.env.OPENROUTESERVICE_API_KEY;
-        if (!key) console.warn("⚠️ OPENROUTESERVICE_API_KEY is not defined");
+        // if (!key) console.warn("⚠️ OPENROUTESERVICE_API_KEY is not defined");
         return key;
     }
 
@@ -231,7 +231,7 @@ export class RoutingService {
     }
 
     private static async getMatrix(locations: [number, number][], avoidPolygons?: [number, number][][]): Promise<number[][]> {
-        if (!this.getApiKey()) throw new Error("ORS API key missing");
+        // if (!this.getApiKey()) throw new Error("ORS API key missing");
 
         // ORS expects [lon, lat]
         const orsLocations = locations.map(([lat, lon]) => [lon, lat]);
@@ -249,7 +249,7 @@ export class RoutingService {
         const res = await fetch(`${OPENROUTESERVICE_URL}/matrix/driving-car`, {
             method: "POST",
             headers: {
-                Authorization: this.getApiKey()!,
+                // Authorization: this.getApiKey()!,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(body)
@@ -371,7 +371,7 @@ export class RoutingService {
             const res = await fetch(`${OPENROUTESERVICE_URL}/directions/driving-car/geojson`, {
                 method: "POST",
                 headers: {
-                    Authorization: this.getApiKey()!,
+                    // Authorization: this.getApiKey()!,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify(body)

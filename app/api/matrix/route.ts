@@ -35,12 +35,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-    if (!apiKey)
-      return NextResponse.json(
-        { error: "OpenRouteService API key not set" },
-        { status: 500 }
-      );
+    // const apiKey = process.env.OPENROUTESERVICE_API_KEY;
+    // if (!apiKey)
+    //   return NextResponse.json(
+    //     { error: "OpenRouteService API key not set" },
+    //     { status: 500 }
+    //   );
 
     const locations = coordinates.map((coord) => [coord[1], coord[0]]);
 
@@ -48,12 +48,13 @@ export async function POST(request: NextRequest) {
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
     try {
+      const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
       const orsResponse = await fetchWithRetry(
-        "https://api.openrouteservice.org/v2/matrix/driving-car",
+        `${orsUrl}/matrix/driving-car`,
         {
           method: "POST",
           headers: {
-            Authorization: apiKey,
+            // Authorization: apiKey,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -110,9 +111,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error: "Request timeout",
-            message: `Request exceeded ${
-              REQUEST_TIMEOUT / 1000
-            }s. Reduce locations.`,
+            message: `Request exceeded ${REQUEST_TIMEOUT / 1000
+              }s. Reduce locations.`,
             locations: coordinates.length,
           },
           { status: 504 }

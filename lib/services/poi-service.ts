@@ -36,7 +36,8 @@ export class POIService {
             return cached.data;
         }
 
-        const apiKey = process.env.OPENCHARGEMAP_API_KEY || "92a14a07-d941-41c6-aa71-97c9adf0b01c";
+        const apiKey = process.env.OPENCHARGEMAP_API_KEY;
+        if (!apiKey) throw new Error("OPENCHARGEMAP_API_KEY not found");
         const url = new URL("https://api.openchargemap.io/v3/poi/");
         url.searchParams.set("output", "json");
         url.searchParams.set("latitude", String(lat));
