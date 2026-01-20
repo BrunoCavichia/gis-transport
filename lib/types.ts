@@ -183,3 +183,10 @@ export interface SearchLocation {
   coords: [number, number];
   name: string;
 }
+
+export type InteractionMode =
+  | "add-vehicle"
+  | "add-job"
+  | "pick-poi"
+  | "pick-job"
+  | null;

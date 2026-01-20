@@ -137,14 +137,16 @@ export function renderJobMarkers({
         <Tooltip direction="top" offset={[0, -12]} opacity={0.95}>
           <span style={{ fontSize: 12 }}>{job.label}</span>
         </Tooltip>
-        <Popup closeButton={false}>
-          <div style={{ fontSize: 12 }}>
-            <strong style={{ color: '#8b5cf6' }}>{job.label}</strong>
-            <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
-              {`Coords: ${pos[0].toFixed(5)}, ${pos[1].toFixed(5)}`}
+        {!isRouting && (
+          <Popup closeButton={false}>
+            <div style={{ fontSize: 12 }}>
+              <strong style={{ color: '#8b5cf6' }}>{job.label}</strong>
+              <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
+                {`Coords: ${pos[0].toFixed(5)}, ${pos[1].toFixed(5)}`}
+              </div>
             </div>
-          </div>
-        </Popup>
+          </Popup>
+        )}
       </Marker>
     );
   });

@@ -39,18 +39,6 @@ import {
   renderCustomPOIs,
 } from "@/app/helpers/map-render-helpers";
 
-const weatherIcons = createWeatherIcons();
-const {
-  createVehicleIcon,
-  snowIcon,
-  rainIcon,
-  iceIcon,
-  windIcon,
-  fogIcon,
-  jobIcon,
-  customPOIIcon,
-  pickingIcon,
-} = weatherIcons;
 
 function FitBounds({
   routes,
@@ -321,6 +309,20 @@ export default function MapContainer({
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
 
+  // Initialize icons inside component for safe browser-only execution
+  const weatherIcons = createWeatherIcons();
+  const {
+    jobIcon,
+    customPOIIcon,
+    pickingIcon,
+    createVehicleIcon,
+    snowIcon,
+    rainIcon,
+    iceIcon,
+    windIcon,
+    fogIcon,
+  } = weatherIcons;
+
   const { loading, wrapAsync } = useLoadingLayers();
   const poiCache = usePOICache();
 
@@ -331,6 +333,7 @@ export default function MapContainer({
   }, [fleetJobs]);
 
   useEffect(() => setMounted(true), []);
+
 
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {

@@ -32,7 +32,6 @@ export function useFleet(
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
     null
   );
-  const [addMode, setAddMode] = useState<"vehicle" | "job" | null>(null);
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
 
   // Function to clear all fleet data
@@ -40,7 +39,6 @@ export function useFleet(
     setFleetVehicles([]);
     setFleetJobs([]);
     setSelectedVehicleId(null);
-    setAddMode(null);
   }, []);
 
   // Simulate vehicle fetching from a physical device
@@ -50,8 +48,6 @@ export function useFleet(
       // Simulating network/device delay
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // For now, generate some test vehicles or keep current ones
-      // In the future, this will do a real fetch: fetch('http://physical-device/api/vehicles')
       const mockVehicles: FleetVehicle[] = [
         {
           id: `phys-${Date.now()}-1`,
@@ -99,7 +95,6 @@ export function useFleet(
         setSelectedVehicleId(newVehicle.id);
         return next;
       });
-      setAddMode(null);
     },
     []
   );
@@ -117,7 +112,6 @@ export function useFleet(
       ];
       return next;
     });
-    setAddMode(null);
   }, []);
 
   // Function to remove a vehicle by ID
@@ -139,8 +133,6 @@ export function useFleet(
 
   /**
    * Update a vehicle's position (used for live GPS tracking)
-   * This function is called when receiving GPS updates from the API.
-   * In the future, this will be called with real GPS coordinates.
    */
   const updateVehiclePosition = useCallback((vehicleId: string, newCoords: [number, number]) => {
     setFleetVehicles((prev) =>
@@ -156,11 +148,9 @@ export function useFleet(
     fleetVehicles,
     fleetJobs,
     selectedVehicleId,
-    addMode,
     isLoadingVehicles,
 
     // Direct setters
-    setAddMode,
     setSelectedVehicleId,
 
     // Manipulation functions
