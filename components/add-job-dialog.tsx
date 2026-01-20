@@ -1,5 +1,6 @@
 "use client";
 
+import { MAP_CENTER } from "@/lib/config";
 import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export function AddJobDialog({
     onSubmit,
     onStartPicking,
     pickedCoords,
-    mapCenter = [40.4168, -3.7038],
+    mapCenter = MAP_CENTER,
     isLoading = false,
 }: AddJobDialogProps) {
     const [step, setStep] = useState(1);

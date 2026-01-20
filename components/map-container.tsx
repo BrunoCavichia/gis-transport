@@ -1,6 +1,7 @@
 "use client";
 
 //map-container.tsx
+import { MAP_CENTER, DEFAULT_ZOOM } from "@/lib/config";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   MapContainer as LeafletMap,
@@ -339,7 +340,7 @@ export default function MapContainer({
   isInteracting = false,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
-  const [zoom, setZoom] = useState(12);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
 
   const { loading, wrapAsync } = useLoadingLayers();
@@ -387,8 +388,8 @@ export default function MapContainer({
     [selectedVehicle.tags, fleetVehicles, selectedVehicleId]
   );
 
-  const defaultCenter: [number, number] = [40.4168, -3.7038];
-  const defaultZoom = 12;
+  const defaultCenter: [number, number] = MAP_CENTER;
+  const defaultZoom = DEFAULT_ZOOM;
 
   if (!mounted) {
     return (

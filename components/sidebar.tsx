@@ -1,5 +1,7 @@
 "use client";
 
+import { MAP_CENTER } from "@/lib/config";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";;
 import { Switch } from "@/components/ui/switch";
@@ -130,7 +132,7 @@ export function Sidebar({
   clearAllCustomPOIs,
   showCustomPOIs = false,
   setShowCustomPOIs,
-  mapCenter = [40.4168, -3.7038],
+  mapCenter = MAP_CENTER,
   onStartPicking,
   pickedCoords,
   isAddCustomPOIOpen,

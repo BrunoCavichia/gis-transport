@@ -15,12 +15,13 @@ import { VEHICLE_TYPES } from "@/lib/types";
 import { useFleet } from "@/hooks/use-fleet";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
 import { RouteErrorAlert, type RouteError, type RouteNotice } from "@/components/route-error-alert";
+import { MAP_CENTER } from "@/lib/config";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
 });
 
-const DEFAULT_CENTER: [number, number] = [40.4168, -3.7038];
+const DEFAULT_CENTER: [number, number] = MAP_CENTER;
 
 export function GISMap() {
   const [layers, setLayers] = useState<LayerVisibility>({

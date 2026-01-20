@@ -1,4 +1,5 @@
 import React from "react";
+import { MAP_CENTER } from "@/lib/config";
 import { Marker, Tooltip, Popup } from "react-leaflet";
 import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
 
@@ -8,7 +9,7 @@ import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
  * This function detects if the values are likely swapped (e.g. lon is in the lat position).
  */
 export function fixCoords(coords: [number, number]): [number, number] {
-  if (!coords || !Array.isArray(coords) || coords.length !== 2) return [40.4168, -3.7038];
+  if (!coords || !Array.isArray(coords) || coords.length !== 2) return MAP_CENTER;
 
   const [a, b] = coords;
 
