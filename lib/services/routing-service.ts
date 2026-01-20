@@ -2,6 +2,7 @@
 import { FleetVehicle, FleetJob, RouteData, Zone, ROUTE_COLORS } from "@/lib/types";
 
 import { ORS_URL, VROOM_URL, SNAP_URL } from "@/lib/config";
+import { WeatherService } from "./weather-service";
 
 export interface OptimizeOptions {
     startTime?: string;
@@ -152,7 +153,16 @@ export class RoutingService {
         const vehicleRoutes = await this.calculateVehicleRoutesMulti(vroomResult, snappedLocations, vehicleToProfile, vehicles);
 
         // 6. Weather Analysis
-        const weatherRoutes = await this.getWeatherAlerts(vehicleRoutes, startTime);
+        let weatherRoutes: any[] = [];
+        const weatherAnalysis = await WeatherService.analyzeRoutes(
+            vehicleRoutes.map(vr => ({
+                vehicleId: vr.vehicleId,
+                coordinates: vr.coordinates,
+                duration: vr.duration
+            })),
+            startTime
+        );
+        weatherRoutes = weatherAnalysis;
 
         const totalDistance = (vehicleRoutes as any[]).reduce((acc: number, r: any) => acc + (r.distance || 0), 0);
         const totalDuration = (vehicleRoutes as any[]).reduce((acc: number, r: any) => acc + (r.duration || 0), 0);
@@ -360,6 +370,28 @@ export class RoutingService {
                 console.log(`📡 ORS Directions: Profile ${profile.name} avoiding zones for vehicle ${vIdx}`);
             }
 
+            // Pre-check: Are any waypoints inside forbidden zones?
+            const waypointsInForbiddenZone = waypoints.filter((wp: [number, number]) =>
+                (profile.avoidPolygons || []).some((poly: [number, number][]) =>
+                    RoutingService.isPointInPolygon(wp, poly)
+                )
+            );
+
+            if (waypointsInForbiddenZone.length > 0) {
+                const vehicleLabel = originalVehicles[vIdx].type?.label || `Vehicle ${vIdx + 1}`;
+                console.log(`🚫 Vehicle ${vIdx} (${vehicleLabel}): ${waypointsInForbiddenZone.length} waypoints are inside forbidden zones`);
+                results.push({
+                    vehicleId: originalVehicles[vIdx].id,
+                    coordinates: [],
+                    distance: 0,
+                    duration: 0,
+                    color: ROUTE_COLORS[vIdx % ROUTE_COLORS.length],
+                    jobsAssigned: 0,
+                    error: `El vehículo "${vehicleLabel}" no puede acceder a la zona de bajas emisiones (LEZ) porque no dispone de las etiquetas ambientales requeridas (ej: ECO, CERO).`
+                });
+                continue;
+            }
+
             const res = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
                 method: "POST",
                 headers: {
@@ -385,9 +417,20 @@ export class RoutingService {
             } else {
                 const errorText = await res.text();
                 let errorMessage = "Route failed due to restrictions";
+                let isLezError = false;
+
                 try {
                     const errorData = JSON.parse(errorText);
-                    errorMessage = errorData.error?.message || errorMessage;
+                    const orsMsg = errorData.error?.message || "";
+
+                    // Detect ORS "could not find routable point" which often means the point is in an avoided area
+                    if (orsMsg.includes("routable point") || orsMsg.includes("400.0 meters")) {
+                        isLezError = true;
+                        const vehicleLabel = originalVehicles[vIdx].type?.label || `Vehicle ${vIdx + 1}`;
+                        errorMessage = `El vehículo "${vehicleLabel}" no puede acceder a uno de los destinos asignados. Esto puede deberse a restricciones de zona de bajas emisiones (LEZ) o a que el punto está en una zona peatonal.`;
+                    } else {
+                        errorMessage = orsMsg || errorMessage;
+                    }
                 } catch (e) { }
 
                 results.push({
@@ -404,54 +447,4 @@ export class RoutingService {
         return results;
     }
 
-    private static async getWeatherAlerts(vehicleRoutes: any[], startTime: string): Promise<any[]> {
-        const weatherKey = this.getWeatherApiKey();
-        if (!weatherKey) return [];
-
-        // We sample indices as in original code
-        const results = [];
-        const startDate = new Date(startTime);
-
-        for (const vr of vehicleRoutes) {
-            const alerts: any[] = [];
-            const coords = vr.coordinates || [];
-            if (coords.length === 0) {
-                results.push({ vehicle: vr.vehicleId, riskLevel: "LOW", alerts: [] });
-                continue;
-            }
-            const samples = [0, Math.floor(coords.length / 2), coords.length - 1];
-
-            for (const idx of samples) {
-                const point = coords[idx];
-                if (!point) continue;
-                const [lat, lon] = point;
-                const res = await fetch(
-                    `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${weatherKey}`
-                );
-                if (!res.ok) continue;
-
-                const data = await res.json();
-                const frac = idx / (coords.length - 1);
-                const eta = new Date(startDate.getTime() + (vr.duration * frac * 1000)).getTime() / 1000;
-
-                // Find closest forecast item
-                const closest = data.list.reduce((prev: any, curr: any) =>
-                    Math.abs(curr.dt - eta) < Math.abs(prev.dt - eta) ? curr : prev
-                );
-
-                if (closest.rain?.["3h"] > 10) {
-                    alerts.push({ event: "RAIN", severity: "MEDIUM", message: "Rain expected", lat, lon });
-                }
-                if (closest.snow?.["3h"] > 0) {
-                    alerts.push({ event: "SNOW", severity: "HIGH", message: "Snow expected", lat, lon });
-                }
-            }
-            results.push({
-                vehicle: vr.vehicleId,
-                riskLevel: alerts.some(a => a.severity === "HIGH") ? "HIGH" : alerts.length > 0 ? "MEDIUM" : "LOW",
-                alerts
-            });
-        }
-        return results;
-    }
 }

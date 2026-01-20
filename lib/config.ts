@@ -13,3 +13,4 @@ export const SNAP_URL = "http://localhost:3005/api/snap-to-road";
 // Map Settings
 export const MAP_CENTER: [number, number] = [40.4168, -3.7038]; // Madrid, Spain
 export const DEFAULT_ZOOM = 13;
+export const OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/forecast";

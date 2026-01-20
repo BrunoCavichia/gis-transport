@@ -64,10 +64,13 @@ export async function POST(request: NextRequest) {
       const data = await response.json();
 
       const snapped = data.locations.map((loc: any, idx: number) => {
-        if (loc?.location?.length === 2 && loc.distance != null) {
+        // ORS returns snapped_distance, not distance
+        if (loc?.location?.length === 2 && loc.snapped_distance != null) {
           const [lon, lat] = loc.location;
-          return { location: [lat, lon], snapped: true };
+          console.log(`[Snap] Point ${idx}: [${coordinates[idx]}] -> [${lat}, ${lon}] (distance: ${loc.snapped_distance}m)`);
+          return { location: [lat, lon], snapped: true, distance: loc.snapped_distance };
         }
+        console.log(`[Snap] Point ${idx}: Could not snap [${coordinates[idx]}]`);
         return { location: coordinates[idx], snapped: false };
       });
 
