@@ -22,6 +22,8 @@ import type {
   CustomPOI,
   VehicleType,
   Zone,
+  FleetVehicle,
+  FleetJob,
 } from "@/lib/types";
 import { LeafletMouseEvent } from "leaflet";
 import { createWeatherIcons } from "@/lib/map-icons";
@@ -70,17 +72,7 @@ function FitBounds({
   return null;
 }
 
-interface FleetJob {
-  id: string;
-  coords: [number, number];
-  label: string;
-}
 
-interface FleetVehicle {
-  id: string;
-  coords: [number, number];
-  type: VehicleType;
-}
 
 interface MapContainerProps {
   layers: LayerVisibility;
@@ -171,7 +163,7 @@ function MapEventHandler({
     if (centerKey === lastFetchCenter.current) return;
     lastFetchCenter.current = centerKey;
 
-    if (zoom < 14) {
+    if (zoom < 12 || !layers.gasStations || !layers.evStations) {
       setDynamicEVStations([]);
       setDynamicGasStations([]);
       return;
@@ -288,7 +280,6 @@ function MapEventHandler({
 
 function MapCenterHandler({ center }: { center: [number, number] }) {
   const map = useMap();
-  const prevCenter = useRef<string>("");
   useEffect(() => {
     const dist = map.getCenter().distanceTo({ lat: center[0], lng: center[1] });
     if (dist > 5) {
@@ -323,7 +314,6 @@ export default function MapContainer({
   onMapClick,
   pickedPOICoords,
   pickedJobCoords,
-  toggleLayer,
   onZonesUpdate,
   isInteracting = false,
 }: MapContainerProps) {

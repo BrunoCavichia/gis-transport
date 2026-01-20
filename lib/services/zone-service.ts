@@ -72,22 +72,31 @@ export class ZoneService {
 
         // Check cache first
         const cached = this.getFromCache(cacheKey);
-        if (cached) return cached;
+        if (cached) {
+            console.log(`[ZoneService] Cache hit for ${cacheKey}, returning ${cached.length} zones`);
+            return cached;
+        }
 
         // Deduplicate in-flight requests
         if (this.pendingRequests.has(cacheKey)) {
+            console.log(`[ZoneService] Request already in-flight for ${cacheKey}, waiting...`);
             return this.pendingRequests.get(cacheKey)!;
         }
+
+        console.log(`[ZoneService] Fetching zones for ${lat},${lon} radius=${radiusKm}km`);
 
         // Optimized query: shorter timeout, simplified structure
         const query = `[out:json][timeout:20];
             (
                 relation["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
                 way["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
+                relation["zone:traffic"](around:${radiusKm * 1000},${lat},${lon});
+                way["zone:traffic"](around:${radiusKm * 1000},${lat},${lon});
             );
             out geom;`;
 
         const promise = this.fetchFromOverpass(query)
+
             .then(elements => {
                 const zones: Zone[] = elements
                     .map((el: any) => {
@@ -127,6 +136,7 @@ export class ZoneService {
 
                 this.setCache(cacheKey, zones);
                 this.pendingRequests.delete(cacheKey);
+                console.log(`[ZoneService] Fetched ${zones.length} zones for ${cacheKey}`);
                 return zones;
             })
             .catch(e => {
