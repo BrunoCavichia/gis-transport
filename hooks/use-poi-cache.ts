@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import type { POI } from "@/lib/types";
 
 interface CacheEntry {
@@ -6,103 +6,88 @@ interface CacheEntry {
   timestamp: number;
 }
 
-export function usePOICache(cacheExpireMs = 5 * 60 * 1000) {
+// Longer client-side cache - 15 minutes
+const CACHE_EXPIRE_MS = 15 * 60 * 1000;
+
+export function usePOICache() {
   const gasStationsCache = useRef<Map<string, CacheEntry>>(new Map());
   const evStationsCache = useRef<Map<string, CacheEntry>>(new Map());
+  const pendingRequests = useRef<Map<string, Promise<POI[]>>>(new Map());
 
-  const getCacheKey = (lat: number, lon: number, radius: number) => {
-    const roundedLat = Math.round(lat * 100) / 100;
-    const roundedLon = Math.round(lon * 100) / 100;
-    const roundedRadius = Math.round(radius / 1000);
-    return `${roundedLat},${roundedLon},${roundedRadius}`;
-  };
+  // Larger geo-buckets (every 0.02 degrees ≈ 2km)
+  const getCacheKey = useCallback((type: string, lat: number, lon: number, radius: number) => {
+    const roundedLat = Math.floor(lat * 50); // ~2km buckets
+    const roundedLon = Math.floor(lon * 50);
+    const roundedRadius = Math.ceil(radius / 2000);
+    return `${type}:${roundedLat},${roundedLon},${roundedRadius}`;
+  }, []);
 
-  const getGasStations = (
-    lat: number,
-    lon: number,
-    radius: number
-  ): POI[] | null => {
-    const key = getCacheKey(lat, lon, radius);
-    const cached = gasStationsCache.current.get(key);
-    if (cached && Date.now() - cached.timestamp < cacheExpireMs)
+  const getFromCache = useCallback((type: "ev" | "gas", lat: number, lon: number, radius: number): POI[] | null => {
+    const key = getCacheKey(type, lat, lon, radius);
+    const cache = type === "ev" ? evStationsCache.current : gasStationsCache.current;
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < CACHE_EXPIRE_MS) {
       return cached.stations;
+    }
     return null;
-  };
+  }, [getCacheKey]);
 
-  const setGasStations = (
-    lat: number,
-    lon: number,
-    radius: number,
-    stations: POI[]
-  ) => {
-    const key = getCacheKey(lat, lon, radius);
-    gasStationsCache.current.set(key, { stations, timestamp: Date.now() });
-  };
+  const setCache = useCallback((type: "ev" | "gas", lat: number, lon: number, radius: number, stations: POI[]) => {
+    const key = getCacheKey(type, lat, lon, radius);
+    const cache = type === "ev" ? evStationsCache.current : gasStationsCache.current;
+    cache.set(key, { stations, timestamp: Date.now() });
+  }, [getCacheKey]);
 
-  const getEVStations = (
-    lat: number,
-    lon: number,
-    distance: number
-  ): POI[] | null => {
-    const key = getCacheKey(lat, lon, distance * 1000);
-    const cached = evStationsCache.current.get(key);
-    if (cached && Date.now() - cached.timestamp < cacheExpireMs)
-      return cached.stations;
-    return null;
-  };
-
-  const setEVStations = (
-    lat: number,
-    lon: number,
-    distance: number,
-    stations: POI[]
-  ) => {
-    const key = getCacheKey(lat, lon, distance * 1000);
-    evStationsCache.current.set(key, { stations, timestamp: Date.now() });
-  };
-
-  // NUEVO: helper para fetch + cache dentro del hook
-  const fetchPOI = async (
+  // Unified fetch with deduplication
+  const fetchPOI = useCallback(async (
     type: "ev" | "gas",
     lat: number,
     lon: number,
     distance: number,
     vehicleLabel: string
   ): Promise<POI[]> => {
-    const getFn = type === "ev" ? getEVStations : getGasStations;
-    const setFn = type === "ev" ? setEVStations : setGasStations;
-
-    const cached = getFn(lat, lon, distance);
+    // Check cache first
+    const cached = getFromCache(type, lat, lon, distance);
     if (cached) return cached;
+
+    const key = getCacheKey(type, lat, lon, distance);
+
+    // Deduplicate in-flight requests
+    if (pendingRequests.current.has(key)) {
+      return pendingRequests.current.get(key)!;
+    }
 
     const url =
       type === "ev"
         ? `/api/ev-stations?lat=${lat}&lon=${lon}&distance=${distance}&vehicle=${vehicleLabel}`
         : `/api/gas-stations?lat=${lat}&lon=${lon}&radius=${distance}&vehicle=${vehicleLabel}`;
 
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      const stations: POI[] = data.stations || [];
-      setFn(lat, lon, distance, stations);
-      return stations;
-    } catch {
-      setFn(lat, lon, distance, []);
-      return [];
-    }
-  };
+    const promise = fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        const stations: POI[] = data.stations || [];
+        setCache(type, lat, lon, distance, stations);
+        pendingRequests.current.delete(key);
+        return stations;
+      })
+      .catch(() => {
+        setCache(type, lat, lon, distance, []);
+        pendingRequests.current.delete(key);
+        return [];
+      });
 
-  const clearCache = () => {
+    pendingRequests.current.set(key, promise);
+    return promise;
+  }, [getCacheKey, getFromCache, setCache]);
+
+  const clearCache = useCallback(() => {
     gasStationsCache.current.clear();
     evStationsCache.current.clear();
-  };
+    pendingRequests.current.clear();
+  }, []);
 
   return {
-    getGasStations,
-    setGasStations,
-    getEVStations,
-    setEVStations,
-    fetchPOI, // <-- nuevo helper
+    fetchPOI,
     clearCache,
   };
 }

@@ -6,25 +6,26 @@ export class POIService {
     private static evCache = new Map<string, { data: POI[]; timestamp: number }>();
     private static gasCache = new Map<string, { data: POI[]; timestamp: number }>();
 
-    private static readonly EV_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-    private static readonly GAS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+    // In-flight request deduplication
+    private static pendingRequests = new Map<string, Promise<POI[]>>();
 
-    private static getEVCacheKey(lat: number, lon: number, distanceKm: number): string {
-        const latB = Math.floor(lat * 100);
-        const lonB = Math.floor(lon * 100);
-        const distB = Math.floor(distanceKm);
-        return `ev:${latB}:${lonB}:${distB}`;
-    }
+    // Longer cache durations - POIs don't change often
+    private static readonly EV_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+    private static readonly GAS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
-    private static getGasCacheKey(lat: number, lon: number, radius: number) {
-        const latB = Math.floor(lat * 100);
-        const lonB = Math.floor(lon * 100);
-        const radB = Math.floor(radius / 1000);
-        return `gas:${latB}:${lonB}:${radB}`;
+    // Larger geo-buckets to reduce redundant fetches
+    private static readonly GEO_BUCKET_SIZE = 50; // ~0.02 degrees = ~2km
+
+    private static getCacheKey(type: string, lat: number, lon: number, radius: number): string {
+        // Larger geo-buckets (every 0.02 degrees ≈ 2km)
+        const latB = Math.floor(lat * this.GEO_BUCKET_SIZE);
+        const lonB = Math.floor(lon * this.GEO_BUCKET_SIZE);
+        const radB = Math.ceil(radius / 2000); // bucket by 2km
+        return `${type}:${latB}:${lonB}:${radB}`;
     }
 
     /**
-     * Internal helper to fetch POIs from Overpass
+     * Internal helper to fetch POIs from Overpass with optimized query
      */
     private static async fetchFromOverpass(
         lat: number,
@@ -32,19 +33,25 @@ export class POIService {
         radiusMeters: number,
         amenity: "fuel" | "charging_station"
     ): Promise<POI[]> {
-        const query = `[out:json][timeout:30];
-            (
-                node["amenity"="${amenity}"](around:${radiusMeters},${lat},${lon});
-                way["amenity"="${amenity}"](around:${radiusMeters},${lat},${lon});
-            );
-            out center;`;
+        // Optimized query: only nodes (faster), shorter timeout, limit results
+        const maxRadius = Math.min(radiusMeters, 10000); // Cap at 10km
+        const query = `[out:json][timeout:15];
+            node["amenity"="${amenity}"](around:${maxRadius},${lat},${lon});
+            out 100;`; // Limit to 100 results
 
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+
             const res = await fetch(OVERPASS_URL, {
                 method: "POST",
                 body: query,
                 headers: { "User-Agent": "GIS-Transport-Logistics/1.0" },
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
+
             if (!res.ok) return [];
             const data = await res.json();
 
@@ -65,12 +72,15 @@ export class POIService {
                     address: el.tags?.["addr:street"]
                         ? `${el.tags["addr:street"]}${el.tags["addr:housenumber"] ? " " + el.tags["addr:housenumber"] : ""}`
                         : undefined,
-                    // Extra for EV
                     connectors: type === "ev" ? (el.tags?.capacity || 1) : undefined,
                 };
             }).filter((s: any) => s !== null) as POI[];
         } catch (e) {
-            console.error(`POIService: Overpass fetch failed for ${amenity}`, e);
+            if ((e as Error).name === 'AbortError') {
+                console.warn(`POIService: Overpass timeout for ${amenity}`);
+            } else {
+                console.error(`POIService: Overpass fetch failed for ${amenity}`, e);
+            }
             return [];
         }
     }
@@ -79,32 +89,64 @@ export class POIService {
      * Fetches EV charging stations around a point using Overpass.
      */
     static async getEVStations(lat: number, lon: number, distanceKm: number = 1): Promise<POI[]> {
-        const key = this.getEVCacheKey(lat, lon, distanceKm);
+        const radiusMeters = distanceKm * 1000;
+        const key = this.getCacheKey("ev", lat, lon, radiusMeters);
+
+        // Check cache
         const cached = this.evCache.get(key);
         if (cached && Date.now() - cached.timestamp < this.EV_CACHE_DURATION) {
             return cached.data;
         }
 
-        const radiusMeters = distanceKm * 1000;
-        const stations = await this.fetchFromOverpass(lat, lon, radiusMeters, "charging_station");
+        // Deduplicate in-flight requests
+        if (this.pendingRequests.has(key)) {
+            return this.pendingRequests.get(key)!;
+        }
 
-        this.evCache.set(key, { data: stations, timestamp: Date.now() });
-        return stations;
+        const promise = this.fetchFromOverpass(lat, lon, radiusMeters, "charging_station")
+            .then(stations => {
+                this.evCache.set(key, { data: stations, timestamp: Date.now() });
+                this.pendingRequests.delete(key);
+                return stations;
+            })
+            .catch(e => {
+                this.pendingRequests.delete(key);
+                return [];
+            });
+
+        this.pendingRequests.set(key, promise);
+        return promise;
     }
 
     /**
      * Fetches gas stations around a point using Overpass.
      */
     static async getGasStations(lat: number, lon: number, radius: number = 5000): Promise<POI[]> {
-        const key = this.getGasCacheKey(lat, lon, radius);
+        const key = this.getCacheKey("gas", lat, lon, radius);
+
+        // Check cache
         const cached = this.gasCache.get(key);
         if (cached && Date.now() - cached.timestamp < this.GAS_CACHE_DURATION) {
             return cached.data;
         }
 
-        const stations = await this.fetchFromOverpass(lat, lon, radius, "fuel");
+        // Deduplicate in-flight requests
+        if (this.pendingRequests.has(key)) {
+            return this.pendingRequests.get(key)!;
+        }
 
-        this.gasCache.set(key, { data: stations, timestamp: Date.now() });
-        return stations;
+        const promise = this.fetchFromOverpass(lat, lon, radius, "fuel")
+            .then(stations => {
+                this.gasCache.set(key, { data: stations, timestamp: Date.now() });
+                this.pendingRequests.delete(key);
+                return stations;
+            })
+            .catch(e => {
+                this.pendingRequests.delete(key);
+                return [];
+            });
+
+        this.pendingRequests.set(key, promise);
+        return promise;
     }
 }

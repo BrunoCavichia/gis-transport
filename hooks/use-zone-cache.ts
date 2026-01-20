@@ -12,6 +12,7 @@ export function useZoneCache(
   const [zones, setZones] = useState<Zone[]>([]);
   const lastZoneFetch = useRef<{ lat: number; lon: number } | null>(null);
   const isLoading = useRef(false);
+  const pendingRequest = useRef<Promise<void> | null>(null);
 
   const haversineMeters = (
     lat1: number,
@@ -37,15 +38,17 @@ export function useZoneCache(
       return;
     }
 
-    const MIN_ZOOM_FOR_ZONES = 13;
+    // Minimum zoom for zones - prevents unnecessary fetches when zoomed out
+    const MIN_ZOOM_FOR_ZONES = 12;
     if (map.getZoom() < MIN_ZOOM_FOR_ZONES) {
-      // Keep existing zones for routing context
       return;
     }
 
     const center = map.getCenter();
     const last = lastZoneFetch.current;
-    const MIN_DISTANCE_METERS = 2000;
+
+    // Only refetch if moved more than 3km (zones are large polygons)
+    const MIN_DISTANCE_METERS = 3000;
     if (
       last &&
       haversineMeters(last.lat, last.lon, center.lat, center.lng) <
@@ -54,21 +57,33 @@ export function useZoneCache(
       return;
     }
 
-    if (isLoading.current) return;
+    // Don't start a new fetch if one is in progress
+    if (isLoading.current) {
+      return;
+    }
+
     isLoading.current = true;
     lastZoneFetch.current = { lat: center.lat, lon: center.lng };
 
     await wrapAsync(async () => {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
         const res = await fetch(
-          `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=20000&vehicle=${selectedVehicle.label}`
+          `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=15000&vehicle=${selectedVehicle.label}`,
+          { signal: controller.signal }
         );
+
+        clearTimeout(timeoutId);
+
         const data = await res.json();
         const fetchedZones: Zone[] = data.zones || [];
         setZones(fetchedZones);
       } catch (err) {
-        console.error("Failed to fetch zones:", err);
-        setZones([]);
+        if ((err as Error).name !== 'AbortError') {
+          console.error("Failed to fetch zones:", err);
+        }
       } finally {
         isLoading.current = false;
       }

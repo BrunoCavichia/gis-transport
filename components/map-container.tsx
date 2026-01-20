@@ -2,7 +2,7 @@
 
 //map-container.tsx
 import { MAP_CENTER, DEFAULT_ZOOM } from "@/lib/config";
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   MapContainer as LeafletMap,
   TileLayer,
@@ -35,13 +35,10 @@ import {
   renderVehicleMarkers,
   renderJobMarkers,
   renderCustomPOIs,
-  fixCoords,
 } from "@/app/helpers/map-render-helpers";
 
 const weatherIcons = createWeatherIcons();
 const {
-  gasStationIcon,
-  evStationIcon,
   createVehicleIcon,
   snowIcon,
   rainIcon,
@@ -116,20 +113,11 @@ interface MapContainerProps {
   isInteracting?: boolean;
 }
 
-const COLORS = {
-  gas: "#f5934dff",
-  ev: "#05ce4fff",
-  route: "#3b82f6",
-  vehicle: "#facc15",
-  job: "#8b5cf6",
-};
 
 function MapEventHandler({
   isRouting,
   routePoints,
   setRoutePoints,
-  setRouteData,
-  setWeather,
   setDynamicEVStations,
   setDynamicGasStations,
   setDynamicZones,
@@ -508,7 +496,7 @@ export default function MapContainer({
                 key={`vehicle-route-${r.vehicleId}`}
                 positions={r.coordinates}
                 pathOptions={{
-                  color: r.color ?? COLORS.route,
+                  color: r.color,
                   weight: 4,
                   opacity: 1,
                   lineCap: "round",
@@ -601,7 +589,7 @@ export default function MapContainer({
             return (
               <Marker
                 key={`weather-${wrIdx}-${idx}`}
-                position={fixCoords([alert.lat, alert.lon])}
+                position={[alert.lat, alert.lon]}
                 icon={icon}
               >
                 <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
@@ -612,10 +600,10 @@ export default function MapContainer({
           })
         )}
         {pickedPOICoords && (
-          <Marker position={fixCoords(pickedPOICoords)} icon={pickingIcon} />
+          <Marker position={pickedPOICoords} icon={pickingIcon} />
         )}
         {pickedJobCoords && (
-          <Marker position={fixCoords(pickedJobCoords)} icon={pickingIcon} />
+          <Marker position={pickedJobCoords} icon={pickingIcon} />
         )}
       </LeafletMap>
     </div>

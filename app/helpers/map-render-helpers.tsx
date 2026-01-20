@@ -8,30 +8,7 @@ import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
  * In GIS, [lon, lat] is standard (GeoJSON), but Leaflet uses [lat, lon].
  * This function detects if the values are likely swapped (e.g. lon is in the lat position).
  */
-export function fixCoords(coords: [number, number]): [number, number] {
-  if (!coords || !Array.isArray(coords) || coords.length !== 2) return MAP_CENTER;
 
-  const [a, b] = coords;
-
-  // Rule: Latitude MUST be between -90 and 90.
-  // Rule: Longitude is usually much larger in magnitude for Spain/Europe (e.g. -3 vs 40).
-  // If 'a' (the supposed latitude) is > 90 or < -90, it CANNOT be a latitude.
-  // But wait, if 'a' is -3 and 'b' is 40, both are valid! 
-  // However, in Spain/Madrid, lat is always ~40 and lon is always ~-3.
-
-  // If a is between -20 and 20 and b is between 35 and 60 -> it's almost certainly [lon, lat] for Europe.
-  if (Math.abs(a) < 20 && (b > 30 && b < 70)) {
-    // This looks like [lon, lat]. Swap it to [lat, lon] for Leaflet.
-    return [b, a];
-  }
-
-  // General fallback: if first is absolute > 90, it's definitely a longitude.
-  if (Math.abs(a) > 90 && Math.abs(b) <= 90) {
-    return [b, a];
-  }
-
-  return [a, b];
-}
 
 interface RenderPOIsProps {
   stations: POI[];
@@ -66,7 +43,7 @@ export function renderPOIs({
   isRouting,
 }: RenderPOIsProps) {
   return (stations || []).map((station) => {
-    const pos = fixCoords(station.position as [number, number]);
+    const pos = station.position as [number, number]
     return (
       <Marker
         key={station.id}
@@ -106,7 +83,7 @@ export function renderVehicleMarkers({
 }: RenderVehiclesProps) {
   return (vehicles || []).map((vehicle) => {
     const isSelected = selectedVehicleId === vehicle.id;
-    const pos = fixCoords(vehicle.coords);
+    const pos = vehicle.coords;
 
     return (
       <Marker
@@ -150,7 +127,7 @@ export function renderJobMarkers({
   icon,
 }: RenderJobsProps) {
   return (jobs || []).map((job) => {
-    const pos = fixCoords(job.coords);
+    const pos = job.coords;
     return (
       <Marker
         key={`job-${job.id}`}
@@ -179,7 +156,7 @@ export function renderCustomPOIs({
   icon,
 }: RenderCustomPOIsProps) {
   return (customPOIs || []).map((poi) => {
-    const pos = fixCoords(poi.position);
+    const pos = poi.position;
     return (
       <Marker
         key={`custom-poi-${poi.id}`}
