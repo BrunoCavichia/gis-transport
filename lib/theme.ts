@@ -14,17 +14,17 @@ export const THEME = {
     },
     map: {
         interaction: {
-            moveThreshold: 1000,
-            fetchDebounce: 1200,
-            zoomDebounce: 1500,
+            moveThreshold: 3000,   // Only update center state if moved >3km
+            fetchDebounce: 1500,   // Wait longer before fetching
+            zoomDebounce: 2000,
             flyToDuration: 0.8,
             flyToThreshold: 5,
         },
         poi: {
-            fetchDistanceRatio: 2000,
-            maxFetchDistance: 25,
+            fetchDistanceRatio: 800, // Fetch radius covers ~1.25x the diagonal for better overlap
+            maxFetchDistance: 100,  // Max 100km radius for EV
             gasRadiusMultiplier: 1000,
-            maxGasRadius: 10000,
+            maxGasRadius: 50000,    // Max 50km radius for Gas
         },
         polygons: {
             lez: {
@@ -61,7 +61,7 @@ export const THEME = {
             jobTooltipOffset: [0, -38] as [number, number],
             vehicleTooltipOffset: [0, -48] as [number, number],
             customPoiTooltipOffset: [0, -40] as [number, number],
-            minimalZoomThreshold: 14,
+            minimalZoomThreshold: 13, // Show full icons sooner
         },
     },
 } as const;

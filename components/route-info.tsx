@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, MapPin, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
-import type { RouteData } from "@/lib/types";
+import type { RouteData, RouteInstruction } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface RouteInfoProps {
   routeData?: RouteData;
@@ -50,100 +51,98 @@ function getInstructionIcon(type?: string): string {
 
 export function RouteInfo({ routeData, onClear }: RouteInfoProps) {
   if (!routeData) return null;
-  if (!routeData.instructions) return null;
+  if (!routeData.instructions || routeData.instructions.length === 0) return null;
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const hasInstructions =
-    routeData.instructions && routeData.instructions.length > 0;
 
   return (
-    <Card className="absolute bottom-4 left-4 z-50 w-96 bg-card/95 backdrop-blur-sm max-h-[70vh] overflow-hidden flex flex-col">
-      <div className="bg-gradient-to-r from-blue-500/10 to-transparent p-4 border-b border-border rounded-t-lg">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-500" />
-            <h2 className="text-lg font-semibold text-foreground">Route</h2>
+    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1001] w-full max-w-sm px-4 pointer-events-none transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+      <Card className="pointer-events-auto overflow-hidden bg-background/80 backdrop-blur-2xl border border-white/20 shadow-[0_12px_40px_rgba(0,0,0,0.15)] rounded-[2.5rem]">
+        {/* Main Floating Cartel */}
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70 mb-1">Resumen de Ruta</span>
+              <h2 className="text-xl font-black text-foreground tracking-tight leading-none">
+                {formatDuration(routeData.duration)}
+              </h2>
+            </div>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-10 w-10 rounded-full bg-muted/20 hover:bg-muted/40 transition-all border border-white/10"
+              onClick={onClear}
+            >
+              <X className="h-5 w-5 text-muted-foreground" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={onClear}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-blue-500" />
-            <span className="font-medium text-foreground">
-              {formatDistance(routeData.distance)}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-green-500" />
-            <span className="font-medium text-foreground">
-              {formatDuration(routeData.duration)}
-            </span>
-          </div>
-        </div>
-      </div>
 
-      {hasInstructions && (
-        <div className="border-t border-border">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/10">
+                <MapPin className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-sm font-bold text-foreground">
+                {formatDistance(routeData.distance)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-green-500/10 flex items-center justify-center border border-green-500/10">
+                <Clock className="h-4 w-4 text-green-600" />
+              </div>
+              <span className="text-sm font-bold text-foreground">
+                {formatDuration(routeData.duration)}
+              </span>
+            </div>
+          </div>
+
+          {/* Premium Progress/Info Bar */}
+          <div className="mt-5 h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full w-full opacity-80" />
+          </div>
+
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full px-4 py-2 flex items-center justify-between hover:bg-accent text-sm"
+            className="mt-4 w-full flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors group"
           >
-            <span className="font-semibold">
-              Indicaciones ({routeData.instructions.length})
-            </span>
+            {isExpanded ? "Ocultar Pasos" : `Ver Indicaciones (${routeData.instructions.length})`}
             <ChevronDown
-              className="h-4 w-4 transition-transform"
-              style={{
-                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-              }}
+              className={cn(
+                "h-4 w-4 transition-transform duration-300",
+                isExpanded ? "rotate-180" : "group-hover:translate-y-0.5"
+              )}
             />
           </button>
+        </div>
 
-          {isExpanded && (
-            <div className="overflow-y-auto max-h-[50vh] px-0">
-              <ul className="divide-y divide-border">
-                {routeData.instructions.map((instruction, index) => (
-                  <li
-                    key={index}
-                    className="px-4 py-3 text-sm hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-xs">
-                        {getInstructionIcon(instruction.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground break-words">
-                          {instruction.text}
-                        </p>
-                        <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
-                          <span>{formatDistance(instruction.distance)}</span>
-                          <span>•</span>
-                          <span>{formatDuration(instruction.duration)}</span>
-                        </div>
-                      </div>
+        {/* Expandable Instructions Panel */}
+        {isExpanded && (
+          <div className="px-2 pb-6 max-h-[40vh] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="space-y-1">
+              {routeData.instructions.map((instruction: RouteInstruction, index: number) => (
+                <div
+                  key={index}
+                  className="px-5 py-4 rounded-3xl hover:bg-primary/5 transition-all group flex items-start gap-4"
+                >
+                  <div className="mt-1 flex-shrink-0 w-8 h-8 rounded-xl bg-background border border-border flex items-center justify-center font-bold text-primary group-hover:scale-110 transition-transform">
+                    <span className="text-xs">{getInstructionIcon(instruction.type)}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-foreground leading-snug">
+                      {instruction.text}
+                    </p>
+                    <div className="flex gap-2 mt-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground/60">
+                      <span>{formatDistance(instruction.distance)}</span>
+                      <span>•</span>
+                      <span>{formatDuration(instruction.duration)}</span>
                     </div>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-      )}
-
-      {!hasInstructions && (
-        <div className="px-4 py-3">
-          <p className="text-sm text-muted-foreground">
-            No indications available for this route.
-          </p>
-        </div>
-      )}
-    </Card>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }

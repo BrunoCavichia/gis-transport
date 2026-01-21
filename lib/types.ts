@@ -115,10 +115,18 @@ export interface WeatherMarker {
   timeWindow: string;
 }
 
+export interface RouteInstruction {
+  type: string;
+  text: string;
+  distance: number;
+  duration: number;
+}
+
 export interface RouteData {
   coordinates: [number, number][];
   distance: number;
   duration: number;
+  instructions?: RouteInstruction[];
   waypoints?: Array<{
     name?: string;
     location: [number, number];

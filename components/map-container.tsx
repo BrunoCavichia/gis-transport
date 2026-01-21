@@ -2,7 +2,7 @@
 //map-container.tsx
 import { MAP_CENTER, DEFAULT_ZOOM, MAP_TILE_URL, MAP_ATTRIBUTION } from "@/lib/config";
 import { THEME } from "@/lib/theme";
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, Fragment } from "react";
 import {
   MapContainer as LeafletMap,
   TileLayer,
@@ -13,6 +13,7 @@ import {
   useMap,
   Tooltip,
   Marker,
+  ZoomControl,
 } from "react-leaflet";
 import type {
   RouteData,
@@ -26,7 +27,7 @@ import type {
   FleetJob,
 } from "@/lib/types";
 import { LeafletMouseEvent } from "leaflet";
-import { createWeatherIcons } from "@/lib/map-icons";
+import { createWeatherIcons, createRouteLabelIcon } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
 import { useLoadingLayers } from "@/hooks/use-loading-layers";
 import { usePOICache } from "@/hooks/use-poi-cache";
@@ -115,7 +116,9 @@ function MapEventHandler({
     onZonesUpdate?.(zoneCache.zones);
   }, [zoneCache.zones, setDynamicZones, onZonesUpdate]);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastFetchCenter = useRef<string>("");
+  const lastFetchPosRef = useRef<L.LatLng | null>(null);
+  const lastFetchZoomRef = useRef<number | null>(null);
+  const lastFetchRadiusRef = useRef<number>(0);
 
   const fetchPOIs = useCallback(async () => {
     const center = map.getCenter();
@@ -123,16 +126,6 @@ function MapEventHandler({
     const centerKey = `${center.lat.toFixed(2)},${center.lng.toFixed(
       2
     )},${zoom}`;
-
-    if (centerKey === lastFetchCenter.current) return;
-    lastFetchCenter.current = centerKey;
-
-    if (zoom < 12 || !layers.gasStations || !layers.evStations) {
-      setDynamicEVStations([]);
-      setDynamicGasStations([]);
-      return;
-    }
-
     const willFetchEV = layers.evStations;
     const willFetchGas = layers.gasStations;
 
@@ -142,46 +135,61 @@ function MapEventHandler({
       return;
     }
 
+    const currentCenter = map.getCenter();
+    const currentZoom = map.getZoom();
     const bounds = map.getBounds();
-    const distance = Math.min(
-      bounds.getNorthEast().distanceTo(bounds.getSouthWest()) / THEME.map.poi.fetchDistanceRatio,
+    const diagonalMeters = bounds.getNorthEast().distanceTo(bounds.getSouthWest());
+
+    // Coverage: diagonal / fetchDistanceRatio. 
+    // If Ratio is 800, and diag is 4000m, diag/800 = 5km.
+    // We add a minimum radius of 10km to ensure we cover a large area even when zoomed in.
+    const distanceKm = Math.max(10, Math.min(
+      diagonalMeters / THEME.map.poi.fetchDistanceRatio,
       THEME.map.poi.maxFetchDistance
-    );
+    ));
+    const radiusMeters = distanceKm * 1000;
+
+    // Skip if move is too small to justify a new fetch (prevents UI flicker)
+    // Threshold: 60% of the radius covered by the LAST fetch
+    if (lastFetchPosRef.current && lastFetchZoomRef.current !== null) {
+      const distFromLast = currentCenter.distanceTo(lastFetchPosRef.current);
+      const isZoomMuchDifferent = Math.abs(currentZoom - lastFetchZoomRef.current) >= 1;
+
+      if (distFromLast < lastFetchRadiusRef.current * 0.6 && !isZoomMuchDifferent) {
+        return;
+      }
+    }
+
+    lastFetchPosRef.current = currentCenter;
+    lastFetchZoomRef.current = currentZoom;
+    lastFetchRadiusRef.current = radiusMeters;
 
     await wrapAsync(async () => {
       // EV Stations Fetch
       if (layers.evStations) {
-        const distanceCeil = Math.ceil(distance);
         const evStations = await poiCache.fetchPOI(
           "ev",
-          center.lat,
-          center.lng,
-          distanceCeil,
+          currentCenter.lat,
+          currentCenter.lng,
+          Math.ceil(distanceKm),
           selectedVehicle.label
         );
-        // Double check layer status before committing to state
-        if (layers.evStations) {
-          setDynamicEVStations(evStations);
-        }
+        if (layers.evStations) setDynamicEVStations(evStations);
       } else {
         setDynamicEVStations([]);
       }
 
       // Gas Stations Fetch
       if (layers.gasStations) {
-        const radius = Math.min(distance * THEME.map.poi.gasRadiusMultiplier, THEME.map.poi.maxGasRadius);
-        const radiusCeil = Math.ceil(radius);
+        const gasRadius = Math.min(radiusMeters, THEME.map.poi.maxGasRadius);
         const gasStations = await poiCache.fetchPOI(
           "gas",
-          center.lat,
-          center.lng,
-          radiusCeil,
+          currentCenter.lat,
+          currentCenter.lng,
+          Math.ceil(gasRadius),
           selectedVehicle.label
         );
-        // Double check layer status before committing to state
-        if (layers.gasStations) {
-          setDynamicGasStations(gasStations);
-        }
+        if (layers.gasStations) setDynamicGasStations(gasStations);
       } else {
         setDynamicGasStations([]);
       }
@@ -273,6 +281,130 @@ function FitBounds({
     });
   }, [routes, map]);
   return null;
+}
+
+const formatDistance = (m: number) => m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
+const formatDuration = (s: number) => {
+  const mins = Math.round(s / 60);
+  return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}min`;
+};
+
+// Google-style dynamic weighting that updates in real-time during zoom/flyTo
+// Google-style dynamic weighting that updates in real-time during zoom/flyTo
+// Google-style dynamic weighting that updates in real-time during zoom/flyTo
+function getDynamicWeight(zoom: number) {
+  const baseScale = [
+    { z: 0, w: 1 },
+    { z: 5, w: 1.5 },
+    { z: 8, w: 2.5 },
+    { z: 10, w: 3.5 },
+    { z: 12, w: 4.5 }, // Slightly thinner to compensate for Canvas anti-aliasing
+    { z: 13, w: 5.5 },
+    { z: 14, w: 6.5 },
+    { z: 15, w: 7.5 },
+    { z: 16, w: 9 },
+    { z: 18, w: 11 },
+  ];
+
+  // Logic for smooth interpolation (no "steps")
+  for (let i = 0; i < baseScale.length - 1; i++) {
+    const lower = baseScale[i];
+    const upper = baseScale[i + 1];
+
+    if (zoom >= lower.z && zoom <= upper.z) {
+      // Linear interpolation: w = w1 + (w2 - w1) * ((z - z1) / (z2 - z1))
+      const range = upper.z - lower.z;
+      const progress = (zoom - lower.z) / range;
+      return lower.w + (upper.w - lower.w) * progress;
+    }
+  }
+
+  // Fallback if out of bounds
+  return zoom < baseScale[0].z ? baseScale[0].w : baseScale[baseScale.length - 1].w;
+}
+
+// Optimization: Handle route weight updates imperatively to avoid React re-renders during zoom/flyTo
+function RouteLayer({ vehicleRoutes }: { vehicleRoutes: any[] }) {
+  const map = useMap();
+  const coreRefs = useRef<Record<string, L.Polyline | null>>({});
+
+  // Initial weight set
+  useEffect(() => {
+    const zoom = map.getZoom();
+    const coreWeight = getDynamicWeight(zoom);
+
+    Object.values(coreRefs.current).forEach(layer => {
+      layer?.setStyle({ weight: coreWeight });
+    });
+  }, [vehicleRoutes, map]);
+
+  useMapEvents({
+    zoom: () => {
+      const zoom = map.getZoom();
+      const coreWeight = getDynamicWeight(zoom);
+
+      // Directly update Leaflet layers bypassing React render cycle
+      Object.values(coreRefs.current).forEach(layer => {
+        layer?.setStyle({ weight: coreWeight });
+      });
+    }
+  });
+
+  return (
+    <>
+      {vehicleRoutes.map((r: any) => (
+        <Fragment key={`route-group-${r.vehicleId}`}>
+          {/* Layer 1: The Main Thicker Route */}
+          <Polyline
+            ref={(el) => { if (el) coreRefs.current[r.vehicleId] = el; }}
+            positions={r.coordinates}
+            pathOptions={{
+              color: r.color,
+              weight: getDynamicWeight(map.getZoom()), // Initial only
+              opacity: 1,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+// Separate component for Labels to handle visibility without re-rendering the heavy Polylines
+function RouteLabelsLayer({ vehicleRoutes }: { vehicleRoutes: any[] }) {
+  const map = useMap();
+  const [showLabels, setShowLabels] = useState(map.getZoom() >= 12);
+
+  useMapEvents({
+    zoomend: () => {
+      const shouldShow = map.getZoom() >= 12;
+      if (shouldShow !== showLabels) setShowLabels(shouldShow);
+    }
+  });
+
+  if (!showLabels) return null;
+
+  return (
+    <>
+      {vehicleRoutes.map((r: any) => {
+        if (!r.coordinates || r.coordinates.length < 2) return null;
+        return (
+          <Marker
+            key={`route-label-${r.vehicleId}`}
+            position={r.coordinates[Math.floor(r.coordinates.length / 3)]}
+            icon={createRouteLabelIcon(
+              formatDistance(r.distance),
+              formatDuration(r.duration),
+              r.color
+            )}
+            interactive={false}
+          />
+        );
+      })}
+    </>
+  );
 }
 
 export default function MapContainer({
@@ -515,14 +647,16 @@ export default function MapContainer({
     <div className="relative h-full w-full">
       {loading && <Loader />}
       <LeafletMap
-        center={defaultCenter}
-        zoom={defaultZoom}
-        className="h-full w-full"
+        center={MAP_CENTER}
+        zoom={DEFAULT_ZOOM}
+        className="w-full h-full z-0 outline-none"
         style={{ height: "100%", width: "100%", zIndex: 0 }}
-        zoomControl
+        zoomControl={false}
         minZoom={5}
         maxZoom={19}
+        preferCanvas={true} // Use Canvas renderer for high-performance, non-glitchy routes
       >
+        <ZoomControl position="topright" />
         <TileLayer
           attribution={MAP_ATTRIBUTION}
           url={MAP_TILE_URL}
@@ -553,50 +687,8 @@ export default function MapContainer({
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
           <>
-            {/* Shadow/border layer for premium route effect */}
-            {routeData.vehicleRoutes.map((r) => (
-              <Polyline
-                key={`vehicle-route-shadow-${r.vehicleId}`}
-                positions={r.coordinates}
-                pathOptions={{
-                  color: THEME.colors.routeShadow,
-                  weight: THEME.map.routes.shadowWeight,
-                  opacity: THEME.map.routes.shadowOpacity,
-                  lineCap: "round",
-                  lineJoin: "round",
-                }}
-              />
-            ))}
-            {/* Main route line - dashed for premium effect */}
-            {routeData.vehicleRoutes.map((r) => (
-              <Polyline
-                key={`vehicle-route-${r.vehicleId}`}
-                positions={r.coordinates}
-                pathOptions={{
-                  color: r.color,
-                  weight: THEME.map.routes.mainWeight,
-                  opacity: 1,
-                  lineCap: "round",
-                  lineJoin: "round",
-                  dashArray: THEME.map.routes.dashArray,
-                }}
-              />
-            ))}
-
-            {routeData.vehicleRoutes.map((r) =>
-              r.coordinates && r.coordinates.length > 0 ? (
-                <Marker
-                  key={`start-${r.vehicleId}`}
-                  position={r.coordinates[0]}
-                >
-                  <Tooltip direction="top" offset={[0, -12]} permanent={false}>
-                    <span
-                      style={{ fontSize: 12 }}
-                    >{`Vehículo ${r.vehicleId}`}</span>
-                  </Tooltip>
-                </Marker>
-              ) : null
-            )}
+            <RouteLayer vehicleRoutes={routeData.vehicleRoutes} />
+            <RouteLabelsLayer vehicleRoutes={routeData.vehicleRoutes} />
 
             <FitBounds routes={routeData.vehicleRoutes} />
           </>

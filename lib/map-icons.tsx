@@ -12,6 +12,7 @@ import {
   Circle,
   Droplets,
   Truck,
+  Car,
 } from "lucide-react";
 import { THEME } from "./theme";
 
@@ -109,20 +110,20 @@ const createMapIcon = (
 const createMinimalIcon = (color: string) => {
   const html = renderToStaticMarkup(
     <div style={{
-      width: '8px',
-      height: '8px',
-      backgroundColor: color,
+      width: '10px',
+      height: '10px',
       borderRadius: '50%',
-      border: '1.5px solid white',
-      boxShadow: `0 0 6px ${color}aa`,
+      backgroundColor: 'white',
+      border: `2.5px solid ${color}`,
+      boxShadow: `0 2px 4px rgba(0,0,0,0.2), 0 0 4px ${color}66`,
     }} />
   );
 
   return L.divIcon({
     html,
     className: 'custom-marker-minimal',
-    iconSize: [8, 8],
-    iconAnchor: [4, 4],
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
   });
 };
 
@@ -188,4 +189,62 @@ export const createWeatherIcons = () => {
       iconAnchor: [16, 16],
     }),
   };
+};
+
+/**
+ * Creates a premium "cartelito" (pill-shaped label) for route summaries.
+ * Matches the reference image style: rectangular, colored car, orange time, gray distance.
+ */
+export const createRouteLabelIcon = (
+  distance: string,
+  duration: string,
+  color: string
+) => {
+  const html = renderToStaticMarkup(
+    <div style={{
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      transform: 'translate(-50%, -100%)',
+      pointerEvents: 'none'
+    }}>
+      {/* Main Container */}
+      <div
+        className="bg-white border-black border px-1.5 py-0.5 shadow-[2px_2px_0_rgba(0,0,0,0.08)] flex items-center gap-1.5"
+        style={{
+          borderRadius: '0px',
+          minWidth: '50px',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        <div style={{ color: color }}>
+          <Car className="w-4 h-4" />
+        </div>
+        <div className="flex flex-col leading-none">
+          <span className="text-[10px] font-extrabold tracking-tighter" style={{ color: '#f59e0b' }}>{duration}</span>
+          <span className="text-[8px] font-bold text-zinc-500">{distance}</span>
+        </div>
+      </div>
+
+      {/* Pointer/Tail - Bottom centered */}
+      <div
+        style={{
+          width: '0',
+          height: '0',
+          borderLeft: '5px solid transparent',
+          borderRight: '5px solid transparent',
+          borderTop: '6px solid black',
+          marginTop: '-1px'
+        }}
+      />
+    </div>
+  );
+
+  return L.divIcon({
+    html,
+    className: "bg-transparent",
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
 };

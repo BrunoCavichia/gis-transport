@@ -2,7 +2,7 @@
 
 import { MAP_CENTER } from "@/lib/config";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { Button } from "@/components/ui/button";;
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -168,169 +168,326 @@ export function Sidebar({
   return (
     <div
       className={cn(
-        "relative z-10 flex h-full flex-col border-r border-border bg-sidebar transition-all duration-300",
-        isCollapsed ? "w-12" : "w-80"
+        "fixed left-4 top-4 bottom-4 z-[1000] flex flex-col transition-all duration-500 ease-in-out pointer-events-none",
+        isCollapsed ? "w-0" : "w-80"
       )}
     >
+      {/* Collapse Toggle - Floating handle */}
       <Button
-        variant="ghost"
+        variant="secondary"
         size="icon"
-        className="absolute -right-3 top-4 z-20 h-6 w-6 rounded-full border border-border bg-card shadow-sm"
+        className={cn(
+          "absolute -right-12 top-10 h-10 w-10 rounded-full border border-border bg-background/80 backdrop-blur-md shadow-xl transition-all duration-300 pointer-events-auto z-[1001]",
+          isCollapsed ? "translate-x-12" : "hover:scale-110"
+        )}
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         {isCollapsed ? (
-          <ChevronRight className="h-3 w-3" />
+          <ChevronRight className="h-5 w-5 text-primary" />
         ) : (
-          <ChevronLeft className="h-3 w-3" />
+          <ChevronLeft className="h-5 w-5 text-muted-foreground" />
         )}
       </Button>
 
-      {!isCollapsed && (
-        <div className="flex flex-col h-full overflow-hidden">
-          <div className="p-6 pb-4">
-            <div className="flex items-center gap-3 mb-1.5">
-              <div className="bg-primary/10 p-2 rounded-xl border border-primary/20 shadow-sm shadow-primary/5">
-                <MapPin className="h-5 w-5 text-primary" />
+      {/* Main Sidebar Card */}
+      <div className={cn(
+        "flex h-full flex-col rounded-3xl border border-white/20 bg-background/80 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-all duration-500 pointer-events-auto overflow-hidden",
+        isCollapsed ? "opacity-0 -translate-x-full scale-95" : "opacity-100 translate-x-0 scale-100"
+      )}>
+        {/* Header - Search-like Style */}
+        <div className="p-5 pb-2">
+          <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-white/50 border border-white/40 shadow-inner group transition-all hover:bg-white/80">
+            <div className="bg-primary h-10 w-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
+              <MapPin className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-lg font-bold tracking-tight text-foreground leading-none mb-0.5">
+                GIS Logistics
+              </h1>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
+                Next-Gen Dispatch
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Global Stats / Quick Actions (Non-invasive) */}
+        {fleetMode && (
+          <div className="px-5 py-2">
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-primary/5 border border-primary/10">
+              <div className="flex flex-col items-center flex-1 border-r border-primary/10">
+                <span className="text-xl font-black text-primary leading-none">{fleetVehicles.length}</span>
+                <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 tracking-tighter">Vehículos</span>
               </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">
-                  GIS Logistics
-                </h1>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
-                  Intelligent Transport
-                </p>
+              <div className="flex flex-col items-center flex-1 border-r border-primary/10">
+                <span className="text-xl font-black text-primary leading-none">{fleetJobs.length}</span>
+                <span className="text-[8px] font-bold text-muted-foreground uppercase mt-1 tracking-tighter">Pedidos</span>
+              </div>
+              <div className="flex items-center justify-center flex-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn("h-8 w-8 rounded-lg transition-all", isTracking ? "bg-green-500 text-white shadow-md" : "text-muted-foreground")}
+                  onClick={toggleTracking}
+                >
+                  <Radio className={cn("h-4 w-4", isTracking && "animate-pulse")} />
+                </Button>
               </div>
             </div>
           </div>
+        )}
 
-          <Tabs defaultValue="map" className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="flex-none px-4 py-3">
-              <TabsList className="w-full h-11 bg-muted/30 p-1.5 rounded-xl border border-border/40">
-                <TabsTrigger
-                  value="map"
-                  className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg transition-all"
-                >
-                  <Layers className="h-3.5 w-3.5 mr-2" />
-                  Map Layers
-                </TabsTrigger>
-                <TabsTrigger
-                  value="fleet"
-                  className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg transition-all"
-                >
-                  <Car className="h-3.5 w-3.5 mr-2" />
-                  Fleet Ops
-                </TabsTrigger>
-              </TabsList>
-            </div>
+        <Tabs defaultValue="fleet" className="flex-1 flex flex-col min-h-0">
+          <div className="px-5 py-2">
+            <TabsList className="w-full h-12 bg-muted/40 p-1 rounded-2xl border border-white/20">
+              <TabsTrigger
+                value="fleet"
+                className="flex-1 text-xs font-bold rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:shadow-lg"
+              >
+                <Car className="h-4 w-4 mr-2" />
+                Flota
+              </TabsTrigger>
+              <TabsTrigger
+                value="layers"
+                className="flex-1 text-xs font-bold rounded-xl transition-all data-[state=active]:bg-background data-[state=active]:shadow-lg"
+              >
+                <Layers className="h-4 w-4 mr-2" />
+                Capas
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            <TabsContent
-              value="map"
-              className="flex-1 flex flex-col min-h-0 m-0 outline-none data-[state=active]:flex overflow-hidden"
-            >
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="px-4 py-6 space-y-8">
-                  {/* Map Layers */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground/60 tracking-[0.1em]">
-                        Visibility Controls
-                      </Label>
+          {/* Fleet Content */}
+          <TabsContent value="fleet" className="flex-1 flex flex-col min-h-0 m-0 outline-none overflow-hidden h-full">
+            <ScrollArea className="flex-1 min-h-0 w-full">
+              <div className="p-5 pt-2 space-y-6">
+
+                {/* Fleet Switcher */}
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-background/40 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("h-2 w-2 rounded-full", fleetMode ? "bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-muted-foreground/30")} />
+                    <Label className="text-sm font-bold cursor-pointer">Modo Flota</Label>
+                  </div>
+                  <Switch
+                    checked={fleetMode}
+                    onCheckedChange={setFleetMode}
+                    className="data-[state=unchecked]:bg-black/10 border border-white/20"
+                  />
+                </div>
+
+                {!fleetMode ? (
+                  <div className="py-12 text-center space-y-4 px-6 grayscale opacity-60">
+                    <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center mx-auto">
+                      <Car className="h-10 w-10 text-muted-foreground" />
                     </div>
-                    <div className="grid grid-cols-1 gap-2">
-                      {isLoadingLayers ? (
-                        <div className="space-y-3 p-2">
-                          <Skeleton className="h-8 w-full rounded-lg" />
-                          <Skeleton className="h-8 w-full rounded-lg" />
+                    <p className="text-sm text-balance leading-relaxed">
+                      Activa el <b>Modo Flota</b> para gestionar vehículos y optimizar rutas.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+
+                    {/* Add Controls */}
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground px-1 tracking-widest">
+                        Operaciones Rápidas
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <Button
+                          variant="secondary"
+                          onClick={addVehicle}
+                          disabled={!!addMode || isCalculatingRoute}
+                          className="h-12 rounded-2xl font-bold text-xs shadow-sm shadow-black/[0.05]"
+                        >
+                          <Plus className="h-4 w-4 mr-2 text-primary" /> Vehículo
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => setIsAddJobOpenFinal(true)}
+                          disabled={!!addMode || isCalculatingRoute}
+                          className="h-12 rounded-2xl font-bold text-xs shadow-sm shadow-black/[0.05]"
+                        >
+                          <Plus className="h-4 w-4 mr-2 text-primary" /> Pedido
+                        </Button>
+                      </div>
+
+                      {addMode && (
+                        <div className="bg-primary text-white p-3 rounded-xl flex items-center justify-between shadow-lg shadow-primary/25 animate-pulse">
+                          <span className="text-xs font-bold">Haz click en el mapa para colocar</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={cancelAddMode}>
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
-                      ) : (
-                        Object.entries(layers).map(([key, value]) => (
-                          <div key={key} className="flex items-center justify-between px-3 py-2.5 bg-muted/20 hover:bg-muted/30 border border-border/30 rounded-xl transition-all group">
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                "h-2 w-2 rounded-full transition-all",
-                                value ? "bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]" : "bg-muted-foreground/30"
-                              )} />
-                              <Label className="text-sm font-medium capitalize cursor-pointer tracking-tight" htmlFor={`layer-${key}`}>
-                                {key.replace(/([A-Z])/g, " $1").trim()}
-                              </Label>
-                            </div>
-                            <Switch
-                              id={`layer-${key}`}
-                              checked={value}
-                              onCheckedChange={() =>
-                                toggleLayer(key as keyof LayerVisibility)
-                              }
-                              className="scale-90"
-                            />
-                          </div>
-                        ))
                       )}
                     </div>
-                  </div>
 
-                  <Separator className="opacity-50" />
-
-                  {/* Custom POIs */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <div className="flex items-center gap-2">
-                        <Warehouse className="h-5 w-5 text-muted-foreground" />
-                        <h3 className="text-sm font-semibold">Custom POIs</h3>
-                      </div>
-                      <Badge variant="secondary" className="text-xs px-2 h-5">
-                        {customPOIs?.length || 0}
-                      </Badge>
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-sm h-9 bg-muted/10 hover:bg-muted/30"
-                      onClick={() => setIsAddCustomPOIOpenFinal(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Custom POI
-                    </Button>
-
-                    {customPOIs && customPOIs.length > 0 && (
-                      <div className="space-y-4">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full h-8 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setShowCustomPOIs?.(!showCustomPOIs)}
-                        >
-                          {showCustomPOIs ? (
-                            <><EyeOff className="h-4 w-4 mr-2" /> Hide markers</>
-                          ) : (
-                            <><Eye className="h-4 w-4 mr-2" /> Show markers</>
-                          )}
+                    {/* Vehicles List */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Vehículos</Label>
+                        <Button variant="ghost" size="sm" onClick={fetchVehicles} disabled={isLoadingVehicles} className="h-6 text-[10px] font-bold uppercase tracking-tight">
+                          {isLoadingVehicles ? "Cargando..." : "Sincronizar"}
                         </Button>
-
-                        <div className="space-y-2 max-h-[300px] pr-1">
-                          {customPOIs.map((poi) => (
+                      </div>
+                      <div className="space-y-2">
+                        {fleetVehicles.length === 0 ? (
+                          <p className="text-xs text-center py-4 text-muted-foreground italic">No hay vehículos asignados</p>
+                        ) : (
+                          fleetVehicles.map(v => (
                             <div
-                              key={poi.id}
-                              className="group flex items-center justify-between p-2.5 rounded-md bg-muted/20 border border-transparent hover:border-border hover:bg-accent/40 transition-all"
+                              key={v.id}
+                              onClick={() => setSelectedVehicleId(v.id)}
+                              className={cn(
+                                "group flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden",
+                                selectedVehicleId === v.id ? "bg-white border-primary/30 shadow-md ring-1 ring-primary/10" : "bg-white/40 border-transparent hover:bg-white"
+                              )}
                             >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <Warehouse className="h-4 w-4 text-cyan-600/70" />
-                                <div className="min-w-0">
-                                  <span className="text-sm font-medium truncate block leading-tight mb-1">
-                                    {poi.name}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground font-mono">
-                                    {poi.position[0].toFixed(3)}, {poi.position[1].toFixed(3)}
-                                  </span>
+                              <div className="flex items-center gap-3">
+                                <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center transition-colors", selectedVehicleId === v.id ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
+                                  <Car className="h-4 w-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold">{v.type.label}</span>
+                                  <span className="text-[10px] text-muted-foreground font-mono">{v.id.slice(0, 8)}</span>
                                 </div>
                               </div>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => removeCustomPOI?.(poi.id)}
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); removeVehicle(v.id); }}
                               >
-                                <Trash2 className="h-4 w-4 text-destructive/70" />
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Jobs List */}
+                    <div className="space-y-3 pb-4">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground px-1 tracking-widest">Pedidos Agendados</Label>
+                      <div className="space-y-2">
+                        {fleetJobs.length === 0 ? (
+                          <p className="text-xs text-center py-4 text-muted-foreground italic">No hay pedidos pendientes</p>
+                        ) : (
+                          fleetJobs.map(j => (
+                            <div key={j.id} className="group flex items-center justify-between p-3.5 rounded-2xl bg-white/40 border border-transparent hover:border-border hover:bg-white transition-all shadow-sm">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                                  <Package className="h-4 w-4" />
+                                </div>
+                                <span className="text-sm font-semibold">{j.label}</span>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 hover:text-destructive" onClick={() => removeJob(j.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Sticky Action Bar */}
+            {fleetMode && (
+              <div className="p-5 pt-0 bg-gradient-to-t from-background/90 to-transparent">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    className="h-12 rounded-2xl border-destructive/20 text-destructive hover:bg-destructive/5 font-bold"
+                    onClick={clearFleet}
+                    disabled={fleetVehicles.length === 0 && fleetJobs.length === 0}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Borrar
+                  </Button>
+                  <Button
+                    className="h-12 rounded-2xl bg-primary shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all font-bold"
+                    onClick={startRouting}
+                    disabled={fleetVehicles.length === 0 || fleetJobs.length === 0 || isCalculatingRoute}
+                  >
+                    {isCalculatingRoute ? <Loader2 className="h-4 w-4 animate-spin" /> : "Trazar Rutas"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Layers Content */}
+          <TabsContent value="layers" className="flex-1 flex flex-col min-h-0 m-0 outline-none overflow-hidden h-full">
+            <ScrollArea className="flex-1 min-h-0 w-full">
+              <div className="p-5 space-y-8">
+
+                {/* Map Config */}
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground px-1 tracking-widest">Configuración Base</Label>
+                  <div className="space-y-2">
+                    {Object.entries(layers).map(([key, value]) => (
+                      <div key={key} className="flex items-center justify-between p-4 rounded-2xl bg-white/40 border border-transparent hover:border-border/30 transition-all">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("h-4 w-4 rounded-md transition-colors", value ? "bg-primary" : "bg-muted")} />
+                          <span className="text-sm font-bold capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                        </div>
+                        <Switch
+                          checked={value}
+                          onCheckedChange={() => toggleLayer(key as keyof LayerVisibility)}
+                          className="data-[state=unchecked]:bg-black/10 border border-white/20"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom POIs Management */}
+                <div className="space-y-4 pb-4">
+                  <div className="flex items-center justify-between px-1">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">POIs del Cliente</Label>
+                    <Badge variant="secondary" className="rounded-full px-2.5 h-6 bg-primary/10 text-primary border-none font-bold">
+                      {customPOIs.length}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Button
+                      variant="secondary"
+                      className="w-full h-12 rounded-2xl font-bold border border-white/40 shadow-sm"
+                      onClick={() => setIsAddCustomPOIOpenFinal(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Nuevo Punto de Interés
+                    </Button>
+
+                    {customPOIs.length > 0 && (
+                      <div className="space-y-3 py-2 animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-xs font-bold text-muted-foreground">Visibilidad</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs font-bold text-primary"
+                            onClick={() => setShowCustomPOIs?.(!showCustomPOIs)}
+                          >
+                            {showCustomPOIs ? "Ocultar en Mapa" : "Mostrar en Mapa"}
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {customPOIs.map(poi => (
+                            <div key={poi.id} className="group flex items-center justify-between p-3 rounded-2xl bg-white/40 border border-transparent hover:border-border transition-all">
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                <div className="p-2 bg-cyan-100 text-cyan-700 rounded-lg">
+                                  <Warehouse className="h-4 w-4" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-sm font-bold truncate">{poi.name}</span>
+                                  <span className="text-[10px] text-muted-foreground">Lat: {poi.position[0].toFixed(4)}</span>
+                                </div>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => removeCustomPOI?.(poi.id)}>
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           ))}
@@ -338,338 +495,25 @@ export function Sidebar({
 
                         <Button
                           variant="ghost"
-                          size="sm"
-                          className="w-full text-xs text-destructive/70 hover:text-destructive hover:bg-destructive/10 h-8"
-                          onClick={() => clearAllCustomPOIs?.()}
+                          className="w-full h-9 text-xs font-bold text-destructive hover:bg-destructive/10 rounded-xl"
+                          onClick={clearAllCustomPOIs}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Clear all POIs
+                          Borrar todos los POIs
                         </Button>
                       </div>
                     )}
                   </div>
                 </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent
-              value="fleet"
-              className="flex-1 flex flex-col min-h-0 m-0 outline-none data-[state=active]:flex overflow-hidden"
-            >
-              <div className="flex-none flex items-center justify-between px-5 pt-4 pb-2">
-                <div className="flex items-center gap-2">
-                  <Car className="h-5 w-5 text-muted-foreground" />
-                  <h3 className="text-sm font-bold uppercase tracking-wide">Fleet Optimization</h3>
-                </div>
-                <Switch
-                  checked={fleetMode}
-                  onCheckedChange={setFleetMode}
-                  className="scale-100"
-                />
               </div>
-
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="px-5 py-4 space-y-8">
-                  {!fleetMode ? (
-                    <div className="rounded-lg border border-dashed border-border bg-muted/5 p-8 text-center">
-                      <Car className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-                      <p className="text-sm text-muted-foreground font-medium">
-                        Activate Fleet Mode to start optimization
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-top-2 duration-300">
-                      {/* Status Alerts - Only when active */}
-                      {addMode && (
-                        <div className="p-4 bg-primary/5 rounded-xl flex flex-col gap-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="bg-primary h-2 w-2 rounded-full animate-pulse" />
-                              <span className="text-xs font-semibold text-primary">
-                                Click on map to place {addMode}
-                              </span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-primary/60 hover:text-primary"
-                              onClick={cancelAddMode}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {isCalculatingRoute && (
-                        <div className="p-4 bg-green-500/5 rounded-xl flex items-center gap-3">
-                          <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
-                          <span className="text-xs font-semibold text-green-700">
-                            Computing routes...
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Quick Overview - Visual Anchor */}
-                      <div className="flex items-center justify-around py-4 bg-card rounded-2xl border border-border/40 shadow-sm shadow-black/[0.02]">
-                        <div className="flex flex-col items-center">
-                          <div className="text-3xl font-black text-primary leading-none mb-1">{fleetVehicles.length}</div>
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Vehicles</div>
-                        </div>
-                        <div className="w-px h-10 bg-border/60" />
-                        <div className="flex flex-col items-center">
-                          <div className="text-3xl font-black text-primary leading-none mb-1">{fleetJobs.length}</div>
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Jobs</div>
-                        </div>
-                      </div>
-
-                      {/* Config + Actions Card */}
-                      <div className="bg-card p-5 rounded-2xl border border-border/40 space-y-5 shadow-sm shadow-black/[0.01]">
-                        <div className="space-y-2.5">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.15em] ml-1">
-                            Configuration
-                          </Label>
-                          <Select
-                            value={selectedVehicle.id}
-                            onValueChange={(value) => {
-                              const vehicle = VEHICLE_TYPES.find((v) => v.id === value);
-                              if (vehicle) setSelectedVehicle(vehicle);
-                            }}
-                            disabled={isCalculatingRoute}
-                          >
-                            <SelectTrigger className="h-11 rounded-xl bg-muted/20 border-border/30 hover:bg-muted/30 transition-all">
-                              <SelectValue placeholder="Select vehicle type" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-border/40">
-                              {VEHICLE_TYPES.map((v) => (
-                                <SelectItem key={v.id} value={v.id} className="rounded-lg">
-                                  {v.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={addVehicle}
-                            disabled={!!addMode || isCalculatingRoute}
-                            className="h-11 rounded-xl border-border/40 bg-muted/20 hover:bg-muted/40 transition-all font-bold text-xs uppercase tracking-widest"
-                          >
-                            <Plus className="h-4 w-4 mr-2" /> Vehicle
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsAddJobOpenFinal(true)}
-                            disabled={!!addMode || isCalculatingRoute}
-                            className="h-11 rounded-xl border-border/40 bg-muted/20 hover:bg-muted/40 transition-all font-bold text-xs uppercase tracking-widest"
-                          >
-                            <Plus className="h-4 w-4 mr-2" /> Job
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Vehicle Fleet */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vehicles</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={fetchVehicles}
-                            disabled={!!addMode || isCalculatingRoute || isLoadingVehicles}
-                            className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
-                          >
-                            {isLoadingVehicles ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              "Sync"
-                            )}
-                          </Button>
-                        </div>
-
-                        {fleetVehicles.length === 0 ? (
-                          <div className="py-8 text-center">
-                            <Car className="h-8 w-8 text-muted-foreground/15 mx-auto mb-2" />
-                            <p className="text-xs text-muted-foreground/60">No vehicles</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                            {fleetVehicles.map((vehicle) => (
-                              <div
-                                key={vehicle.id}
-                                className={cn(
-                                  "group flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer relative overflow-hidden",
-                                  selectedVehicleId === vehicle.id
-                                    ? "bg-primary/10"
-                                    : "hover:bg-muted/40"
-                                )}
-                                onClick={() => setSelectedVehicleId(vehicle.id)}
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  {selectedVehicleId === vehicle.id && (
-                                    <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-full" />
-                                  )}
-                                  <Car className={cn(
-                                    "h-4 w-4 shrink-0",
-                                    selectedVehicleId === vehicle.id ? "text-primary" : "text-muted-foreground"
-                                  )} />
-                                  <span className="text-sm font-medium truncate">
-                                    {vehicle.type.label}
-                                  </span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeVehicle(vehicle.id);
-                                  }}
-                                  disabled={isCalculatingRoute}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Jobs */}
-                      <div className="space-y-3">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Jobs</span>
-
-                        {fleetJobs.length === 0 ? (
-                          <div className="py-8 text-center">
-                            <Package className="h-8 w-8 text-muted-foreground/15 mx-auto mb-2" />
-                            <p className="text-xs text-muted-foreground/60">No jobs</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                            {fleetJobs.map((job) => (
-                              <div
-                                key={job.id}
-                                className="group flex items-center justify-between p-3 rounded-lg hover:bg-muted/30 transition-all"
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <Package className="h-4 w-4 text-muted-foreground shrink-0" />
-                                  <span className="text-sm font-medium truncate">
-                                    {job.label}
-                                  </span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                                  onClick={() => removeJob(job.id)}
-                                  disabled={isCalculatingRoute}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* POIs as Jobs - Only if there are POIs */}
-                      {customPOIs.length > 0 && (
-                        <div className="space-y-3">
-                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">POIs as Jobs</span>
-                          <div className="space-y-1 max-h-[140px] overflow-y-auto">
-                            {customPOIs.map((poi) => (
-                              <div key={poi.id} className="flex items-center gap-3 py-2 px-1">
-                                <Switch
-                                  id={`fleet-poi-${poi.id}`}
-                                  checked={!!poi.selectedForFleet}
-                                  onCheckedChange={() => togglePOISelectionForFleet?.(poi.id)}
-                                />
-                                <Label
-                                  htmlFor={`fleet-poi-${poi.id}`}
-                                  className="text-sm truncate cursor-pointer flex-1"
-                                >
-                                  {poi.name}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-
-              {/* Sticky Footer Actions within tab */}
-              {fleetMode && (
-                <div className="flex-none p-5 border-t border-border/60 bg-card/95 backdrop-blur-md shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.05)]">
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-11 text-destructive hover:bg-destructive/5 hover:text-destructive border-border/80 font-bold transition-all"
-                      onClick={clearFleet}
-                      disabled={
-                        (fleetVehicles.length === 0 &&
-                          fleetJobs.length === 0 &&
-                          !customPOIs.some((p) => p.selectedForFleet)) ||
-                        isCalculatingRoute ||
-                        isTracking
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={isTracking ? "default" : "outline"}
-                      size="sm"
-                      className={cn(
-                        "h-11 font-bold transition-all",
-                        isTracking
-                          ? "bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/25"
-                          : "border-green-600/50 text-green-600 hover:bg-green-50"
-                      )}
-                      onClick={toggleTracking}
-                      disabled={fleetVehicles.length === 0 || isCalculatingRoute}
-                    >
-                      <Radio className={cn("h-4 w-4 mr-1", isTracking && "animate-pulse")} />
-                      {isTracking ? "Live" : "Live"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-11 font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                      onClick={startRouting}
-                      disabled={
-                        fleetVehicles.length === 0 ||
-                        (fleetJobs.length === 0 &&
-                          !customPOIs.some((p) => p.selectedForFleet)) ||
-                        isCalculatingRoute ||
-                        isTracking
-                      }
-                    >
-                      {isCalculatingRoute ? (
-                        <><Loader2 className="h-4 w-4 mr-1 animate-spin" /></>
-                      ) : (
-                        "Route"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
-      )}
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       <AddJobDialog
         isOpen={isAddJobOpenFinal}
         onOpenChange={(value) => setIsAddJobOpenFinal(value)}
         onSubmit={(coords, label) => {
-          // GISMap handles the actual adding
-          // but we can pass coords here if needed
           addJobDirectly?.(coords, label);
           setIsAddJobOpenFinal(false);
         }}
