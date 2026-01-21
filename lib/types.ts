@@ -14,10 +14,6 @@ export interface POI {
   powerKW?: number;
   status?: string;
   isOperational?: boolean;
-  fuel_diesel?: boolean;
-  fuel_octane_95?: boolean;
-  fuel_octane_98?: boolean;
-  opening_hours?: string;
 }
 
 export interface CustomPOI {
@@ -40,13 +36,6 @@ export interface Zone {
   boundary?: string;
   zone?: string;
   access?: string;
-  motor_vehicle?: string;
-  maxspeed?: string;
-  enforcement?: string;
-  traffic_sign?: string;
-  start_date?: string;
-  end_date?: string;
-  restrictions?: string;
 }
 
 export interface VehicleType {
@@ -56,17 +45,6 @@ export interface VehicleType {
   description: string;
   vroomType: "car";
 }
-
-export const ROUTE_COLORS = [
-  "#4F46E5", // Indigo - Primary route
-  "#0891B2", // Cyan - Cool, professional
-  "#7C3AED", // Violet - Elegant accent
-  "#0D9488", // Teal - Fresh, modern
-  "#6366F1", // Periwinkle - Soft, refined
-  "#2563EB", // Blue - Classic, trustworthy
-  "#8B5CF6", // Purple - Premium accent
-  "#0EA5E9", // Sky - Light, airy
-];
 
 export interface FleetVehicle {
   id: string;
@@ -141,7 +119,6 @@ export interface RouteData {
   coordinates: [number, number][];
   distance: number;
   duration: number;
-  instructions?: RouteInstruction[];
   waypoints?: Array<{
     name?: string;
     location: [number, number];
@@ -152,14 +129,6 @@ export interface RouteData {
   unassignedJobs?: Array<{ id: string; description: string; reason?: string }>;
   notices?: Array<{ title: string; message: string; type: "info" | "warning" }>;
   avoidPolygons?: [number, number][][];
-}
-
-export interface RouteInstruction {
-  text: string;
-  distance: number;
-  duration: number;
-  type?: string;
-  modifier?: string;
 }
 
 export interface WeatherData {
@@ -179,14 +148,20 @@ export interface LayerVisibility {
   route: boolean;
 }
 
-export interface SearchLocation {
-  coords: [number, number];
-  name: string;
-}
-
 export type InteractionMode =
   | "add-vehicle"
   | "add-job"
   | "pick-poi"
   | "pick-job"
   | null;
+
+export const ROUTE_COLORS = [
+  "#4F46E5", // Indigo - Primary route
+  "#0891B2", // Cyan - Cool, professional
+  "#7C3AED", // Violet - Elegant accent
+  "#0D9488", // Teal - Fresh, modern
+  "#6366F1", // Periwinkle - Soft, refined
+  "#2563EB", // Blue - Classic, trustworthy
+  "#8B5CF6", // Purple - Premium accent
+  "#0EA5E9", // Sky - Light, airy
+];

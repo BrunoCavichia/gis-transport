@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
 import type {
   LayerVisibility,
@@ -41,8 +41,6 @@ export function GISMap() {
   );
   const [fleetMode, setFleetMode] = useState(false);
   const [showCustomPOIs, setShowCustomPOIs] = useState(true);
-
-  // Interaction State
   const [interactionMode, setInteractionMode] = useState<InteractionMode>(null);
 
   const [pickedPOICoords, setPickedPOICoords] = useState<[number, number] | null>(null);

@@ -1,19 +1,6 @@
 // lib/hooks/use-fleet.ts
 import { useState, useCallback } from "react";
-import type { VehicleType } from "@/lib/types";
-
-// Hook interfaces
-export interface FleetJob {
-  id: string;
-  coords: [number, number];
-  label: string;
-}
-
-export interface FleetVehicle {
-  id: string;
-  coords: [number, number];
-  type: VehicleType;
-}
+import type { VehicleType, FleetJob, FleetVehicle } from "@/lib/types";
 
 /**
  * Custom hook to manage fleet state and operations

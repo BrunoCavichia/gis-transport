@@ -1,8 +1,8 @@
 "use client";
-
 //map-container.tsx
-import { MAP_CENTER, DEFAULT_ZOOM } from "@/lib/config";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { MAP_CENTER, DEFAULT_ZOOM, MAP_TILE_URL, MAP_ATTRIBUTION } from "@/lib/config";
+import { THEME } from "@/lib/theme";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   MapContainer as LeafletMap,
   TileLayer,
@@ -39,29 +39,6 @@ import {
   renderCustomPOIs,
 } from "@/app/helpers/map-render-helpers";
 
-
-function FitBounds({
-  routes,
-}: {
-  routes: { coordinates: [number, number][] }[];
-}) {
-  const map = useMap();
-  useEffect(() => {
-    const all = routes.flatMap((r) => r.coordinates || []);
-    if (all.length === 0) return;
-    map.flyToBounds(all as [number, number][], {
-      padding: [80, 80],
-      duration: 1.2,
-      easeLinearity: 0.35,
-      animate: true,
-      maxZoom: 16
-    });
-  }, [routes, map]);
-  return null;
-}
-
-
-
 interface MapContainerProps {
   layers: LayerVisibility;
   routeData: RouteData | null;
@@ -92,7 +69,6 @@ interface MapContainerProps {
   onZonesUpdate?: (zones: Zone[]) => void;
   isInteracting?: boolean;
 }
-
 
 function MapEventHandler({
   isRouting,
@@ -168,8 +144,8 @@ function MapEventHandler({
 
     const bounds = map.getBounds();
     const distance = Math.min(
-      bounds.getNorthEast().distanceTo(bounds.getSouthWest()) / 2000,
-      25
+      bounds.getNorthEast().distanceTo(bounds.getSouthWest()) / THEME.map.poi.fetchDistanceRatio,
+      THEME.map.poi.maxFetchDistance
     );
 
     await wrapAsync(async () => {
@@ -193,7 +169,7 @@ function MapEventHandler({
 
       // Gas Stations Fetch
       if (layers.gasStations) {
-        const radius = Math.min(distance * 1000, 10000);
+        const radius = Math.min(distance * THEME.map.poi.gasRadiusMultiplier, THEME.map.poi.maxGasRadius);
         const radiusCeil = Math.ceil(radius);
         const gasStations = await poiCache.fetchPOI(
           "gas",
@@ -224,7 +200,6 @@ function MapEventHandler({
   useMapEvents({
     click: (e: LeafletMouseEvent) => {
       const point: [number, number] = [e.latlng.lat, e.latlng.lng];
-      console.log("Map clicked at (lat, lon):", point[0], point[1]);
       if (onMapClick) {
         onMapClick(point);
         return;
@@ -236,9 +211,9 @@ function MapEventHandler({
     },
     moveend: () => {
       const newCenter = map.getCenter();
-      // Only update if moved more than 100 meters to avoid constant refetching
+
       const dist = map.getCenter().distanceTo({ lat: mapCenter[0], lng: mapCenter[1] });
-      if (dist > 100) {
+      if (dist > THEME.map.interaction.moveThreshold) {
         setMapCenter([newCenter.lat, newCenter.lng]);
       }
 
@@ -246,7 +221,7 @@ function MapEventHandler({
       fetchTimeoutRef.current = setTimeout(() => {
         zoneCache.fetchZones();
         fetchPOIs();
-      }, 800);
+      }, THEME.map.interaction.fetchDebounce);
     },
     zoomend: () => {
       setZoom(map.getZoom());
@@ -254,7 +229,7 @@ function MapEventHandler({
       fetchTimeoutRef.current = setTimeout(() => {
         zoneCache.fetchZones();
         fetchPOIs();
-      }, 1000);
+      }, THEME.map.interaction.zoomDebounce);
     },
   });
 
@@ -270,13 +245,33 @@ function MapCenterHandler({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
     const dist = map.getCenter().distanceTo({ lat: center[0], lng: center[1] });
-    if (dist > 5) {
+    if (dist > THEME.map.interaction.flyToThreshold) {
       map.flyTo(center, map.getZoom(), {
         animate: true,
-        duration: 0.8
+        duration: THEME.map.interaction.flyToDuration
       });
     }
   }, [center, map]);
+  return null;
+}
+
+function FitBounds({
+  routes,
+}: {
+  routes: { coordinates: [number, number][] }[];
+}) {
+  const map = useMap();
+  useEffect(() => {
+    const all = routes.flatMap((r) => r.coordinates || []);
+    if (all.length === 0) return;
+    map.flyToBounds(all as [number, number][], {
+      padding: THEME.map.routes.padding,
+      duration: THEME.map.routes.duration,
+      easeLinearity: 0.35,
+      animate: true,
+      maxZoom: THEME.map.routes.maxZoom
+    });
+  }, [routes, map]);
   return null;
 }
 
@@ -309,13 +304,18 @@ export default function MapContainer({
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
 
-  // Initialize icons inside component for safe browser-only execution
-  const weatherIcons = createWeatherIcons();
+
+  const weatherIcons = useMemo(() => createWeatherIcons(), []);
   const {
     jobIcon,
     customPOIIcon,
     pickingIcon,
     createVehicleIcon,
+    createMinimalIcon,
+    gasStationIcon,
+    gasStationIconMinimal,
+    evStationIcon,
+    evStationIconMinimal,
     snowIcon,
     rainIcon,
     iceIcon,
@@ -326,20 +326,10 @@ export default function MapContainer({
   const { loading, wrapAsync } = useLoadingLayers();
   const poiCache = usePOICache();
 
-  useEffect(() => {
-    if (fleetJobs && fleetJobs.length > 0) {
-      console.log("MapContainer rendering jobs:", fleetJobs.length, fleetJobs);
-    }
-  }, [fleetJobs]);
-
-  useEffect(() => setMounted(true), []);
-
-
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {
       if (!zone.requiredTags || zone.requiredTags.length === 0) return true;
 
-      // 1. If a specific vehicle is selected (either from fleet or base type), use IT for color
       if (selectedVehicleId && fleetVehicles) {
         const selected = fleetVehicles.find(v => v.id === selectedVehicleId);
         if (selected) {
@@ -347,17 +337,11 @@ export default function MapContainer({
         }
       }
 
-      // If no fleet selection but we have a base selected vehicle (from dropdown)
       if (!selectedVehicleId && selectedVehicle?.tags) {
         const hasAccess = zone.requiredTags.some(tag => selectedVehicle.tags.includes(tag));
-
-        // If the base selection has NO access, BUT we are in fleet mode, check if ANYONE in fleet has access
-        // to avoid "perma-red" zones if a Zero vehicle is present in the background.
-        // Actually, user explicitly asked to change color when selecting No-Label, so we prioritize the selection.
         return hasAccess;
       }
 
-      // 2. Default: Fleet Mode (if no selection, check if ANY vehicle can access)
       if (fleetVehicles && fleetVehicles.length > 0) {
         return fleetVehicles.some(v =>
           zone.requiredTags?.some(tag => v.type.tags.includes(tag))
@@ -368,6 +352,153 @@ export default function MapContainer({
     },
     [selectedVehicle.tags, fleetVehicles, selectedVehicleId]
   );
+
+  // --- Memoized Rendering Layers ---
+
+  const renderedGasStations = useMemo(() => {
+    if (!layers.gasStations) return null;
+    return renderPOIs({
+      stations: dynamicGasStations,
+      icon: gasStationIcon,
+      minimalIcon: gasStationIconMinimal,
+      zoom: zoom,
+      isRouting: isRouting,
+    });
+  }, [layers.gasStations, dynamicGasStations, gasStationIcon, gasStationIconMinimal, zoom, isRouting]);
+
+  const renderedEVStations = useMemo(() => {
+    if (!layers.evStations) return null;
+    return renderPOIs({
+      stations: dynamicEVStations,
+      icon: evStationIcon,
+      minimalIcon: evStationIconMinimal,
+      zoom: zoom,
+      isEV: true,
+      isRouting: isRouting,
+    });
+  }, [layers.evStations, dynamicEVStations, evStationIcon, evStationIconMinimal, zoom, isRouting]);
+
+  const renderedCustomPOIs = useMemo(() => {
+    return renderCustomPOIs({
+      customPOIs: customPOIs || [],
+      isRouting: isRouting,
+      icon: customPOIIcon,
+      zoom: zoom,
+    });
+  }, [customPOIs, isRouting, customPOIIcon, zoom]);
+
+  const renderedVehicles = useMemo(() => {
+    return renderVehicleMarkers({
+      vehicles: fleetVehicles || [],
+      selectedVehicleId,
+      createVehicleIcon,
+      createMinimalIcon,
+      zoom,
+      isRouting,
+    });
+  }, [fleetVehicles, selectedVehicleId, createVehicleIcon, createMinimalIcon, zoom, isRouting]);
+
+  const renderedJobs = useMemo(() => {
+    return renderJobMarkers({
+      jobs: fleetJobs || [],
+      isRouting,
+      icon: jobIcon,
+      zoom: zoom,
+    });
+  }, [fleetJobs, isRouting, jobIcon, zoom]);
+
+  const renderedZones = useMemo(() => {
+    if (!layers.cityZones) return null;
+    return dynamicZones.map((zone, idx) => {
+      const hasAccess = canAccessZone(zone);
+      const isLEZ = zone.type?.toUpperCase() === "LEZ" || zone.type === "Environmental";
+      const zType = isLEZ ? "LEZ" : "RESTRICTED";
+
+      const style = isLEZ
+        ? {
+          color: hasAccess ? THEME.colors.success : THEME.colors.danger,
+          fillColor: hasAccess ? THEME.colors.success : THEME.colors.danger,
+          fillOpacity: hasAccess ? THEME.map.polygons.lez.fillOpacity.allowed : THEME.map.polygons.lez.fillOpacity.restricted,
+          weight: THEME.map.polygons.lez.weight,
+          dashArray: undefined
+        }
+        : {
+          color: THEME.colors.danger,
+          fillColor: THEME.colors.danger,
+          fillOpacity: THEME.map.polygons.restricted.fillOpacity,
+          weight: THEME.map.polygons.restricted.weight,
+          dashArray: THEME.map.polygons.restricted.dashArray
+        };
+
+      return (
+        <Polygon
+          key={`${zone.id}-${idx}`}
+          positions={zone.coordinates}
+          pathOptions={style}
+          interactive={!isInteracting}
+          bubblingMouseEvents={false}
+        >
+          {!isInteracting && (
+            <Popup closeButton={false} autoClose={false} className="zone-popup">
+              <div style={{ fontSize: THEME.map.popups.fontSize }}>
+                <strong>{zone.name}</strong>
+                {zType === "LEZ" && (
+                  <div
+                    style={{
+                      color: hasAccess ? THEME.colors.success : THEME.colors.danger,
+                      marginTop: 4,
+                    }}
+                  >
+                    {hasAccess ? "Access OK" : "Restricted"}
+                  </div>
+                )}
+              </div>
+            </Popup>
+          )}
+        </Polygon>
+      );
+    });
+  }, [layers.cityZones, dynamicZones, canAccessZone, isInteracting]);
+
+  const renderedWeatherMarkers = useMemo(() => {
+    if (!routeData?.weatherRoutes) return null;
+    return routeData.weatherRoutes.flatMap((wr, wrIdx) =>
+      wr.alerts?.map((alert, idx) => {
+        if (alert.lat == null || alert.lon == null) return null;
+
+        let icon;
+        switch (alert.event) {
+          case "SNOW": icon = snowIcon; break;
+          case "RAIN": icon = rainIcon; break;
+          case "ICE": icon = iceIcon; break;
+          case "WIND": icon = windIcon; break;
+          case "FOG": icon = fogIcon; break;
+          default: return null;
+        }
+
+        return (
+          <Marker
+            key={`weather-${wrIdx}-${idx}`}
+            position={[alert.lat, alert.lon]}
+            icon={icon}
+          >
+            <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
+              <span style={{ fontSize: 12 }}>{alert.message}</span>
+            </Tooltip>
+          </Marker>
+        );
+      })
+    );
+  }, [routeData?.weatherRoutes, snowIcon, rainIcon, iceIcon, windIcon, fogIcon]);
+
+  useEffect(() => {
+    if (fleetJobs && fleetJobs.length > 0) {
+      console.log("MapContainer rendering jobs:", fleetJobs.length, fleetJobs);
+    }
+  }, [fleetJobs]);
+
+  useEffect(() => setMounted(true), []);
+
 
   const defaultCenter: [number, number] = MAP_CENTER;
   const defaultZoom = DEFAULT_ZOOM;
@@ -393,8 +524,8 @@ export default function MapContainer({
         maxZoom={19}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={MAP_ATTRIBUTION}
+          url={MAP_TILE_URL}
         />
 
         <MapCenterHandler center={mapCenter} />
@@ -418,54 +549,7 @@ export default function MapContainer({
           setZoom={setZoom}
         />
 
-        {layers.cityZones && dynamicZones.map((zone, idx) => {
-          const hasAccess = canAccessZone(zone);
-          const zType = zone.type?.toUpperCase() === "LEZ" || zone.type === "Environmental" ? "LEZ" : "RESTRICTED";
-          return (
-            <Polygon
-              key={`${zone.id}-${idx}`}
-              positions={zone.coordinates}
-              pathOptions={{
-                color:
-                  zType === "LEZ"
-                    ? hasAccess
-                      ? "#10b981"
-                      : "#ef4444"
-                    : "#ef4444",
-                fillColor:
-                  zType === "LEZ"
-                    ? hasAccess
-                      ? "#10b981"
-                      : "#ef4444"
-                    : "#ef4444",
-                fillOpacity:
-                  zType === "LEZ" ? (hasAccess ? 0.08 : 0.12) : 0.12,
-                weight: zType === "LEZ" ? 1 : 0.5,
-                dashArray: zType === "LEZ" ? undefined : "4,4",
-              }}
-              interactive={!isInteracting}
-              bubblingMouseEvents={false}
-            >
-              {!isInteracting && (
-                <Popup closeButton={false} autoClose={false} className="zone-popup">
-                  <div style={{ fontSize: 12 }}>
-                    <strong>{zone.name}</strong>
-                    {zType === "LEZ" && (
-                      <div
-                        style={{
-                          color: hasAccess ? "#10b981" : "#ef4444",
-                          marginTop: 4,
-                        }}
-                      >
-                        {hasAccess ? "Access OK" : "Restricted"}
-                      </div>
-                    )}
-                  </div>
-                </Popup>
-              )}
-            </Polygon>
-          );
-        })}
+        {renderedZones}
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
           <>
@@ -475,9 +559,9 @@ export default function MapContainer({
                 key={`vehicle-route-shadow-${r.vehicleId}`}
                 positions={r.coordinates}
                 pathOptions={{
-                  color: "#1e293b",
-                  weight: 7,
-                  opacity: 0.15,
+                  color: THEME.colors.routeShadow,
+                  weight: THEME.map.routes.shadowWeight,
+                  opacity: THEME.map.routes.shadowOpacity,
                   lineCap: "round",
                   lineJoin: "round",
                 }}
@@ -490,11 +574,11 @@ export default function MapContainer({
                 positions={r.coordinates}
                 pathOptions={{
                   color: r.color,
-                  weight: 4,
+                  weight: THEME.map.routes.mainWeight,
                   opacity: 1,
                   lineCap: "round",
                   lineJoin: "round",
-                  dashArray: "12, 8",
+                  dashArray: THEME.map.routes.dashArray,
                 }}
               />
             ))}
@@ -518,80 +602,17 @@ export default function MapContainer({
           </>
         ) : null}
 
-        {layers.gasStations && renderPOIs({
-          stations: dynamicGasStations,
-          icon: (zoom >= 15 && weatherIcons.gasStationIcon) ? weatherIcons.gasStationIcon : (weatherIcons as any).gasStationIconMinimal,
-          isRouting: isRouting,
-        })}
-
-        {layers.evStations && renderPOIs({
-          stations: dynamicEVStations,
-          icon: (zoom >= 15 && weatherIcons.evStationIcon) ? weatherIcons.evStationIcon : (weatherIcons as any).evStationIconMinimal,
-          isEV: true,
-          isRouting: isRouting,
-        })}
-
-        {renderCustomPOIs({
-          customPOIs: customPOIs || [],
-          isRouting: isRouting,
-          icon: customPOIIcon,
-        })}
-
-        {renderVehicleMarkers({
-          vehicles: fleetVehicles || [],
-          selectedVehicleId,
-          createVehicleIcon,
-          isRouting,
-        })}
-
-        {renderJobMarkers({
-          jobs: fleetJobs || [],
-          isRouting,
-          icon: jobIcon,
-        })}
+        {renderedGasStations}
+        {renderedEVStations}
+        {renderedCustomPOIs}
+        {renderedVehicles}
+        {renderedJobs}
         {routeData?.weatherRoutes && (
           <WeatherPanel
             routes={routeData.weatherRoutes}
           />
         )}
-        {routeData?.weatherRoutes?.map((wr, wrIdx) =>
-          wr.alerts?.map((alert, idx) => {
-            if (alert.lat == null || alert.lon == null) return null;
-
-            let icon;
-            switch (alert.event) {
-              case "SNOW":
-                icon = snowIcon;
-                break;
-              case "RAIN":
-                icon = rainIcon;
-                break;
-              case "ICE":
-                icon = iceIcon;
-                break;
-              case "WIND":
-                icon = windIcon;
-                break;
-              case "FOG":
-                icon = fogIcon;
-                break;
-              default:
-                return null;
-            }
-
-            return (
-              <Marker
-                key={`weather-${wrIdx}-${idx}`}
-                position={[alert.lat, alert.lon]}
-                icon={icon}
-              >
-                <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-                  <span style={{ fontSize: 12 }}>{alert.message}</span>
-                </Tooltip>
-              </Marker>
-            );
-          })
-        )}
+        {renderedWeatherMarkers}
         {pickedPOICoords && (
           <Marker position={pickedPOICoords} icon={pickingIcon} />
         )}

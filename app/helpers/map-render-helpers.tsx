@@ -1,18 +1,12 @@
-import React from "react";
-import { MAP_CENTER } from "@/lib/config";
+import { THEME } from "@/lib/theme";
 import { Marker, Tooltip, Popup } from "react-leaflet";
 import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
-
-/**
- * Robust coordinate fixer.
- * In GIS, [lon, lat] is standard (GeoJSON), but Leaflet uses [lat, lon].
- * This function detects if the values are likely swapped (e.g. lon is in the lat position).
- */
-
 
 interface RenderPOIsProps {
   stations: POI[];
   icon: any;
+  minimalIcon?: any;
+  zoom: number;
   isEV?: boolean;
   isRouting: boolean;
 }
@@ -21,6 +15,8 @@ interface RenderVehiclesProps {
   vehicles: FleetVehicle[];
   selectedVehicleId?: string | null;
   createVehicleIcon: (color: string) => any;
+  createMinimalIcon: (color: string) => any;
+  zoom: number;
   isRouting: boolean;
 }
 
@@ -28,36 +24,51 @@ interface RenderJobsProps {
   jobs: FleetJob[];
   isRouting: boolean;
   icon: any;
+  minimalIcon?: any;
+  zoom: number;
 }
 
 interface RenderCustomPOIsProps {
   customPOIs: CustomPOI[];
   isRouting: boolean;
   icon: any;
+  minimalIcon?: any;
+  zoom: number;
 }
 
 export function renderPOIs({
   stations,
   icon,
+  minimalIcon,
+  zoom,
   isEV = false,
   isRouting,
 }: RenderPOIsProps) {
+  const isMinimal = zoom < THEME.map.popups.minimalZoomThreshold;
+  const activeIcon = isMinimal && minimalIcon ? minimalIcon : icon;
+
   return (stations || []).map((station) => {
     const pos = station.position as [number, number]
     return (
       <Marker
         key={station.id}
         position={pos}
-        icon={icon}
+        icon={activeIcon}
       >
-        <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-          <span style={{ fontSize: 12 }}>{station.name}</span>
-        </Tooltip>
-        {!isRouting && (
-          <Popup>
-            <div style={{ fontSize: 12 }}>
+        {!isMinimal && (
+          <Tooltip
+            direction="top"
+            offset={THEME.map.popups.tooltipOffset}
+            opacity={THEME.map.popups.tooltipOpacity}
+          >
+            <span style={{ fontSize: THEME.map.popups.fontSize }}>{station.name}</span>
+          </Tooltip>
+        )}
+        {!isRouting && !isMinimal && (
+          <Popup offset={[0, -30]}>
+            <div style={{ fontSize: THEME.map.popups.fontSize }}>
               <strong>{station.name}</strong>
-              <div style={{ marginTop: 4, color: '#666', fontSize: 10 }}>
+              <div style={{ marginTop: THEME.map.popups.padding, color: THEME.colors.textMuted, fontSize: THEME.map.popups.subtitleFontSize }}>
                 {`Coords: ${pos[0].toFixed(5)}, ${pos[1].toFixed(5)}`}
               </div>
               <div style={{ marginTop: 6 }}>
@@ -79,38 +90,50 @@ export function renderVehicleMarkers({
   vehicles,
   selectedVehicleId,
   createVehicleIcon,
+  createMinimalIcon,
+  zoom,
   isRouting,
 }: RenderVehiclesProps) {
+  const isMinimal = zoom < THEME.map.popups.minimalZoomThreshold;
+
   return (vehicles || []).map((vehicle) => {
     const isSelected = selectedVehicleId === vehicle.id;
     const pos = vehicle.coords;
+    const color = isSelected ? THEME.colors.vehicleSelected : THEME.colors.muted;
+
+    // Only turn to dot if not selected
+    const icon = (isMinimal && !isSelected)
+      ? createMinimalIcon(color)
+      : createVehicleIcon(color);
 
     return (
       <Marker
         key={`vehicle-${vehicle.id}`}
         position={pos}
-        icon={createVehicleIcon(isSelected ? "#ffa616ff" : "#94a3b8")}
+        icon={icon}
       >
-        <Tooltip
-          direction="top"
-          offset={[0, -18]}
-          opacity={0.95}
-          permanent={isSelected}
-        >
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: isSelected ? "bold" : "normal",
-            }}
+        {!isMinimal && (
+          <Tooltip
+            direction="top"
+            offset={THEME.map.popups.vehicleTooltipOffset}
+            opacity={THEME.map.popups.tooltipOpacity}
+            permanent={isSelected}
           >
-            {vehicle.type.label}
-          </span>
-        </Tooltip>
-        {!isRouting && (
-          <Popup>
-            <div style={{ fontSize: 12 }}>
+            <span
+              style={{
+                fontSize: THEME.map.popups.fontSize,
+                fontWeight: isSelected ? "bold" : "normal",
+              }}
+            >
+              {vehicle.type.label}
+            </span>
+          </Tooltip>
+        )}
+        {!isRouting && !isMinimal && (
+          <Popup offset={[0, -35]}>
+            <div style={{ fontSize: THEME.map.popups.fontSize }}>
               <strong>{vehicle.type.label}</strong>
-              <div style={{ marginTop: 4, color: '#666', fontSize: 10 }}>
+              <div style={{ marginTop: THEME.map.popups.padding, color: THEME.colors.textMuted, fontSize: THEME.map.popups.subtitleFontSize }}>
                 {`Coords: ${pos[0].toFixed(5)}, ${pos[1].toFixed(5)}`}
               </div>
             </div>
@@ -125,23 +148,30 @@ export function renderJobMarkers({
   jobs,
   isRouting,
   icon,
+  minimalIcon,
+  zoom,
 }: RenderJobsProps) {
+  const isMinimal = zoom < THEME.map.popups.minimalZoomThreshold;
+  const activeIcon = isMinimal && minimalIcon ? minimalIcon : icon;
+
   return (jobs || []).map((job) => {
     const pos = job.coords;
     return (
       <Marker
         key={`job-${job.id}`}
         position={pos}
-        icon={icon}
+        icon={activeIcon}
       >
-        <Tooltip direction="top" offset={[0, -12]} opacity={0.95}>
-          <span style={{ fontSize: 12 }}>{job.label}</span>
-        </Tooltip>
-        {!isRouting && (
-          <Popup closeButton={false}>
-            <div style={{ fontSize: 12 }}>
-              <strong style={{ color: '#8b5cf6' }}>{job.label}</strong>
-              <div style={{ marginTop: 6, fontSize: 11, color: "#6b7280" }}>
+        {!isMinimal && (
+          <Tooltip direction="top" offset={THEME.map.popups.jobTooltipOffset} opacity={THEME.map.popups.tooltipOpacity}>
+            <span style={{ fontSize: THEME.map.popups.fontSize }}>{job.label}</span>
+          </Tooltip>
+        )}
+        {!isRouting && !isMinimal && (
+          <Popup closeButton={false} offset={[0, -25]}>
+            <div style={{ fontSize: THEME.map.popups.fontSize }}>
+              <strong style={{ color: THEME.colors.accent }}>{job.label}</strong>
+              <div style={{ marginTop: THEME.map.popups.marginTop, fontSize: THEME.map.popups.subtitleFontSize, color: THEME.colors.secondary }}>
                 {`Coords: ${pos[0].toFixed(5)}, ${pos[1].toFixed(5)}`}
               </div>
             </div>
@@ -156,27 +186,34 @@ export function renderCustomPOIs({
   customPOIs,
   isRouting,
   icon,
+  minimalIcon,
+  zoom,
 }: RenderCustomPOIsProps) {
+  const isMinimal = zoom < THEME.map.popups.minimalZoomThreshold;
+  const activeIcon = isMinimal && minimalIcon ? minimalIcon : icon;
+
   return (customPOIs || []).map((poi) => {
     const pos = poi.position;
     return (
       <Marker
         key={`custom-poi-${poi.id}`}
         position={pos}
-        icon={icon}
+        icon={activeIcon}
       >
-        <Tooltip direction="top" offset={[0, -14]} opacity={0.95} permanent={false}>
-          <span style={{ fontSize: 12, fontWeight: "bold" }}>{poi.name}</span>
-        </Tooltip>
-        {!isRouting && (
-          <Popup>
-            <div style={{ fontSize: 12 }}>
-              <strong style={{ color: "#06b6d4" }}>{poi.name}</strong>
-              <div style={{ marginTop: 4, color: '#666', fontSize: 10 }}>
+        {!isMinimal && (
+          <Tooltip direction="top" offset={THEME.map.popups.customPoiTooltipOffset} opacity={THEME.map.popups.tooltipOpacity} permanent={false}>
+            <span style={{ fontSize: THEME.map.popups.fontSize, fontWeight: "bold" }}>{poi.name}</span>
+          </Tooltip>
+        )}
+        {!isRouting && !isMinimal && (
+          <Popup offset={[0, -28]}>
+            <div style={{ fontSize: THEME.map.popups.fontSize }}>
+              <strong style={{ color: THEME.colors.customPOI }}>{poi.name}</strong>
+              <div style={{ marginTop: 4, color: THEME.colors.textMuted, fontSize: THEME.map.popups.subtitleFontSize }}>
                 {`Coords: ${pos[0].toFixed(5)}, ${pos[1].toFixed(5)}`}
               </div>
               {poi.description && (
-                <div style={{ marginTop: 6, fontSize: 11, fontStyle: "italic" }}>
+                <div style={{ marginTop: THEME.map.popups.marginTop, fontSize: THEME.map.popups.subtitleFontSize, fontStyle: "italic" }}>
                   {poi.description}
                 </div>
               )}

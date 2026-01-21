@@ -1,6 +1,6 @@
-// lib/services/poi-service.ts
 import type { POI } from "@/lib/types";
 import { OVERPASS_URL } from "@/lib/config";
+import { GEO_CACHE_CONFIG, getGeoCacheKey } from "@/lib/geo-utils";
 
 export class POIService {
     private static evCache = new Map<string, { data: POI[]; timestamp: number }>();
@@ -9,20 +9,7 @@ export class POIService {
     // In-flight request deduplication
     private static pendingRequests = new Map<string, Promise<POI[]>>();
 
-    // Longer cache durations - POIs don't change often
-    private static readonly EV_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-    private static readonly GAS_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
-    // Larger geo-buckets to reduce redundant fetches
-    private static readonly GEO_BUCKET_SIZE = 50; // ~0.02 degrees = ~2km
-
-    private static getCacheKey(type: string, lat: number, lon: number, radius: number): string {
-        // Larger geo-buckets (every 0.02 degrees ≈ 2km)
-        const latB = Math.floor(lat * this.GEO_BUCKET_SIZE);
-        const lonB = Math.floor(lon * this.GEO_BUCKET_SIZE);
-        const radB = Math.ceil(radius / 2000); // bucket by 2km
-        return `${type}:${latB}:${lonB}:${radB}`;
-    }
 
     /**
      * Internal helper to fetch POIs from Overpass with optimized query
@@ -90,11 +77,11 @@ export class POIService {
      */
     static async getEVStations(lat: number, lon: number, distanceKm: number = 1): Promise<POI[]> {
         const radiusMeters = distanceKm * 1000;
-        const key = this.getCacheKey("ev", lat, lon, radiusMeters);
+        const key = getGeoCacheKey("ev", lat, lon, radiusMeters);
 
         // Check cache
         const cached = this.evCache.get(key);
-        if (cached && Date.now() - cached.timestamp < this.EV_CACHE_DURATION) {
+        if (cached && Date.now() - cached.timestamp < GEO_CACHE_CONFIG.SERVER_EXPIRE) {
             return cached.data;
         }
 
@@ -122,11 +109,11 @@ export class POIService {
      * Fetches gas stations around a point using Overpass.
      */
     static async getGasStations(lat: number, lon: number, radius: number = 5000): Promise<POI[]> {
-        const key = this.getCacheKey("gas", lat, lon, radius);
+        const key = getGeoCacheKey("gas", lat, lon, radius);
 
         // Check cache
         const cached = this.gasCache.get(key);
-        if (cached && Date.now() - cached.timestamp < this.GAS_CACHE_DURATION) {
+        if (cached && Date.now() - cached.timestamp < GEO_CACHE_CONFIG.SERVER_EXPIRE) {
             return cached.data;
         }
 

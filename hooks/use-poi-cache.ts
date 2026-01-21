@@ -1,42 +1,34 @@
 import { useRef, useCallback } from "react";
 import type { POI } from "@/lib/types";
+import { GEO_CACHE_CONFIG, getGeoCacheKey } from "@/lib/geo-utils";
 
 interface CacheEntry {
   stations: POI[];
   timestamp: number;
 }
 
-// Longer client-side cache - 15 minutes
-const CACHE_EXPIRE_MS = 15 * 60 * 1000;
 
 export function usePOICache() {
   const gasStationsCache = useRef<Map<string, CacheEntry>>(new Map());
   const evStationsCache = useRef<Map<string, CacheEntry>>(new Map());
   const pendingRequests = useRef<Map<string, Promise<POI[]>>>(new Map());
 
-  // Larger geo-buckets (every 0.02 degrees ≈ 2km)
-  const getCacheKey = useCallback((type: string, lat: number, lon: number, radius: number) => {
-    const roundedLat = Math.floor(lat * 50); // ~2km buckets
-    const roundedLon = Math.floor(lon * 50);
-    const roundedRadius = Math.ceil(radius / 2000);
-    return `${type}:${roundedLat},${roundedLon},${roundedRadius}`;
-  }, []);
 
   const getFromCache = useCallback((type: "ev" | "gas", lat: number, lon: number, radius: number): POI[] | null => {
-    const key = getCacheKey(type, lat, lon, radius);
+    const key = getGeoCacheKey(type, lat, lon, radius);
     const cache = type === "ev" ? evStationsCache.current : gasStationsCache.current;
     const cached = cache.get(key);
-    if (cached && Date.now() - cached.timestamp < CACHE_EXPIRE_MS) {
+    if (cached && Date.now() - cached.timestamp < GEO_CACHE_CONFIG.CLIENT_EXPIRE) {
       return cached.stations;
     }
     return null;
-  }, [getCacheKey]);
+  }, []);
 
   const setCache = useCallback((type: "ev" | "gas", lat: number, lon: number, radius: number, stations: POI[]) => {
-    const key = getCacheKey(type, lat, lon, radius);
+    const key = getGeoCacheKey(type, lat, lon, radius);
     const cache = type === "ev" ? evStationsCache.current : gasStationsCache.current;
     cache.set(key, { stations, timestamp: Date.now() });
-  }, [getCacheKey]);
+  }, []);
 
   // Unified fetch with deduplication
   const fetchPOI = useCallback(async (
@@ -50,7 +42,7 @@ export function usePOICache() {
     const cached = getFromCache(type, lat, lon, distance);
     if (cached) return cached;
 
-    const key = getCacheKey(type, lat, lon, distance);
+    const key = getGeoCacheKey(type, lat, lon, distance);
 
     // Deduplicate in-flight requests
     if (pendingRequests.current.has(key)) {
@@ -78,7 +70,7 @@ export function usePOICache() {
 
     pendingRequests.current.set(key, promise);
     return promise;
-  }, [getCacheKey, getFromCache, setCache]);
+  }, [getFromCache, setCache]);
 
   const clearCache = useCallback(() => {
     gasStationsCache.current.clear();
