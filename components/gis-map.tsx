@@ -8,6 +8,7 @@ import type {
   VehicleType,
   WeatherData,
   Zone,
+
   InteractionMode,
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
@@ -62,6 +63,7 @@ export function GISMap() {
     isLoadingVehicles,
     fetchVehicles,
     updateVehiclePosition,
+    updateVehicleType,
   } = useFleet();
 
   const {
@@ -237,6 +239,7 @@ export function GISMap() {
           pickedJobCoords={pickedJobCoords}
           onZonesUpdate={setActiveZones}
           isInteracting={!!interactionMode || isCalculatingRoute}
+          updateVehicleType={updateVehicleType}
         />
 
         <RouteErrorAlert

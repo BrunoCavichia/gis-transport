@@ -115,18 +115,10 @@ export interface WeatherMarker {
   timeWindow: string;
 }
 
-export interface RouteInstruction {
-  type: string;
-  text: string;
-  distance: number;
-  duration: number;
-}
-
 export interface RouteData {
   coordinates: [number, number][];
   distance: number;
   duration: number;
-  instructions?: RouteInstruction[];
   waypoints?: Array<{
     name?: string;
     location: [number, number];
@@ -156,12 +148,27 @@ export interface LayerVisibility {
   route: boolean;
 }
 
-export type InteractionMode =
-  | "add-vehicle"
-  | "add-job"
-  | "pick-poi"
-  | "pick-job"
-  | null;
+export type InteractionMode = "pick-poi" | "pick-job" | "add-vehicle" | "add-job" | null;
+
+interface NominatimAddress {
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  road?: string;
+  house_number?: string;
+  country?: string;
+  state?: string;
+  postcode?: string;
+  county?: string;
+}
+
+export interface NominatimResult {
+  lat: string;
+  lon: string;
+  display_name: string;
+  address: NominatimAddress;
+}
 
 export const ROUTE_COLORS = [
   "#4F46E5", // Indigo - Primary route

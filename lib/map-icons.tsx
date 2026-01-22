@@ -23,8 +23,8 @@ import { THEME } from "./theme";
 const createMapIcon = (
   IconComponent: any,
   color: string,
-  size = 32,
-  iconSize = 14,
+  size = 14,
+  iconSize = 8,
   options: {
     isEnd?: boolean;
     isRounded?: boolean;

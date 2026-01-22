@@ -129,6 +129,17 @@ export function useFleet(
     );
   }, []);
 
+  /**
+   * Update a vehicle's type (label/tag)
+   */
+  const updateVehicleType = useCallback((vehicleId: string, newType: VehicleType) => {
+    setFleetVehicles((prev) =>
+      prev.map((v) =>
+        v.id === vehicleId ? { ...v, type: newType } : v
+      )
+    );
+  }, []);
+
   // Return state and functions that other components can use
   return {
     // State
@@ -148,5 +159,6 @@ export function useFleet(
     removeVehicle,
     removeJob,
     updateVehiclePosition,
+    updateVehicleType,
   };
 }

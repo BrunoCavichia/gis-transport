@@ -2,12 +2,11 @@
 
 import { MAP_CENTER } from "@/lib/config";
 
-import { useState, Fragment } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";;
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,37 +19,14 @@ import {
   Package,
   Loader2,
   Warehouse,
-  Eye,
-  EyeOff,
   Radio,
 } from "lucide-react";
-import type { LayerVisibility, VehicleType, CustomPOI } from "@/lib/types";
-import { VEHICLE_TYPES } from "@/lib/types";
+import type { LayerVisibility, VehicleType, CustomPOI, FleetJob, FleetVehicle } from "@/lib/types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-
-interface FleetJob {
-  id: string;
-  coords: [number, number];
-  label: string;
-}
-
-interface FleetVehicle {
-  id: string;
-  coords: [number, number];
-  type: VehicleType;
-}
 
 interface SidebarProps {
   layers: LayerVisibility;
@@ -108,8 +84,6 @@ interface SidebarProps {
 export function Sidebar({
   layers,
   toggleLayer,
-  selectedVehicle,
-  setSelectedVehicle,
   fleetMode,
   setFleetMode,
   clearFleet,
@@ -118,7 +92,6 @@ export function Sidebar({
   selectedVehicleId,
   setSelectedVehicleId,
   addVehicle,
-  addJob,
   addJobDirectly,
   removeVehicle,
   removeJob,
@@ -139,12 +112,10 @@ export function Sidebar({
   setIsAddCustomPOIOpen,
   isLoadingVehicles = false,
   fetchVehicles,
-  togglePOISelectionForFleet,
   isAddJobOpen,
   setIsAddJobOpen,
   onStartPickingJob,
   pickedJobCoords,
-  isLoadingLayers = false,
   isTracking = false,
   toggleTracking,
 }: SidebarProps) {
@@ -202,11 +173,8 @@ export function Sidebar({
             </div>
             <div className="flex flex-col">
               <h1 className="text-lg font-bold tracking-tight text-foreground leading-none mb-0.5">
-                GIS Logistics
+                Logistics System
               </h1>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">
-                Next-Gen Dispatch
-              </span>
             </div>
           </div>
         </div>
@@ -292,6 +260,8 @@ export function Sidebar({
                       <Label className="text-[10px] font-black uppercase text-muted-foreground px-1 tracking-widest">
                         Operaciones Rápidas
                       </Label>
+
+
                       <div className="grid grid-cols-2 gap-2.5">
                         <Button
                           variant="secondary"
@@ -389,36 +359,39 @@ export function Sidebar({
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </ScrollArea>
+                )
+                }
+              </div >
+            </ScrollArea >
 
             {/* Sticky Action Bar */}
-            {fleetMode && (
-              <div className="p-5 pt-0 bg-gradient-to-t from-background/90 to-transparent">
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    className="h-12 rounded-2xl border-destructive/20 text-destructive hover:bg-destructive/5 font-bold"
-                    onClick={clearFleet}
-                    disabled={fleetVehicles.length === 0 && fleetJobs.length === 0}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" /> Borrar
-                  </Button>
-                  <Button
-                    className="h-12 rounded-2xl bg-primary shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all font-bold"
-                    onClick={startRouting}
-                    disabled={fleetVehicles.length === 0 || fleetJobs.length === 0 || isCalculatingRoute}
-                  >
-                    {isCalculatingRoute ? <Loader2 className="h-4 w-4 animate-spin" /> : "Trazar Rutas"}
-                  </Button>
+            {
+              fleetMode && (
+                <div className="p-5 pt-0 bg-gradient-to-t from-background/90 to-transparent">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      className="h-12 rounded-2xl border-destructive/20 text-destructive hover:bg-destructive/5 font-bold"
+                      onClick={clearFleet}
+                      disabled={fleetVehicles.length === 0 && fleetJobs.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" /> Borrar
+                    </Button>
+                    <Button
+                      className="h-12 rounded-2xl bg-primary shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all font-bold"
+                      onClick={startRouting}
+                      disabled={fleetVehicles.length === 0 || fleetJobs.length === 0 || isCalculatingRoute}
+                    >
+                      {isCalculatingRoute ? <Loader2 className="h-4 w-4 animate-spin" /> : "Trazar Rutas"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </TabsContent>
+              )
+            }
+          </TabsContent >
 
           {/* Layers Content */}
-          <TabsContent value="layers" className="flex-1 flex flex-col min-h-0 m-0 outline-none overflow-hidden h-full">
+          < TabsContent value="layers" className="flex-1 flex flex-col min-h-0 m-0 outline-none overflow-hidden h-full" >
             <ScrollArea className="flex-1 min-h-0 w-full">
               <div className="p-5 space-y-8">
 
@@ -506,9 +479,9 @@ export function Sidebar({
                 </div>
               </div>
             </ScrollArea>
-          </TabsContent>
-        </Tabs>
-      </div>
+          </TabsContent >
+        </Tabs >
+      </div >
 
       <AddJobDialog
         isOpen={isAddJobOpenFinal}
@@ -533,6 +506,6 @@ export function Sidebar({
         onStartPicking={onStartPicking}
         pickedCoords={pickedCoords}
       />
-    </div>
+    </div >
   );
 }

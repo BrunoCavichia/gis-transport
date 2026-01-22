@@ -25,6 +25,7 @@ import type {
   Zone,
   FleetVehicle,
   FleetJob,
+  VehicleRoute,
 } from "@/lib/types";
 import { LeafletMouseEvent } from "leaflet";
 import { createWeatherIcons, createRouteLabelIcon } from "@/lib/map-icons";
@@ -69,6 +70,7 @@ interface MapContainerProps {
   toggleLayer: (layer: keyof LayerVisibility) => void;
   onZonesUpdate?: (zones: Zone[]) => void;
   isInteracting?: boolean;
+  updateVehicleType?: (vehicleId: string, newType: VehicleType) => void;
 }
 
 function MapEventHandler({
@@ -121,11 +123,6 @@ function MapEventHandler({
   const lastFetchRadiusRef = useRef<number>(0);
 
   const fetchPOIs = useCallback(async () => {
-    const center = map.getCenter();
-    const zoom = map.getZoom();
-    const centerKey = `${center.lat.toFixed(2)},${center.lng.toFixed(
-      2
-    )},${zoom}`;
     const willFetchEV = layers.evStations;
     const willFetchGas = layers.gasStations;
 
@@ -324,9 +321,16 @@ function getDynamicWeight(zoom: number) {
 }
 
 // Optimization: Handle route weight updates imperatively to avoid React re-renders during zoom/flyTo
-function RouteLayer({ vehicleRoutes }: { vehicleRoutes: any[] }) {
+function RouteLayer({ vehicleRoutes }: { vehicleRoutes: VehicleRoute[] }) {
   const map = useMap();
   const coreRefs = useRef<Record<string, L.Polyline | null>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(coreRefs.current).forEach(layer => layer?.remove());
+      coreRefs.current = {};
+    };
+  }, [])
 
   // Initial weight set
   useEffect(() => {
@@ -431,6 +435,7 @@ export default function MapContainer({
   pickedJobCoords,
   onZonesUpdate,
   isInteracting = false,
+  updateVehicleType,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -443,11 +448,8 @@ export default function MapContainer({
     customPOIIcon,
     pickingIcon,
     createVehicleIcon,
-    createMinimalIcon,
     gasStationIcon,
-    gasStationIconMinimal,
     evStationIcon,
-    evStationIconMinimal,
     snowIcon,
     rainIcon,
     iceIcon,
@@ -460,29 +462,19 @@ export default function MapContainer({
 
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {
-      if (!zone.requiredTags || zone.requiredTags.length === 0) return true;
+      if (!zone.requiredTags?.length) return true;
 
-      if (selectedVehicleId && fleetVehicles) {
-        const selected = fleetVehicles.find(v => v.id === selectedVehicleId);
-        if (selected) {
-          return zone.requiredTags.some(tag => selected.type.tags.includes(tag));
+      const getVehicleTags = (): string[] => {
+        if (selectedVehicleId && fleetVehicles) {
+          return fleetVehicles.find(v => v.id === selectedVehicleId)?.type.tags ?? [];
         }
-      }
+        return selectedVehicle?.tags ?? [];
+      };
 
-      if (!selectedVehicleId && selectedVehicle?.tags) {
-        const hasAccess = zone.requiredTags.some(tag => selectedVehicle.tags.includes(tag));
-        return hasAccess;
-      }
-
-      if (fleetVehicles && fleetVehicles.length > 0) {
-        return fleetVehicles.some(v =>
-          zone.requiredTags?.some(tag => v.type.tags.includes(tag))
-        );
-      }
-
-      return false;
+      const tags = getVehicleTags();
+      return zone.requiredTags.some(tag => tags.includes(tag));
     },
-    [selectedVehicle.tags, fleetVehicles, selectedVehicleId]
+    [selectedVehicle?.tags, fleetVehicles, selectedVehicleId]
   );
 
   // --- Memoized Rendering Layers ---
@@ -492,30 +484,25 @@ export default function MapContainer({
     return renderPOIs({
       stations: dynamicGasStations,
       icon: gasStationIcon,
-      minimalIcon: gasStationIconMinimal,
-      zoom: zoom,
       isRouting: isRouting,
     });
-  }, [layers.gasStations, dynamicGasStations, gasStationIcon, gasStationIconMinimal, zoom, isRouting]);
+  }, [layers.gasStations, dynamicGasStations, gasStationIcon, isRouting]);
 
   const renderedEVStations = useMemo(() => {
     if (!layers.evStations) return null;
     return renderPOIs({
       stations: dynamicEVStations,
       icon: evStationIcon,
-      minimalIcon: evStationIconMinimal,
-      zoom: zoom,
       isEV: true,
       isRouting: isRouting,
     });
-  }, [layers.evStations, dynamicEVStations, evStationIcon, evStationIconMinimal, zoom, isRouting]);
+  }, [layers.evStations, dynamicEVStations, evStationIcon, zoom, isRouting]);
 
   const renderedCustomPOIs = useMemo(() => {
     return renderCustomPOIs({
       customPOIs: customPOIs || [],
       isRouting: isRouting,
       icon: customPOIIcon,
-      zoom: zoom,
     });
   }, [customPOIs, isRouting, customPOIIcon, zoom]);
 
@@ -524,18 +511,16 @@ export default function MapContainer({
       vehicles: fleetVehicles || [],
       selectedVehicleId,
       createVehicleIcon,
-      createMinimalIcon,
-      zoom,
       isRouting,
+      updateVehicleType,
     });
-  }, [fleetVehicles, selectedVehicleId, createVehicleIcon, createMinimalIcon, zoom, isRouting]);
+  }, [fleetVehicles, selectedVehicleId, createVehicleIcon, zoom, isRouting, updateVehicleType]);
 
   const renderedJobs = useMemo(() => {
     return renderJobMarkers({
       jobs: fleetJobs || [],
       isRouting,
       icon: jobIcon,
-      zoom: zoom,
     });
   }, [fleetJobs, isRouting, jobIcon, zoom]);
 
@@ -630,10 +615,6 @@ export default function MapContainer({
   }, [fleetJobs]);
 
   useEffect(() => setMounted(true), []);
-
-
-  const defaultCenter: [number, number] = MAP_CENTER;
-  const defaultZoom = DEFAULT_ZOOM;
 
   if (!mounted) {
     return (

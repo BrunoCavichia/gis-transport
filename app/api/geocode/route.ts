@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { type NominatimResult } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    const hits = data.map((item: any) => {
+    const hits = data.map((item: NominatimResult) => {
       const city =
         item.address?.city ||
         item.address?.town ||
@@ -51,7 +52,6 @@ export async function GET(request: NextRequest) {
         state: item.address?.state,
         street: road,
         housenumber: housenumber,
-        osm_id: item.osm_id,
       };
     });
 
