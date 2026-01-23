@@ -66,8 +66,15 @@ export function usePOICache() {
       })
       .catch((err) => {
         console.error(`[POI Fetch Error] ${type}:`, err);
-        setCache(type, lat, lon, distance, []);
         pendingRequests.current.delete(key);
+
+        // Return stale data if available
+        const stale = getFromCache(type, lat, lon, distance);
+        if (stale) {
+          console.log(`[usePOICache] Returning stale ${type} data for ${key} due to fetch error`);
+          return stale;
+        }
+
         return [];
       });
 

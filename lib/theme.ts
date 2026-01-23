@@ -31,7 +31,7 @@ export const THEME = {
       refetchDistanceThreshold: 3500, // Only refetch if moved > 3.5km
       lod: {
         minZoomForDots: 11, // Below 11: Nothing (don't show any POIs when too zoomed out)
-        minZoomForIcons: 13, // 13+: Show full icons with labels
+        minZoomForIcons: 15, // 16+: Show full icons with labels
       },
     },
     polygons: {

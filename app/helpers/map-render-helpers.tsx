@@ -1,5 +1,5 @@
 import { THEME } from "@/lib/theme";
-import { Marker, Tooltip, Popup } from "react-leaflet";
+import { Marker, Tooltip, Popup, CircleMarker } from "react-leaflet";
 import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
 
 interface RenderPOIsProps {
@@ -7,6 +7,7 @@ interface RenderPOIsProps {
   icon: any;
   isEV?: boolean;
   isRouting: boolean;
+  useDots?: boolean;
 }
 
 interface RenderVehiclesProps {
@@ -33,16 +34,40 @@ export function renderPOIs({
   icon,
   isRouting,
   isEV = false,
+  useDots = false,
 }: RenderPOIsProps) {
   const type = isEV ? "EV" : "Gas";
+  const color = isEV ? "#22c55e" : "#f97316";
 
-  if (!icon) {
+  if (!useDots && !icon) {
     console.error(`[renderPOIs] No icon for ${type}! icon=${icon}`);
     return null;
   }
 
-  const markers = (stations || []).map((station) => {
+  return (stations || []).map((station) => {
     const pos = station.position as [number, number];
+
+    if (useDots) {
+      return (
+        <CircleMarker
+          key={`dot-${station.id}`}
+          center={pos}
+          radius={5}
+          pathOptions={{
+            fillColor: color,
+            fillOpacity: 0.9,
+            color: "white",
+            weight: 1.5,
+          }}
+          interactive={true}
+        >
+          <Tooltip direction="top" offset={[0, -5]} opacity={0.8}>
+            <span style={{ fontSize: 10 }}>{station.name}</span>
+          </Tooltip>
+        </CircleMarker>
+      );
+    }
+
     return (
       <Marker key={station.id} position={pos} icon={icon}>
         <Tooltip
@@ -78,7 +103,6 @@ export function renderPOIs({
       </Marker>
     );
   });
-  return markers;
 }
 
 export function renderVehicleMarkers({

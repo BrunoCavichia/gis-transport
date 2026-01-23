@@ -99,6 +99,7 @@ function MapEventHandler({
   mapCenter,
   onZonesUpdate,
   setZoom,
+  setViewportBounds,
 }: {
   isRouting: boolean;
   routePoints: { start: [number, number] | null; end: [number, number] | null };
@@ -120,6 +121,7 @@ function MapEventHandler({
   mapCenter: [number, number];
   onZonesUpdate?: (zones: Zone[]) => void;
   setZoom: (zoom: number) => void;
+  setViewportBounds: (bounds: L.LatLngBounds) => void;
 }) {
   const map = useMap();
   const zoneCache = useZoneCache(map, layers, selectedVehicle, wrapAsync);
@@ -208,7 +210,7 @@ function MapEventHandler({
               : [];
           setDynamicEVStations(limitedEV);
         } catch (error) {
-          setDynamicEVStations([]);
+          // Keep current stations on error
         }
       } else {
         setDynamicEVStations([]);
@@ -231,7 +233,7 @@ function MapEventHandler({
               : [];
           setDynamicGasStations(limitedGas);
         } catch (error) {
-          setDynamicGasStations([]);
+          // Keep current stations on error
         }
       } else {
         setDynamicGasStations([]);
@@ -268,6 +270,7 @@ function MapEventHandler({
         .distanceTo({ lat: mapCenter[0], lng: mapCenter[1] });
       if (dist > THEME.map.interaction.moveThreshold) {
         setMapCenter([newCenter.lat, newCenter.lng]);
+        setViewportBounds(map.getBounds());
       }
 
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
@@ -278,6 +281,7 @@ function MapEventHandler({
     },
     zoomend: () => {
       setZoom(map.getZoom());
+      setViewportBounds(map.getBounds());
       if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
       fetchTimeoutRef.current = setTimeout(() => {
         zoneCache.fetchZones();
@@ -289,6 +293,7 @@ function MapEventHandler({
   useEffect(() => {
     zoneCache.fetchZones();
     fetchPOIs();
+    setViewportBounds(map.getBounds());
   }, []);
 
   // Keep ref in sync with latest fetchPOIs
@@ -515,6 +520,16 @@ export default function MapContainer({
   const [mounted, setMounted] = useState(false);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [debouncedZoom, setDebouncedZoom] = useState(DEFAULT_ZOOM);
+  const [viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(null);
+
+  // Debounce zoom for icon transition to avoid lag during animation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedZoom(zoom);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [zoom]);
 
   const mapIcons = useMemo(() => createMapIcons(), []);
 
@@ -574,28 +589,49 @@ export default function MapContainer({
 
 
   const renderedGasStations = useMemo(() => {
-    if (!layers.gasStations || !gasStation) return null;
+    if (!layers.gasStations) return null;
+    const isIconMode = debouncedZoom >= THEME.map.poi.lod.minZoomForIcons;
+
+    let stations = dynamicGasStations;
+    if (isIconMode && viewportBounds) {
+      stations = dynamicGasStations.filter(s =>
+        viewportBounds.contains(L.latLng(s.position[0], s.position[1]))
+      );
+    }
+
     return renderPOIs({
-      stations: dynamicGasStations,
+      stations,
       icon: gasStation,
       isRouting,
+      useDots: !isIconMode,
+      isEV: false,
     });
   }, [
     layers.gasStations,
     dynamicGasStations,
     gasStation,
     isRouting,
+    debouncedZoom,
+    viewportBounds,
   ]);
 
   const renderedEVStations = useMemo(() => {
-    if (!layers.evStations) {
-      return null;
+    if (!layers.evStations) return null;
+    const isIconMode = debouncedZoom >= THEME.map.poi.lod.minZoomForIcons;
+
+    let stations = dynamicEVStations;
+    if (isIconMode && viewportBounds) {
+      stations = dynamicEVStations.filter(s =>
+        viewportBounds.contains(L.latLng(s.position[0], s.position[1]))
+      );
     }
+
     const result = renderPOIs({
-      stations: dynamicEVStations,
+      stations,
       icon: evStation,
       isEV: true,
       isRouting: isRouting,
+      useDots: !isIconMode,
     });
     return result;
   }, [
@@ -603,6 +639,8 @@ export default function MapContainer({
     dynamicEVStations,
     evStation,
     isRouting,
+    debouncedZoom,
+    viewportBounds,
   ]);
 
   const renderedCustomPOIs = useMemo(() => {
@@ -790,6 +828,7 @@ export default function MapContainer({
           selectedVehicle={selectedVehicle}
           onZonesUpdate={onZonesUpdate}
           setZoom={setZoom}
+          setViewportBounds={setViewportBounds}
         />
 
         {renderedZones}

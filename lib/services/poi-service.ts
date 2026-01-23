@@ -39,7 +39,9 @@ export class POIService {
 
             clearTimeout(timeoutId);
 
-            if (!res.ok) return [];
+            if (!res.ok) {
+                throw new Error(`Overpass API responded with status ${res.status}`);
+            }
             const data = await res.json();
 
             return (data.elements || []).map((el: any) => {
@@ -68,7 +70,7 @@ export class POIService {
             } else {
                 console.error(`POIService: Overpass fetch failed for ${amenity}`, e);
             }
-            return [];
+            throw e;
         }
     }
 
@@ -98,6 +100,11 @@ export class POIService {
             })
             .catch(e => {
                 this.pendingRequests.delete(key);
+                // Return stale data if available, even if expired
+                if (cached) {
+                    console.log(`[POIService] Returning stale EV data for ${key} due to fetch error`);
+                    return cached.data;
+                }
                 return [];
             });
 
@@ -130,6 +137,11 @@ export class POIService {
             })
             .catch(e => {
                 this.pendingRequests.delete(key);
+                // Return stale data if available, even if expired
+                if (cached) {
+                    console.log(`[POIService] Returning stale Gas data for ${key} due to fetch error`);
+                    return cached.data;
+                }
                 return [];
             });
 
