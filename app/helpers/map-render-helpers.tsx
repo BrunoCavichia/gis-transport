@@ -1,4 +1,5 @@
 import { THEME } from "@/lib/theme";
+import { POI_CONFIG } from "@/lib/config";
 import { Marker, Tooltip, Popup, CircleMarker } from "react-leaflet";
 import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
 
@@ -38,8 +39,8 @@ export function renderPOIs({
   useDots = false,
   isExiting = false,
 }: RenderPOIsProps) {
-  const type = isEV ? "EV" : "Gas";
-  const color = isEV ? "#22c55e" : "#f97316";
+  const type = isEV ? "ev" : "gas";
+  const color = POI_CONFIG[type].color;
 
   if (!useDots && !icon) {
     console.error(`[renderPOIs] No icon for ${type}! icon=${icon}`);

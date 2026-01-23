@@ -1,6 +1,7 @@
 import { useRef, useCallback } from "react";
 import type { POI } from "@/lib/types";
 import { GEO_CACHE_CONFIG, getGeoCacheKey } from "@/lib/geo-utils";
+import { buildPOIUrl, type POIType } from "@/lib/config";
 
 interface CacheEntry {
   stations: POI[];
@@ -14,7 +15,7 @@ export function usePOICache() {
   const pendingRequests = useRef<Map<string, Promise<POI[]>>>(new Map());
 
 
-  const getFromCache = useCallback((type: "ev" | "gas", lat: number, lon: number, radius: number): POI[] | null => {
+  const getFromCache = useCallback((type: POIType, lat: number, lon: number, radius: number): POI[] | null => {
     const key = getGeoCacheKey(type, lat, lon, radius);
     const cache = type === "ev" ? evStationsCache.current : gasStationsCache.current;
     const cached = cache.get(key);
@@ -26,14 +27,14 @@ export function usePOICache() {
     return null;
   }, []);
 
-  const setCache = useCallback((type: "ev" | "gas", lat: number, lon: number, radius: number, stations: POI[]) => {
+  const setCache = useCallback((type: POIType, lat: number, lon: number, radius: number, stations: POI[]) => {
     const key = getGeoCacheKey(type, lat, lon, radius);
     const cache = type === "ev" ? evStationsCache.current : gasStationsCache.current;
     cache.set(key, { stations, timestamp: Date.now() });
   }, []);
 
   const fetchPOI = useCallback(async (
-    type: "ev" | "gas",
+    type: POIType,
     lat: number,
     lon: number,
     distance: number,
@@ -49,10 +50,7 @@ export function usePOICache() {
       return pendingRequests.current.get(key)!;
     }
 
-    const url =
-      type === "ev"
-        ? `/api/ev-stations?lat=${lat}&lon=${lon}&distance=${distance}&vehicle=${vehicleLabel}`
-        : `/api/gas-stations?lat=${lat}&lon=${lon}&radius=${distance}&vehicle=${vehicleLabel}`;
+    const url = buildPOIUrl(type, lat, lon, distance, vehicleLabel);
 
     const promise = fetch(url)
       .then(res => res.json())

@@ -178,7 +178,7 @@ function MapEventHandler({
     // It will return cached data immediately if available.
 
 
-    // EV Stations - check cache first, fetch only if needed
+    // EV Stations - API handles limit, cache returns immediately if available
     if (willFetchEV) {
       const evStations = await poiCache.fetchPOI(
         "ev",
@@ -187,14 +187,10 @@ function MapEventHandler({
         Math.ceil(radiusMeters),
         selectedVehicle.label,
       );
-      const limitedEV =
-        evStations && Array.isArray(evStations)
-          ? evStations.slice(0, 100)
-          : [];
-      setDynamicEVStations(limitedEV);
+      setDynamicEVStations(evStations || []);
     }
 
-    // Gas Stations - check cache first, fetch only if needed
+    // Gas Stations - API handles limit, cache returns immediately if available
     if (willFetchGas) {
       const gasRadius = Math.min(radiusMeters, THEME.map.poi.maxGasRadius);
       const gasStations = await poiCache.fetchPOI(
@@ -204,11 +200,7 @@ function MapEventHandler({
         Math.ceil(gasRadius),
         selectedVehicle.label,
       );
-      const limitedGas =
-        gasStations && Array.isArray(gasStations)
-          ? gasStations.slice(0, 80)
-          : [];
-      setDynamicGasStations(limitedGas);
+      setDynamicGasStations(gasStations || []);
     }
   }, [
     map,
