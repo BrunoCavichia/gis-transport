@@ -43,6 +43,7 @@ const createMapIcon = (
 
   const html = renderToStaticMarkup(
     <div
+      className="needle-content"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -113,6 +114,22 @@ const createMapIcon = (
       {options.extraHtml && (
         <div dangerouslySetInnerHTML={{ __html: options.extraHtml }} />
       )}
+      <style>{`
+        .needle-content {
+          animation: fade-in 0.4s ease-out forwards;
+        }
+        .custom-marker-needle.exiting .needle-content {
+          animation: fade-out 0.3s ease-in forwards;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: scale(0.8) translateY(5px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes fade-out {
+          from { opacity: 1; transform: scale(1) translateY(0); }
+          to { opacity: 0; transform: scale(0.8) translateY(5px); }
+        }
+      `}</style>
     </div>
   );
 

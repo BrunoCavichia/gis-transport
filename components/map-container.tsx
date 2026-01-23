@@ -152,8 +152,6 @@ function MapEventHandler({
     const willFetchGas = layers.gasStations;
 
     if (!willFetchEV && !willFetchGas) {
-      setDynamicEVStations([]);
-      setDynamicGasStations([]);
       return;
     }
 
@@ -176,69 +174,42 @@ function MapEventHandler({
     const snapLat = Math.round(center.lat / GRID_SIZE) * GRID_SIZE;
     const snapLng = Math.round(center.lng / GRID_SIZE) * GRID_SIZE;
 
+    // Note: usePOICache handles caching internally, so we always call fetchPOI.
+    // It will return cached data immediately if available.
 
-    if (lastFetchPosRef.current) {
-      const distFromLastFetch = new L.LatLng(snapLat, snapLng).distanceTo(
-        lastFetchPosRef.current,
+
+    // EV Stations - check cache first, fetch only if needed
+    if (willFetchEV) {
+      const evStations = await poiCache.fetchPOI(
+        "ev",
+        snapLat,
+        snapLng,
+        Math.ceil(radiusMeters),
+        selectedVehicle.label,
       );
-
-      const isRadiusGrown = radiusMeters > lastFetchRadiusRef.current;
-
-      // If we are requesting same grid center and same (or smaller) radius, SKIP.
-      if (distFromLastFetch < 100 && !isRadiusGrown) {
-        return;
-      }
+      const limitedEV =
+        evStations && Array.isArray(evStations)
+          ? evStations.slice(0, 100)
+          : [];
+      setDynamicEVStations(limitedEV);
     }
 
-    lastFetchPosRef.current = new L.LatLng(snapLat, snapLng);
-    lastFetchRadiusRef.current = radiusMeters;
-
-    await wrapAsync(async () => {
-      // EV Stations Fetch
-      if (willFetchEV) {
-        try {
-          const evStations = await poiCache.fetchPOI(
-            "ev",
-            snapLat,
-            snapLng,
-            Math.ceil(radiusMeters),
-            selectedVehicle.label,
-          );
-          const limitedEV =
-            evStations && Array.isArray(evStations)
-              ? evStations.slice(0, 100)
-              : [];
-          setDynamicEVStations(limitedEV);
-        } catch (error) {
-          // Keep current stations on error
-        }
-      } else {
-        setDynamicEVStations([]);
-      }
-
-      // Gas Stations Fetch
-      if (willFetchGas) {
-        try {
-          const gasRadius = Math.min(radiusMeters, THEME.map.poi.maxGasRadius);
-          const gasStations = await poiCache.fetchPOI(
-            "gas",
-            snapLat,
-            snapLng,
-            Math.ceil(gasRadius),
-            selectedVehicle.label,
-          );
-          const limitedGas =
-            gasStations && Array.isArray(gasStations)
-              ? gasStations.slice(0, 80)
-              : [];
-          setDynamicGasStations(limitedGas);
-        } catch (error) {
-          // Keep current stations on error
-        }
-      } else {
-        setDynamicGasStations([]);
-      }
-    });
+    // Gas Stations - check cache first, fetch only if needed
+    if (willFetchGas) {
+      const gasRadius = Math.min(radiusMeters, THEME.map.poi.maxGasRadius);
+      const gasStations = await poiCache.fetchPOI(
+        "gas",
+        snapLat,
+        snapLng,
+        Math.ceil(gasRadius),
+        selectedVehicle.label,
+      );
+      const limitedGas =
+        gasStations && Array.isArray(gasStations)
+          ? gasStations.slice(0, 80)
+          : [];
+      setDynamicGasStations(limitedGas);
+    }
   }, [
     map,
     layers.evStations,
@@ -314,15 +285,12 @@ function MapEventHandler({
       };
 
       if (layers.evStations || layers.gasStations) {
+        setViewportBounds(map.getBounds());
         // Fetch when layers are enabled
         if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
         fetchTimeoutRef.current = setTimeout(() => {
           fetchPOIsRef.current?.();
         }, 100);
-      } else {
-        // Clear when both are disabled
-        setDynamicEVStations([]);
-        setDynamicGasStations([]);
       }
     }
   }, [layers.evStations, layers.gasStations]);
@@ -522,14 +490,30 @@ export default function MapContainer({
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [debouncedZoom, setDebouncedZoom] = useState(DEFAULT_ZOOM);
   const [viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(null);
+  const [showIcons, setShowIcons] = useState(DEFAULT_ZOOM >= THEME.map.poi.lod.minZoomForIcons);
+  const [isExitingIcons, setIsExitingIcons] = useState(false);
 
-  // Debounce zoom for icon transition to avoid lag during animation
+  // Debounce zoom for icon transition
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const isIconZoom = zoom >= THEME.map.poi.lod.minZoomForIcons;
+
+    if (isIconZoom) {
+      setIsExitingIcons(false);
+      setShowIcons(true);
       setDebouncedZoom(zoom);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [zoom]);
+    } else if (showIcons) {
+      // Start exit animation
+      setIsExitingIcons(true);
+      const timer = setTimeout(() => {
+        setShowIcons(false);
+        setIsExitingIcons(false);
+        setDebouncedZoom(zoom);
+      }, 400); // Duration of fade-out
+      return () => clearTimeout(timer);
+    } else {
+      setDebouncedZoom(zoom);
+    }
+  }, [zoom, showIcons]);
 
   const mapIcons = useMemo(() => createMapIcons(), []);
 
@@ -589,41 +573,65 @@ export default function MapContainer({
 
 
   const renderedGasStations = useMemo(() => {
-    if (!layers.gasStations) return null;
-    const isIconMode = debouncedZoom >= THEME.map.poi.lod.minZoomForIcons;
+    if (!layers.gasStations || zoom < THEME.map.poi.lod.minZoomForDots) return null;
+
+    // We render icons if we are in icon mode OR if we are currently fading out
+    const shouldRenderIcons = showIcons || isExitingIcons;
+    const useDots = !shouldRenderIcons;
 
     let stations = dynamicGasStations;
-    if (isIconMode && viewportBounds) {
-      stations = dynamicGasStations.filter(s =>
-        viewportBounds.contains(L.latLng(s.position[0], s.position[1]))
-      );
+    if (shouldRenderIcons && viewportBounds && typeof viewportBounds.contains === "function") {
+      stations = dynamicGasStations.filter((s) => {
+        try {
+          return viewportBounds.contains(
+            L.latLng(s.position[0], s.position[1]),
+          );
+        } catch (e) {
+          return true;
+        }
+      });
     }
 
     return renderPOIs({
       stations,
       icon: gasStation,
       isRouting,
-      useDots: !isIconMode,
+      useDots,
       isEV: false,
+      isExiting: isExitingIcons,
     });
   }, [
     layers.gasStations,
     dynamicGasStations,
     gasStation,
     isRouting,
-    debouncedZoom,
+    showIcons,
+    isExitingIcons,
     viewportBounds,
+    zoom,
   ]);
 
   const renderedEVStations = useMemo(() => {
-    if (!layers.evStations) return null;
-    const isIconMode = debouncedZoom >= THEME.map.poi.lod.minZoomForIcons;
+    if (!layers.evStations || zoom < THEME.map.poi.lod.minZoomForDots)
+      return null;
+    const shouldRenderIcons = showIcons || isExitingIcons;
+    const useDots = !shouldRenderIcons;
 
     let stations = dynamicEVStations;
-    if (isIconMode && viewportBounds) {
-      stations = dynamicEVStations.filter(s =>
-        viewportBounds.contains(L.latLng(s.position[0], s.position[1]))
-      );
+    if (
+      shouldRenderIcons &&
+      viewportBounds &&
+      typeof viewportBounds.contains === "function"
+    ) {
+      stations = dynamicEVStations.filter((s) => {
+        try {
+          return viewportBounds.contains(
+            L.latLng(s.position[0], s.position[1]),
+          );
+        } catch (e) {
+          return true;
+        }
+      });
     }
 
     const result = renderPOIs({
@@ -631,7 +639,8 @@ export default function MapContainer({
       icon: evStation,
       isEV: true,
       isRouting: isRouting,
-      useDots: !isIconMode,
+      useDots,
+      isExiting: isExitingIcons,
     });
     return result;
   }, [
@@ -639,8 +648,10 @@ export default function MapContainer({
     dynamicEVStations,
     evStation,
     isRouting,
-    debouncedZoom,
+    showIcons,
+    isExitingIcons,
     viewportBounds,
+    zoom,
   ]);
 
   const renderedCustomPOIs = useMemo(() => {

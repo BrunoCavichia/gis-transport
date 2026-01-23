@@ -32,7 +32,6 @@ export function usePOICache() {
     cache.set(key, { stations, timestamp: Date.now() });
   }, []);
 
-  // Unified fetch with deduplication
   const fetchPOI = useCallback(async (
     type: "ev" | "gas",
     lat: number,
@@ -40,7 +39,6 @@ export function usePOICache() {
     distance: number,
     vehicleLabel: string
   ): Promise<POI[]> => {
-    // Check cache first
     const cached = getFromCache(type, lat, lon, distance);
     if (cached) return cached;
 
@@ -62,19 +60,12 @@ export function usePOICache() {
         const stations: POI[] = data.stations || [];
         setCache(type, lat, lon, distance, stations);
         pendingRequests.current.delete(key);
+        console.log(`[usePOICache] Fetched ${stations.length} ${type} stations for ${lat.toFixed(2)},${lon.toFixed(2)}`);
         return stations;
       })
       .catch((err) => {
         console.error(`[POI Fetch Error] ${type}:`, err);
         pendingRequests.current.delete(key);
-
-        // Return stale data if available
-        const stale = getFromCache(type, lat, lon, distance);
-        if (stale) {
-          console.log(`[usePOICache] Returning stale ${type} data for ${key} due to fetch error`);
-          return stale;
-        }
-
         return [];
       });
 

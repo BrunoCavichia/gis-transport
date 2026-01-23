@@ -8,6 +8,7 @@ interface RenderPOIsProps {
   isEV?: boolean;
   isRouting: boolean;
   useDots?: boolean;
+  isExiting?: boolean;
 }
 
 interface RenderVehiclesProps {
@@ -35,6 +36,7 @@ export function renderPOIs({
   isRouting,
   isEV = false,
   useDots = false,
+  isExiting = false,
 }: RenderPOIsProps) {
   const type = isEV ? "EV" : "Gas";
   const color = isEV ? "#22c55e" : "#f97316";
@@ -69,7 +71,18 @@ export function renderPOIs({
     }
 
     return (
-      <Marker key={station.id} position={pos} icon={icon}>
+      <Marker
+        key={station.id}
+        position={pos}
+        icon={icon}
+        eventHandlers={{
+          add: (e) => {
+            if (isExiting) {
+              e.target.getElement()?.classList.add("exiting");
+            }
+          },
+        }}
+      >
         <Tooltip
           direction="top"
           offset={THEME.map.popups.tooltipOffset}

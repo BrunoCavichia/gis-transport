@@ -15,8 +15,8 @@ export const THEME = {
   map: {
     interaction: {
       moveThreshold: 3000, // Only update center state if moved >3km
-      fetchDebounce: 2000, // Wait 2 seconds after moveend before fetching (was 1500)
-      zoomDebounce: 2500, // Wait 2.5 seconds after zoomend before fetching (was 2000)
+      fetchDebounce: 600, // Wait 600ms after moveend before fetching (was 2000)
+      zoomDebounce: 800, // Wait 800ms after zoomend before fetching (was 2500)
       flyToDuration: 0.8,
       flyToThreshold: 5,
     },
