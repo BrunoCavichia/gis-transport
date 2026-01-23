@@ -21,6 +21,8 @@ export function usePOICache() {
     if (cached && Date.now() - cached.timestamp < GEO_CACHE_CONFIG.CLIENT_EXPIRE) {
       return cached.stations;
     }
+    // Clean old entries to prevent memory leaks
+    if (cached) cache.delete(key);
     return null;
   }, []);
 
@@ -62,7 +64,8 @@ export function usePOICache() {
         pendingRequests.current.delete(key);
         return stations;
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error(`[POI Fetch Error] ${type}:`, err);
         setCache(type, lat, lon, distance, []);
         pendingRequests.current.delete(key);
         return [];

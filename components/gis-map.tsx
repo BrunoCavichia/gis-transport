@@ -8,7 +8,6 @@ import type {
   VehicleType,
   WeatherData,
   Zone,
-
   InteractionMode,
 } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
@@ -38,15 +37,19 @@ export function GISMap() {
   const [dynamicGasStations, setDynamicGasStations] = useState<POI[]>([]);
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>(
-    VEHICLE_TYPES[0]
+    VEHICLE_TYPES[0],
   );
   const [fleetMode, setFleetMode] = useState(false);
   const [showCustomPOIs, setShowCustomPOIs] = useState(true);
   const [interactionMode, setInteractionMode] = useState<InteractionMode>(null);
 
-  const [pickedPOICoords, setPickedPOICoords] = useState<[number, number] | null>(null);
+  const [pickedPOICoords, setPickedPOICoords] = useState<
+    [number, number] | null
+  >(null);
   const [isAddCustomPOIOpen, setIsAddCustomPOIOpen] = useState(false);
-  const [pickedJobCoords, setPickedJobCoords] = useState<[number, number] | null>(null);
+  const [pickedJobCoords, setPickedJobCoords] = useState<
+    [number, number] | null
+  >(null);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [activeZones, setActiveZones] = useState<Zone[]>([]);
 
@@ -63,7 +66,6 @@ export function GISMap() {
     isLoadingVehicles,
     fetchVehicles,
     updateVehiclePosition,
-    updateVehicleType,
   } = useFleet();
 
   const {
@@ -113,15 +115,21 @@ export function GISMap() {
   const toggleLayer = useCallback((layer: keyof LayerVisibility) => {
     setLayers((prev) => {
       const newState = { ...prev, [layer]: !prev[layer] };
-      if (layer === "evStations" && !newState.evStations) setDynamicEVStations([]);
-      if (layer === "gasStations" && !newState.gasStations) setDynamicGasStations([]);
+      if (layer === "evStations" && !newState.evStations)
+        setDynamicEVStations([]);
+      if (layer === "gasStations" && !newState.gasStations)
+        setDynamicGasStations([]);
       return newState;
     });
   }, []);
 
   const handleMapClick = useCallback(
     (coords: [number, number]) => {
-      if (!coords || coords.length !== 2 || coords.some((c) => typeof c !== "number")) {
+      if (
+        !coords ||
+        coords.length !== 2 ||
+        coords.some((c) => typeof c !== "number")
+      ) {
         console.error("Invalid coordinates clicked:", coords);
         return;
       }
@@ -149,7 +157,7 @@ export function GISMap() {
           break;
       }
     },
-    [interactionMode, addVehicleAt, addJobAt, selectedVehicle]
+    [interactionMode, addVehicleAt, addJobAt, selectedVehicle],
   );
 
   return (
@@ -178,7 +186,13 @@ export function GISMap() {
         }}
         removeVehicle={removeVehicle}
         removeJob={removeJob}
-        addMode={interactionMode === "add-vehicle" ? "vehicle" : interactionMode === "add-job" ? "job" : null}
+        addMode={
+          interactionMode === "add-vehicle"
+            ? "vehicle"
+            : interactionMode === "add-job"
+              ? "job"
+              : null
+        }
         cancelAddMode={() => setInteractionMode(null)}
         startRouting={startRouting}
         isCalculatingRoute={isCalculatingRoute}
@@ -239,7 +253,6 @@ export function GISMap() {
           pickedJobCoords={pickedJobCoords}
           onZonesUpdate={setActiveZones}
           isInteracting={!!interactionMode || isCalculatingRoute}
-          updateVehicleType={updateVehicleType}
         />
 
         <RouteErrorAlert

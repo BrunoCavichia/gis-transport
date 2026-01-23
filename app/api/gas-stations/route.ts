@@ -20,12 +20,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const stations = await POIService.getGasStations(lat, lon, radius);
+    console.log(
+      `[API Gas] lat=${lat}, lon=${lon}, radius=${radius} => ${stations.length} stations`,
+    );
     return NextResponse.json({ stations });
   } catch (err) {
     console.error("API Gas Stations Error:", err);
     return NextResponse.json(
       { error: "Gas stations data unavailable" },
-      { status: 503 }
+      { status: 503 },
     );
   }
 }
