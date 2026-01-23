@@ -256,7 +256,7 @@ const Step3Content = memo(({
 ));
 Step3Content.displayName = "Step3Content";
 
-export function AddJobDialog({
+export const AddJobDialog = memo(function AddJobDialog({
     isOpen,
     onOpenChange,
     onSubmit,
@@ -389,4 +389,4 @@ export function AddJobDialog({
             </DialogContent>
         </Dialog>
     );
-}
+});

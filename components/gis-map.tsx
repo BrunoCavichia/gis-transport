@@ -66,6 +66,7 @@ export function GISMap() {
     isLoadingVehicles,
     fetchVehicles,
     updateVehiclePosition,
+    updateVehicleType,
   } = useFleet();
 
   const {
@@ -160,6 +161,33 @@ export function GISMap() {
     [interactionMode, addVehicleAt, addJobAt, selectedVehicle],
   );
 
+  const handleAddVehicle = useCallback(() => setInteractionMode("add-vehicle"), []);
+
+  const handleAddJob = useCallback(() => {
+    setPickedJobCoords(null);
+    setIsAddJobOpen(true);
+  }, []);
+
+  const handleAddJobDirectly = useCallback((coords: [number, number], label: string) => {
+    setPickedJobCoords(null);
+    addJobAt(coords, label);
+  }, [addJobAt]);
+
+  const handleAddCustomPOI = useCallback((name: string, coords: [number, number], desc?: string) => {
+    setPickedPOICoords(null);
+    return addCustomPOI(name, coords, desc);
+  }, [addCustomPOI]);
+
+  const handleStartPicking = useCallback(() => {
+    setInteractionMode("pick-poi");
+    setIsAddCustomPOIOpen(false);
+  }, []);
+
+  const handleStartPickingJob = useCallback(() => {
+    setInteractionMode("pick-job");
+    setIsAddJobOpen(false);
+  }, []);
+
   return (
     <div className="relative flex h-full w-full">
       <Sidebar
@@ -175,15 +203,9 @@ export function GISMap() {
         fleetJobs={fleetJobs}
         selectedVehicleId={selectedVehicleId}
         setSelectedVehicleId={setSelectedVehicleId}
-        addVehicle={() => setInteractionMode("add-vehicle")}
-        addJob={() => {
-          setPickedJobCoords(null);
-          setIsAddJobOpen(true);
-        }}
-        addJobDirectly={(coords, label) => {
-          setPickedJobCoords(null);
-          addJobAt(coords, label);
-        }}
+        addVehicle={handleAddVehicle}
+        addJob={handleAddJob}
+        addJobDirectly={handleAddJobDirectly}
         removeVehicle={removeVehicle}
         removeJob={removeJob}
         addMode={
@@ -197,27 +219,18 @@ export function GISMap() {
         startRouting={startRouting}
         isCalculatingRoute={isCalculatingRoute}
         customPOIs={customPOIs}
-        addCustomPOI={(name, coords, desc) => {
-          setPickedPOICoords(null);
-          return addCustomPOI(name, coords, desc);
-        }}
+        addCustomPOI={handleAddCustomPOI}
         removeCustomPOI={removeCustomPOI}
         updateCustomPOI={updateCustomPOI}
         clearAllCustomPOIs={clearAllCustomPOIs}
         showCustomPOIs={showCustomPOIs}
         setShowCustomPOIs={setShowCustomPOIs}
         mapCenter={mapCenter}
-        onStartPicking={() => {
-          setInteractionMode("pick-poi");
-          setIsAddCustomPOIOpen(false);
-        }}
+        onStartPicking={handleStartPicking}
         pickedCoords={pickedPOICoords}
         isAddCustomPOIOpen={isAddCustomPOIOpen}
         setIsAddCustomPOIOpen={setIsAddCustomPOIOpen}
-        onStartPickingJob={() => {
-          setInteractionMode("pick-job");
-          setIsAddJobOpen(false);
-        }}
+        onStartPickingJob={handleStartPickingJob}
         pickedJobCoords={pickedJobCoords}
         isAddJobOpen={isAddJobOpen}
         setIsAddJobOpen={setIsAddJobOpen}
@@ -253,6 +266,8 @@ export function GISMap() {
           pickedJobCoords={pickedJobCoords}
           onZonesUpdate={setActiveZones}
           isInteracting={!!interactionMode || isCalculatingRoute}
+          onVehicleTypeChange={updateVehicleType}
+          onVehicleSelect={setSelectedVehicleId}
         />
 
         <RouteErrorAlert

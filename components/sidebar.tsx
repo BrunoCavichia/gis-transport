@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ import type { LayerVisibility, VehicleType, CustomPOI } from "@/lib/types";
 import { MAP_CENTER } from "@/lib/config";
 import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
+import { VehicleItem, JobItem } from "@/components/sidebar-items";
 
 interface FleetJob {
   id: string;
@@ -100,7 +101,7 @@ interface SidebarProps {
 
 type SidebarTab = "fleet" | "layers" | "settings";
 
-export function Sidebar({
+export const Sidebar = memo(function Sidebar({
   layers,
   toggleLayer,
   selectedVehicle,
@@ -383,46 +384,14 @@ export function Sidebar({
                     </div>
                   ) : (
                     fleetVehicles.map((v) => (
-                      <div
+                      <VehicleItem
                         key={v.id}
-                        onClick={() => setSelectedVehicleId(v.id)}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group",
-                          selectedVehicleId === v.id
-                            ? "bg-primary/5 border-primary/50 shadow-sm"
-                            : "bg-card border-transparent hover:bg-accent/50",
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
-                              selectedVehicleId === v.id
-                                ? "bg-primary text-white"
-                                : "bg-muted",
-                            )}
-                          >
-                            <Car className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold">{v.type.label}</p>
-                            <p className="text-[10px] text-muted-foreground font-mono">
-                              {v.id.slice(0, 6)}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeVehicle(v.id);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                        id={v.id}
+                        type={v.type}
+                        isSelected={selectedVehicleId === v.id}
+                        onSelect={setSelectedVehicleId}
+                        onRemove={removeVehicle}
+                      />
                     ))
                   )}
                 </div>
@@ -441,25 +410,12 @@ export function Sidebar({
                     </div>
                   ) : (
                     fleetJobs.map((j) => (
-                      <div
+                      <JobItem
                         key={j.id}
-                        className="flex items-center justify-between p-3 rounded-xl bg-card border border-transparent hover:border-border transition-all group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                            <Package className="h-4 w-4" />
-                          </div>
-                          <span className="text-xs font-bold">{j.label}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                          onClick={() => removeJob(j.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                        id={j.id}
+                        label={j.label}
+                        onRemove={removeJob}
+                      />
                     ))
                   )}
                 </div>
@@ -637,4 +593,4 @@ export function Sidebar({
       />
     </div>
   );
-}
+});

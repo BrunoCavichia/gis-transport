@@ -1,7 +1,8 @@
 import { THEME } from "@/lib/theme";
 import { POI_CONFIG } from "@/lib/config";
 import { Marker, Tooltip, Popup, CircleMarker } from "react-leaflet";
-import type { POI, FleetVehicle, FleetJob, CustomPOI } from "@/lib/types";
+import { VEHICLE_TYPES } from "@/lib/types";
+import type { POI, FleetVehicle, FleetJob, CustomPOI, VehicleType } from "@/lib/types";
 
 interface RenderPOIsProps {
   stations: POI[];
@@ -17,6 +18,8 @@ interface RenderVehiclesProps {
   selectedVehicleId?: string | null;
   createVehicleIcon: (color: string) => any;
   isRouting: boolean;
+  onUpdateType?: (vehicleId: string, type: VehicleType) => void;
+  onSelect?: (vehicleId: string) => void;
 }
 
 interface RenderJobsProps {
@@ -124,6 +127,8 @@ export function renderVehicleMarkers({
   selectedVehicleId,
   createVehicleIcon,
   isRouting,
+  onUpdateType,
+  onSelect,
 }: RenderVehiclesProps) {
   return (vehicles || []).map((vehicle) => {
     const isSelected = selectedVehicleId === vehicle.id;
@@ -134,7 +139,14 @@ export function renderVehicleMarkers({
     const icon = createVehicleIcon(color);
 
     return (
-      <Marker key={`vehicle-${vehicle.id}`} position={pos} icon={icon}>
+      <Marker
+        key={`vehicle-${vehicle.id}`}
+        position={pos}
+        icon={icon}
+        eventHandlers={{
+          click: () => onSelect?.(vehicle.id),
+        }}
+      >
         <Tooltip
           direction="top"
           offset={THEME.map.popups.vehicleTooltipOffset}
@@ -160,7 +172,29 @@ export function renderVehicleMarkers({
                   color: THEME.colors.textMuted,
                   fontSize: THEME.map.popups.subtitleFontSize,
                 }}
-              ></div>
+              >
+                Assign Label:
+              </div>
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {VEHICLE_TYPES.map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => onUpdateType?.(vehicle.id, type)}
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "10px",
+                      borderRadius: "4px",
+                      border: `1px solid ${vehicle.type.id === type.id ? THEME.colors.info : "#e2e8f0"}`,
+                      backgroundColor: vehicle.type.id === type.id ? THEME.colors.info : "white",
+                      color: vehicle.type.id === type.id ? "white" : "#1e293b",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </Popup>
         )}

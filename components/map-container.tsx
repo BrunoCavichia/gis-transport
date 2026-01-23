@@ -8,6 +8,7 @@ import {
 } from "@/lib/config";
 import { THEME } from "@/lib/theme";
 import {
+  memo,
   useEffect,
   useState,
   useCallback,
@@ -45,6 +46,7 @@ import { useLoadingLayers } from "@/hooks/use-loading-layers";
 import { usePOICache } from "@/hooks/use-poi-cache";
 import { useZoneCache } from "@/hooks/use-zone-cache";
 import { WeatherPanel } from "./weather-panel";
+import { ZoneLayer, WeatherMarkersLayer } from "./map-layers";
 import {
   renderPOIs,
   renderVehicleMarkers,
@@ -81,6 +83,8 @@ interface MapContainerProps {
   toggleLayer: (layer: keyof LayerVisibility) => void;
   onZonesUpdate?: (zones: Zone[]) => void;
   isInteracting?: boolean;
+  onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
+  onVehicleSelect?: (vehicleId: string) => void;
 }
 
 function MapEventHandler({
@@ -452,7 +456,7 @@ function RouteLabelsLayer({ vehicleRoutes }: { vehicleRoutes: any[] }) {
   );
 }
 
-export default function MapContainer({
+export default memo(function MapContainer({
   layers,
   routeData,
   setRouteData,
@@ -476,6 +480,8 @@ export default function MapContainer({
   pickedJobCoords,
   onZonesUpdate,
   isInteracting = false,
+  onVehicleTypeChange,
+  onVehicleSelect,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
@@ -660,12 +666,16 @@ export default function MapContainer({
       selectedVehicleId,
       createVehicleIcon: vehicle,
       isRouting,
+      onUpdateType: onVehicleTypeChange,
+      onSelect: onVehicleSelect,
     });
   }, [
     fleetVehicles,
     selectedVehicleId,
     vehicle,
     isRouting,
+    onVehicleTypeChange,
+    onVehicleSelect,
   ]);
 
 
@@ -678,113 +688,6 @@ export default function MapContainer({
   }, [fleetJobs, isRouting, job]);
 
 
-  const renderedZones = useMemo(() => {
-    if (!layers.cityZones) return null;
-    return dynamicZones.map((zone, idx) => {
-      const hasAccess = canAccessZone(zone);
-      const isLEZ =
-        zone.type?.toUpperCase() === "LEZ" || zone.type === "Environmental";
-      const zType = isLEZ ? "LEZ" : "RESTRICTED";
-
-      const style = isLEZ
-        ? {
-          color: hasAccess ? THEME.colors.success : THEME.colors.danger,
-          fillColor: hasAccess ? THEME.colors.success : THEME.colors.danger,
-          fillOpacity: hasAccess
-            ? THEME.map.polygons.lez.fillOpacity.allowed
-            : THEME.map.polygons.lez.fillOpacity.restricted,
-          weight: THEME.map.polygons.lez.weight,
-          dashArray: undefined,
-        }
-        : {
-          color: THEME.colors.danger,
-          fillColor: THEME.colors.danger,
-          fillOpacity: THEME.map.polygons.restricted.fillOpacity,
-          weight: THEME.map.polygons.restricted.weight,
-          dashArray: THEME.map.polygons.restricted.dashArray,
-        };
-
-      return (
-        <Polygon
-          key={`${zone.id}-${idx}`}
-          positions={zone.coordinates}
-          pathOptions={style}
-          interactive={!isInteracting}
-          bubblingMouseEvents={false}
-        >
-          {!isInteracting && (
-            <Popup closeButton={false} autoClose={false} className="zone-popup">
-              <div style={{ fontSize: THEME.map.popups.fontSize }}>
-                <strong>{zone.name}</strong>
-                {zType === "LEZ" && (
-                  <div
-                    style={{
-                      color: hasAccess
-                        ? THEME.colors.success
-                        : THEME.colors.danger,
-                      marginTop: 4,
-                    }}
-                  >
-                    {hasAccess ? "Access OK" : "Restricted"}
-                  </div>
-                )}
-              </div>
-            </Popup>
-          )}
-        </Polygon>
-      );
-    });
-  }, [layers.cityZones, dynamicZones, canAccessZone, isInteracting]);
-
-  const renderedWeatherMarkers = useMemo(() => {
-    if (!routeData?.weatherRoutes) return null;
-    return routeData.weatherRoutes.flatMap((wr, wrIdx) =>
-      wr.alerts?.map((alert, idx) => {
-        if (alert.lat == null || alert.lon == null) return null;
-
-        let icon;
-        switch (alert.event) {
-          case "SNOW":
-            icon = snow;
-            break;
-          case "RAIN":
-            icon = rain;
-            break;
-          case "ICE":
-            icon = ice;
-            break;
-          case "WIND":
-            icon = wind;
-            break;
-          case "FOG":
-            icon = fog;
-            break;
-          default:
-            return null;
-        }
-
-
-        return (
-          <Marker
-            key={`weather-${wrIdx}-${idx}`}
-            position={[alert.lat, alert.lon]}
-            icon={icon}
-          >
-            <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-              <span style={{ fontSize: 12 }}>{alert.message}</span>
-            </Tooltip>
-          </Marker>
-        );
-      }),
-    );
-  }, [
-    routeData?.weatherRoutes,
-    snow,
-    rain,
-    ice,
-    wind,
-    fog,
-  ]);
 
   useEffect(() => setMounted(true), []);
 
@@ -834,7 +737,12 @@ export default function MapContainer({
           setViewportBounds={setViewportBounds}
         />
 
-        {renderedZones}
+        <ZoneLayer
+          zones={dynamicZones}
+          visible={!!layers.cityZones}
+          isInteracting={isInteracting}
+          canAccessZone={canAccessZone}
+        />
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
           <>
@@ -861,7 +769,10 @@ export default function MapContainer({
         {routeData?.weatherRoutes && (
           <WeatherPanel routes={routeData.weatherRoutes} />
         )}
-        {renderedWeatherMarkers}
+        <WeatherMarkersLayer
+          weatherRoutes={routeData?.weatherRoutes || []}
+          icons={{ snow, rain, ice, wind, fog }}
+        />
         {pickedPOICoords && (
           <>
             <Marker position={pickedPOICoords} icon={picking} />
@@ -876,4 +787,4 @@ export default function MapContainer({
       </LeafletMap>
     </div>
   );
-}
+});

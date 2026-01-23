@@ -268,7 +268,7 @@ const Step3Content = memo(({
 ));
 Step3Content.displayName = "Step3Content";
 
-export function AddCustomPOIDialog({
+export const AddCustomPOIDialog = memo(function AddCustomPOIDialog({
   isOpen,
   onOpenChange,
   onSubmit,
@@ -405,4 +405,4 @@ export function AddCustomPOIDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});
