@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+
 const COST_PER_METER = 1;
 const COST_PER_SECOND = 0.3;
 const UNREACHABLE_COST = 999999999;
@@ -7,15 +8,7 @@ const MAX_LOCATIONS = 50;
 const REQUEST_TIMEOUT = 60000; // 60 segundos
 const RETRIES = 2;
 
-async function fetchWithRetry(url: string, options: any, retries = RETRIES) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fetch(url, options);
-    } catch (err) {
-      if (i === retries) throw err;
-    }
-  }
-}
+import { fetchWithRetry } from "@/app/helpers/fetch-helpers";
 
 export async function POST(request: NextRequest) {
   try {

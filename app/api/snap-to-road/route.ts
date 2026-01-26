@@ -1,18 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server";
-
+import { FetchError } from "@/lib/types";
 const SNAP_RADIUS = 5000;
 const REQUEST_TIMEOUT = 30000; // 30 segundos
 const RETRIES = 2;
 
-async function fetchWithRetry(url: string, options: any, retries = RETRIES) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fetch(url, options);
-    } catch (err) {
-      if (i === retries) throw err;
-    }
-  }
+interface OrsLocation {
+  location?: [number, number];
+  snapped_distance?: number;
 }
+
+interface SnappedPoint {
+  location: [number, number];
+  snapped: boolean;
+  distance?: number;
+}
+
+import { fetchWithRetry } from "@/app/helpers/fetch-helpers";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,17 +27,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-    // if (!apiKey) {
-    //   return NextResponse.json({
-    //     snapped: coordinates.map(([lat, lon]: number[]) => ({
-    //       location: [lat, lon],
-    //       snapped: false,
-    //     })),
-    //   });
-    // }
-
     const locations = coordinates.map(([lat, lon]: number[]) => [lon, lat]);
 
     const controller = new AbortController();
@@ -63,9 +55,8 @@ export async function POST(request: NextRequest) {
 
       const data = await response.json();
 
-      const snapped = data.locations.map((loc: any, idx: number) => {
-        // ORS returns snapped_distance, not distance
-        if (loc?.location?.length === 2 && loc.snapped_distance != null) {
+      const snapped: SnappedPoint[] = data.locations.map((loc: OrsLocation, idx: number) => {
+        if (loc.location?.length === 2 && loc.snapped_distance != null) {
           const [lon, lat] = loc.location;
           console.log(`[Snap] Point ${idx}: [${coordinates[idx]}] -> [${lat}, ${lon}] (distance: ${loc.snapped_distance}m)`);
           return { location: [lat, lon], snapped: true, distance: loc.snapped_distance };
@@ -75,9 +66,10 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ snapped });
-    } catch (fetchError: any) {
+    } catch (err) {
+      const error = err as FetchError;
       clearTimeout(timeoutId);
-      console.error("Snap-to-road fetch error:", fetchError.message);
+      console.error("Snap-to-road fetch error:", error.message);
 
       return NextResponse.json({
         snapped: coordinates.map(([lat, lon]: number[]) => ({

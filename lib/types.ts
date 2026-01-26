@@ -286,6 +286,12 @@ export interface GisDataContext {
   includeGeoData?: boolean;
 }
 
+export interface FetchError extends Error {
+  response?: Response;
+  status?: number;
+  data?: any;
+}
+
 export const ROUTE_COLORS = [
   "#4F46E5", // Indigo - Primary route
   "#0891B2", // Cyan - Cool, professional
