@@ -19,12 +19,9 @@ import {
 import {
   MapContainer as LeafletMap,
   TileLayer,
-  Popup,
-  Polygon,
   Polyline,
   useMapEvents,
   useMap,
-  Tooltip,
   Marker,
   ZoomControl,
 } from "react-leaflet";
@@ -38,6 +35,7 @@ import type {
   Zone,
   FleetVehicle,
   FleetJob,
+  VehicleRoute,
 } from "@/lib/types";
 import L, { LeafletMouseEvent } from "leaflet";
 import { createMapIcons, createRouteLabelIcon } from "@/lib/map-icons";
@@ -134,8 +132,6 @@ function MapEventHandler({
     onZonesUpdate?.(zoneCache.zones);
   }, [zoneCache.zones, setDynamicZones, onZonesUpdate]);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastFetchPosRef = useRef<L.LatLng | null>(null);
-  const lastFetchRadiusRef = useRef<number>(0);
   const lastLayersStateRef = useRef<{ ev: boolean; gas: boolean }>({
     ev: false,
     gas: false,
@@ -372,7 +368,7 @@ function getDynamicWeight(zoom: number) {
 }
 
 // Optimization: Handle route weight updates imperatively to avoid React re-renders during zoom/flyTo
-function RouteLayer({ vehicleRoutes }: { vehicleRoutes: any[] }) {
+function RouteLayer({ vehicleRoutes }: { vehicleRoutes: VehicleRoute[] }) {
   const map = useMap();
   const coreRefs = useRef<Record<string, L.Polyline | null>>({});
 

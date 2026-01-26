@@ -1,6 +1,7 @@
 import type { POI } from "@/lib/types";
 import { OVERPASS_URL, TIMEOUTS } from "@/lib/config";
 import { GEO_CACHE_CONFIG, getGeoCacheKey } from "@/lib/geo-utils";
+import type { OverpassElement } from "@/lib/types";
 
 export class POIService {
     private static evCache = new Map<string, { data: POI[]; timestamp: number }>();
@@ -39,26 +40,26 @@ export class POIService {
             }
             const data = await res.json();
 
-            return (data.elements || []).map((el: any) => {
-                const latEl = el.lat ?? el.center?.lat;
-                const lonEl = el.lon ?? el.center?.lon;
+            return (data.elements || []).map((element: OverpassElement) => {
+                const latEl = element.lat ?? element.center?.lat;
+                const lonEl = element.lon ?? element.center?.lon;
                 if (!latEl || !lonEl) return null;
 
                 const type = amenity === "fuel" ? "gas" : "ev";
 
                 return {
-                    id: `${type}-${el.id}`,
-                    name: el.tags?.name || el.tags?.brand || (type === "gas" ? "Gas Station" : "EV Charging Station"),
+                    id: `${type}-${element.id}`,
+                    name: element.tags?.name || element.tags?.brand || (type === "gas" ? "Gas Station" : "EV Charging Station"),
                     position: [latEl, lonEl] as [number, number],
                     type: type,
-                    brand: el.tags?.brand,
-                    operator: el.tags?.operator,
-                    address: el.tags?.["addr:street"]
-                        ? `${el.tags["addr:street"]}${el.tags["addr:housenumber"] ? " " + el.tags["addr:housenumber"] : ""}`
+                    brand: element.tags?.brand,
+                    operator: element.tags?.operator,
+                    address: element.tags?.["addr:street"]
+                        ? `${element.tags["addr:street"]}${element.tags["addr:housenumber"] ? " " + element.tags["addr:housenumber"] : ""}`
                         : undefined,
-                    connectors: type === "ev" ? (el.tags?.capacity || 1) : undefined,
+                    connectors: type === "ev" ? (element.tags?.capacity || 1) : undefined,
                 };
-            }).filter((s: any) => s !== null) as POI[];
+            }).filter((poi: POI) => poi !== null) as POI[];
         } catch (e) {
             if ((e as Error).name === 'AbortError') {
                 console.warn(`POIService: Overpass timeout for ${amenity}`);
@@ -93,7 +94,8 @@ export class POIService {
                 this.pendingRequests.delete(key);
                 return stations;
             })
-            .catch(e => {
+            .catch((e: Error) => {
+                console.error(`POIService: Overpass fetch failed for EV`, e);
                 this.pendingRequests.delete(key);
                 // Return stale data if available, even if expired
                 if (cached) {
