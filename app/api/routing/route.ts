@@ -45,14 +45,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SNAP usando tu endpoint interno
     let finalCoordinates = await snapCoordinatesInternal(coordinates);
 
-    // Convertir [lat, lon] a [lon, lat] para ORS
-    const locations = finalCoordinates.map(([lat, lon]: number[]) => [
-      lon,
-      lat,
-    ]);
 
     try {
       const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
@@ -66,10 +60,10 @@ export async function POST(request: NextRequest) {
               "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8",
           },
           body: JSON.stringify({
-            coordinates: locations,
+            coordinates: finalCoordinates,
             instructions: false,
             preference: "recommended",
-            radiuses: locations.map(() => 5000),
+            radiuses: finalCoordinates.map(() => 5000),
           }),
           timeout: TIMEOUTS.ROUTING,
         }
@@ -91,9 +85,7 @@ export async function POST(request: NextRequest) {
       }
 
       const data = await response.json();
-      const routeCoordinates = data.features[0].geometry.coordinates.map(
-        ([lon, lat]: number[]) => [lat, lon]
-      );
+      const routeCoordinates = data.features[0].geometry.coordinates;
       const properties = data.features[0].properties;
       const distance = properties?.summary?.distance || 0;
       const duration = properties?.summary?.duration || 0;
