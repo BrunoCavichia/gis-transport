@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type NominatimResult } from "@/lib/types";
+import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
+import { TIMEOUTS } from "@/lib/config";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -10,13 +12,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         query
       )}&countrycodes=es&limit=10&addressdetails=1`,
       {
         headers: { "User-Agent": "GIS-Transport-Demo/1.0" },
+        // next: { revalidate: 3600 } is technically a fetch extension in Next.js
+        // fetchWithTimeout passes options down to fetch, so this should work.
+        // @ts-ignore
         next: { revalidate: 3600 },
+        timeout: TIMEOUTS.GEOCODE,
       }
     );
 

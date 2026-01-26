@@ -1,5 +1,5 @@
 import type { POI } from "@/lib/types";
-import { OVERPASS_URL } from "@/lib/config";
+import { OVERPASS_URL, TIMEOUTS } from "@/lib/config";
 import { GEO_CACHE_CONFIG, getGeoCacheKey } from "@/lib/geo-utils";
 
 export class POIService {
@@ -28,7 +28,7 @@ export class POIService {
 
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+            const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.OVERPASS); // 15s timeout
 
             const res = await fetch(OVERPASS_URL, {
                 method: "POST",

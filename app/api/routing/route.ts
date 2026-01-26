@@ -1,23 +1,19 @@
-// app/api/routing/route.ts
 import { type NextRequest, NextResponse } from "next/server";
-
-const REQUEST_TIMEOUT = 15000;
+import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
+import { FetchError } from "@/lib/types";
+import { TIMEOUTS } from "@/lib/config";
 
 async function snapCoordinatesInternal(
   coordinates: [number, number][]
 ): Promise<[number, number][]> {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
-    const response = await fetch(`http://localhost:3005/api/snap-to-road`, {
+    const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+    const response = await fetchWithTimeout(`${baseURL}/api/snap-to-road`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ coordinates }),
-      signal: controller.signal,
+      timeout: TIMEOUTS.ROUTING,
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.warn("Snap-to-route failed, returning original coordinates");
@@ -49,14 +45,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-    // if (!apiKey) {
-    //   return NextResponse.json(
-    //     { error: "OpenRouteService API key not configured" },
-    //     { status: 500 }
-    //   );
-    // }
-
     // SNAP usando tu endpoint interno
     let finalCoordinates = await snapCoordinatesInternal(coordinates);
 
@@ -66,17 +54,13 @@ export async function POST(request: NextRequest) {
       lat,
     ]);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
     try {
       const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${orsUrl}/directions/driving-car/geojson`,
         {
           method: "POST",
           headers: {
-            // Authorization: apiKey,
             "Content-Type": "application/json",
             Accept:
               "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8",
@@ -87,11 +71,9 @@ export async function POST(request: NextRequest) {
             preference: "recommended",
             radiuses: locations.map(() => 5000),
           }),
-          signal: controller.signal,
+          timeout: TIMEOUTS.ROUTING,
         }
       );
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -121,8 +103,8 @@ export async function POST(request: NextRequest) {
         distance: Math.round(distance),
         duration: Math.round(duration),
       });
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
+    } catch (err) {
+      const fetchError = err as FetchError;
       if (fetchError.name === "AbortError") {
         return NextResponse.json(
           { error: "Routing request timeout" },

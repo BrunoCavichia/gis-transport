@@ -42,6 +42,36 @@ export const POI_CONFIG: Record<POIType, {
     },
 };
 
+// Request Configuration
+export const DEFAULT_TIMEOUT = 15000;
+export const DEFAULT_RETRIES = 2;
+
+export const TIMEOUTS = {
+    GENERAL: 15000,
+    GEOCODE: 10000,
+    ROUTING: 15000,
+    SNAP: 30000,
+    MATRIX: 60000,
+    OVERPASS: 15000,
+};
+
+export const RETRIES = {
+    GENERAL: 2,
+    GEOCODE: 1,
+    ORS: 2,
+};
+
+// Routing & Optimization Logic
+export const ROUTING_CONFIG = {
+    COST_PER_METER: 1,
+    COST_PER_SECOND: 0.3,
+    UNREACHABLE_COST: 200000000,
+    DEFAULT_SERVICE_TIME: 300, // seconds
+    DEFAULT_RADIUS: 5000, // meters
+    MAX_CAPACITY: 100,
+    MAX_LOCATIONS: 50,
+};
+
 export function buildPOIUrl(type: POIType, lat: number, lon: number, distance: number, vehicle: string): string {
     const config = POI_CONFIG[type];
     return `${config.apiPath}?lat=${lat}&lon=${lon}&${config.distanceParam}=${distance}&vehicle=${vehicle}&limit=${config.maxResults}`;

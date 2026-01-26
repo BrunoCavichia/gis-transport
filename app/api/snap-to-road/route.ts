@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { FetchError } from "@/lib/types";
+import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
+import { TIMEOUTS } from "@/lib/config";
+
 const SNAP_RADIUS = 5000;
-const REQUEST_TIMEOUT = 30000; // 30 segundos
 const RETRIES = 2;
 
 interface OrsLocation {
@@ -15,8 +17,6 @@ interface SnappedPoint {
   distance?: number;
 }
 
-import { fetchWithRetry } from "@/app/helpers/fetch-helpers";
-
 export async function POST(request: NextRequest) {
   try {
     const { coordinates } = await request.json();
@@ -29,12 +29,9 @@ export async function POST(request: NextRequest) {
     }
     const locations = coordinates.map(([lat, lon]: number[]) => [lon, lat]);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
     try {
       const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
-      const response = await fetchWithRetry(
+      const response = await fetchWithTimeout(
         `${orsUrl}/snap/driving-car`,
         {
           method: "POST",
@@ -43,11 +40,9 @@ export async function POST(request: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ locations, radius: SNAP_RADIUS }),
-          signal: controller.signal,
+          timeout: TIMEOUTS.SNAP,
         }
       );
-
-      clearTimeout(timeoutId);
 
       if (!response) throw new Error("ORS snap failed");
 
@@ -68,7 +63,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ snapped });
     } catch (err) {
       const error = err as FetchError;
-      clearTimeout(timeoutId);
       console.error("Snap-to-road fetch error:", error.message);
 
       return NextResponse.json({

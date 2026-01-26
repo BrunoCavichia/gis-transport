@@ -1,7 +1,7 @@
 // lib/services/routing-service.ts
 import { FleetVehicle, FleetJob, RouteData, Zone, ROUTE_COLORS } from "@/lib/types";
 
-import { ORS_URL, VROOM_URL, SNAP_URL } from "@/lib/config";
+import { ORS_URL, VROOM_URL, SNAP_URL, TIMEOUTS, ROUTING_CONFIG } from "@/lib/config";
 import { WeatherService } from "./weather-service";
 
 export interface OptimizeOptions {
@@ -281,7 +281,7 @@ export class RoutingService {
 
                 // Manual Penalization: if source or dest is in a forbidden zone, massive cost
                 if (isLocForbidden[i] || isLocForbidden[j]) {
-                    return 200000000; // 200M (Safe signed 32-bit int)
+                    return ROUTING_CONFIG.UNREACHABLE_COST;
                 }
 
                 const d = data.distances?.[i]?.[j];
@@ -289,10 +289,10 @@ export class RoutingService {
 
                 // If point is unreachable from ORS perspective
                 if (d === null || d === undefined || t === null || t === undefined) {
-                    return 200000000;
+                    return ROUTING_CONFIG.UNREACHABLE_COST;
                 }
 
-                return Math.round(d * 1 + t * 0.3);
+                return Math.round(d * ROUTING_CONFIG.COST_PER_METER + t * ROUTING_CONFIG.COST_PER_SECOND);
             })
         );
     }
@@ -308,12 +308,12 @@ export class RoutingService {
                 id: idx,
                 start_index: idx,
                 profile: vehicleToProfile[idx].name,
-                capacity: [100]
+                capacity: [ROUTING_CONFIG.MAX_CAPACITY]
             })),
             jobs: jobs.map((job, jidx) => ({
                 id: vehicles.length + jidx,
                 location_index: vehicles.length + jidx,
-                service: 300,
+                service: ROUTING_CONFIG.DEFAULT_SERVICE_TIME,
                 delivery: [1],
                 description: job.label || `Job ${jidx + 1}`
             })),
@@ -361,7 +361,8 @@ export class RoutingService {
             const body: any = {
                 coordinates: orsWaypoints,
                 instructions: false,
-                preference: "recommended"
+                preference: "recommended",
+                radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS)
             };
 
             const avoid_polygons = this.formatAvoidPolygons(profile.avoidPolygons || []);

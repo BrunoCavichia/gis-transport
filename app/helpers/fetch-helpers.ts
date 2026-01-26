@@ -1,15 +1,12 @@
+import { DEFAULT_TIMEOUT, DEFAULT_RETRIES } from "@/lib/config";
+
 /**
  * Performs a fetch request with automatic retries on failure.
- * 
- * @param url - The URL to fetch.
- * @param options - Standard RequestInit options.
- * @param retries - Number of times to retry before throwing an error.
- * @returns A promise that resolves to the Response object.
  */
 export async function fetchWithRetry(
     url: string,
     options: RequestInit,
-    retries = 2
+    retries = DEFAULT_RETRIES
 ): Promise<Response> {
     for (let i = 0; i <= retries; i++) {
         try {
@@ -18,6 +15,23 @@ export async function fetchWithRetry(
             if (i === retries) throw err;
         }
     }
-    // Should never reach here due to the throw in the loop
     throw new Error("Fetch failed after retries");
+}
+
+/**
+ * Performs a fetch request with a timeout and optional retries.
+ */
+export async function fetchWithTimeout(
+    url: string,
+    options: RequestInit & { timeout?: number; retries?: number }
+): Promise<Response> {
+    const { timeout = DEFAULT_TIMEOUT, retries = DEFAULT_RETRIES, ...fetchOptions } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        return await fetchWithRetry(url, { ...fetchOptions, signal: controller.signal }, retries);
+    } finally {
+        clearTimeout(id);
+    }
 }

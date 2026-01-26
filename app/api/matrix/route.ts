@@ -1,12 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { fetchWithRetry } from "@/app/helpers/fetch-helpers";
+import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
 import { FetchError } from "@/lib/types";
-
-const COST_PER_METER = 1;
-const COST_PER_SECOND = 0.3;
-const UNREACHABLE_COST = 999999999;
-const MAX_LOCATIONS = 50;
-const REQUEST_TIMEOUT = 60000; // 60 segundos
+import { TIMEOUTS, ROUTING_CONFIG } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,21 +14,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (coordinates.length > MAX_LOCATIONS) {
+    if (coordinates.length > ROUTING_CONFIG.MAX_LOCATIONS) {
       return NextResponse.json(
-        { error: `Too many locations. Maximum is ${MAX_LOCATIONS}` },
+        { error: `Too many locations. Maximum is ${ROUTING_CONFIG.MAX_LOCATIONS}` },
         { status: 400 }
       );
     }
 
     const locations = coordinates.map((coord) => [coord[1], coord[0]]);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
     try {
       const orsUrl = process.env.ORS_LOCAL_URL || "http://127.0.0.1:8080/ors/v2";
-      const orsResponse = await fetchWithRetry(
+      const orsResponse = await fetchWithTimeout(
         `${orsUrl}/matrix/driving-car`,
         {
           method: "POST",
@@ -46,11 +38,9 @@ export async function POST(request: NextRequest) {
             metrics: ["distance", "duration"],
             units: "m",
           }),
-          signal: controller.signal,
+          timeout: TIMEOUTS.MATRIX,
         }
       );
-
-      clearTimeout(timeoutId);
 
       if (!orsResponse) throw new Error("ORS matrix request failed");
 
@@ -80,9 +70,9 @@ export async function POST(request: NextRequest) {
             distance < 0 ||
             duration < 0
           )
-            return UNREACHABLE_COST;
+            return ROUTING_CONFIG.UNREACHABLE_COST;
           return Math.round(
-            distance * COST_PER_METER + duration * COST_PER_SECOND
+            distance * ROUTING_CONFIG.COST_PER_METER + duration * ROUTING_CONFIG.COST_PER_SECOND
           );
         })
       );
@@ -90,13 +80,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ cost });
     } catch (err) {
       const fetchError = err as FetchError;
-      clearTimeout(timeoutId);
 
       if (fetchError.name === "AbortError") {
         return NextResponse.json(
           {
             error: "Request timeout",
-            message: `Request exceeded ${REQUEST_TIMEOUT / 1000
+            message: `Request exceeded ${TIMEOUTS.MATRIX / 1000
               }s. Reduce locations.`,
             locations: coordinates.length,
           },
