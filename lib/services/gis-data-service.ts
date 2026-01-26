@@ -26,7 +26,7 @@ export class GisDataService {
           };
 
           return {
-            vehicleId: fleetVehicle.id,
+            vehicleId: String(fleetVehicle.id),
             vehicleType: fleetVehicle.type,
             jobsAssigned: r.jobsAssigned,
           };

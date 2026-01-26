@@ -79,7 +79,7 @@ export function useFleet(
       setFleetVehicles((prev) => {
         const next = [...prev, newVehicle];
         // Automatically select the new vehicle
-        setSelectedVehicleId(newVehicle.id);
+        setSelectedVehicleId(String(newVehicle.id));
         return next;
       });
     },
@@ -104,10 +104,10 @@ export function useFleet(
   // Function to remove a vehicle by ID
   const removeVehicle = useCallback((vehicleId: string) => {
     setFleetVehicles((prev) => {
-      const remaining = prev.filter((v) => v.id !== vehicleId);
+      const remaining = prev.filter((v) => String(v.id) !== vehicleId);
       // If the selected vehicle is removed, select the first available one
       setSelectedVehicleId((curr) =>
-        curr === vehicleId ? remaining[0]?.id ?? null : curr
+        curr === vehicleId ? (remaining[0]?.id ? String(remaining[0].id) : null) : curr
       );
       return remaining;
     });

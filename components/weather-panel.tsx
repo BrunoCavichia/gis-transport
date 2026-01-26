@@ -5,21 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Cloud, Sun, CloudRain, CloudSnow, Wind, AlertTriangle, Info, AlertOctagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface Alert {
-  segmentIndex: number;
-  event: "SNOW" | "RAIN" | "ICE" | "WIND" | "FOG";
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  timeWindow: string;
-  message: string;
-  lat: number;
-  lon: number;
-}
-
-export interface RouteWeather {
-  vehicle: string;
-  riskLevel: "LOW" | "MEDIUM" | "HIGH";
-  alerts: Alert[];
-}
+import { WeatherAlert, RouteWeather } from "@/lib/types";
 
 interface WeatherPanelProps {
   routes: RouteWeather[];

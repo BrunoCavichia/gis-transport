@@ -144,7 +144,7 @@ export function renderVehicleMarkers({
         position={pos}
         icon={icon}
         eventHandlers={{
-          click: () => onSelect?.(vehicle.id),
+          click: () => onSelect?.(String(vehicle.id)),
         }}
       >
         <Tooltip
@@ -179,7 +179,7 @@ export function renderVehicleMarkers({
                 {VEHICLE_TYPES.map((type) => (
                   <button
                     key={type.id}
-                    onClick={() => onUpdateType?.(vehicle.id, type)}
+                    onClick={() => onUpdateType?.(String(vehicle.id), type)}
                     style={{
                       padding: "4px 8px",
                       fontSize: "10px",

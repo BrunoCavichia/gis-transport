@@ -34,17 +34,7 @@ import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 import { VehicleItem, JobItem } from "@/components/sidebar-items";
 
-interface FleetJob {
-  id: string;
-  coords: [number, number];
-  label: string;
-}
-
-interface FleetVehicle {
-  id: string;
-  coords: [number, number];
-  type: VehicleType;
-}
+import { FleetJob, FleetVehicle } from "@/lib/types";
 
 interface SidebarProps {
   layers: LayerVisibility;
@@ -56,13 +46,13 @@ interface SidebarProps {
   clearFleet: () => void;
   fleetVehicles: FleetVehicle[];
   fleetJobs: FleetJob[];
-  selectedVehicleId: string | null;
-  setSelectedVehicleId: (id: string | null) => void;
+  selectedVehicleId: string | number | null;
+  setSelectedVehicleId: (id: string | number | null) => void;
   addVehicle: () => void;
   addJob: () => void;
   addJobDirectly?: (coords: [number, number], label: string) => void;
-  removeVehicle: (vehicleId: string) => void;
-  removeJob: (jobId: string) => void;
+  removeVehicle: (vehicleId: string | number) => void;
+  removeJob: (jobId: string | number) => void;
   addMode: "vehicle" | "job" | null;
   cancelAddMode: () => void;
   startRouting: () => void;

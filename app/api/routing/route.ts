@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
+import { fetchWithTimeout } from "@/lib/fetch-utils";
 import { FetchError, SnappedPoint } from "@/lib/types";
 import { TIMEOUTS } from "@/lib/config";
 

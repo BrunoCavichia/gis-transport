@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 import type { VehicleType } from "@/lib/types";
 
 interface VehicleItemProps {
-    id: string;
+    id: string | number;
     type: VehicleType;
     isSelected: boolean;
-    onSelect: (id: string) => void;
-    onRemove: (id: string) => void;
+    onSelect: (id: string | number) => void;
+    onRemove: (id: string | number) => void;
 }
 
 export const VehicleItem = memo(function VehicleItem({
@@ -43,7 +43,7 @@ export const VehicleItem = memo(function VehicleItem({
                 <div>
                     <p className="text-xs font-bold">{type.label}</p>
                     <p className="text-[10px] text-muted-foreground font-mono">
-                        {id.slice(0, 6)}
+                        {String(id).slice(0, 6)}
                     </p>
                 </div>
             </div>
@@ -63,9 +63,9 @@ export const VehicleItem = memo(function VehicleItem({
 });
 
 interface JobItemProps {
-    id: string;
+    id: string | number;
     label: string;
-    onRemove: (id: string) => void;
+    onRemove: (id: string | number) => void;
 }
 
 export const JobItem = memo(function JobItem({

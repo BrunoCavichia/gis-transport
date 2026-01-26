@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type NominatimResult } from "@/lib/types";
-import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
+import { fetchWithTimeout } from "@/lib/fetch-utils";
 import { TIMEOUTS } from "@/lib/config";
 
 export async function GET(request: NextRequest) {

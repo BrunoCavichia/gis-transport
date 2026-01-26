@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { FetchError, OrsLocation, SnappedPoint } from "@/lib/types";
-import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
+import { fetchWithTimeout } from "@/lib/fetch-utils";
 import { TIMEOUTS, ROUTING_CONFIG } from "@/lib/config";
 
 export async function POST(request: NextRequest) {

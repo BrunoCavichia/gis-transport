@@ -155,11 +155,7 @@ export class RoutingService {
         // 6. Weather Analysis
         let weatherRoutes: any[] = [];
         const weatherAnalysis = await WeatherService.analyzeRoutes(
-            vehicleRoutes.map(vr => ({
-                vehicleId: vr.vehicleId,
-                coordinates: vr.coordinates,
-                duration: vr.duration
-            })),
+            vehicleRoutes,
             startTime
         );
         weatherRoutes = weatherAnalysis;

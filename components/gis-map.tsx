@@ -101,7 +101,8 @@ export function GISMap() {
 
   const { isTracking, toggleTracking } = useLiveTracking({
     routeData,
-    updateVehiclePosition,
+    updateVehiclePosition: (vehicleId: string | number, newCoords: [number, number]) =>
+      updateVehiclePosition(String(vehicleId), newCoords),
   });
 
   const clearAll = useCallback(() => {
@@ -202,12 +203,12 @@ export function GISMap() {
         fleetVehicles={fleetVehicles}
         fleetJobs={fleetJobs}
         selectedVehicleId={selectedVehicleId}
-        setSelectedVehicleId={setSelectedVehicleId}
+        setSelectedVehicleId={(id) => setSelectedVehicleId(id ? String(id) : null)}
         addVehicle={handleAddVehicle}
         addJob={handleAddJob}
         addJobDirectly={handleAddJobDirectly}
-        removeVehicle={removeVehicle}
-        removeJob={removeJob}
+        removeVehicle={(id) => removeVehicle(String(id))}
+        removeJob={(id) => removeJob(String(id))}
         addMode={
           interactionMode === "add-vehicle"
             ? "vehicle"

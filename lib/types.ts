@@ -1,5 +1,11 @@
 // lib/types.ts - Archivo completo actualizado
 
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: string;
+}
+
 // Standard API envelope
 export interface ApiResponse<T> {
   timestamp: string;
@@ -7,20 +13,8 @@ export interface ApiResponse<T> {
   error?: ApiError;
 }
 
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: string;
-}
-
-// Main GIS Dashboard response
-export interface GisDashboardData {
-  meta: DashboardMeta;
-  fleet: FleetOverview;
-  optimization: OptimizationSummary;
-  weather: WeatherSummary;
-  analytics?: DashboardAnalytics;
-}
+export type LatLon = [number, number];
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
 export interface DashboardAnalytics {
   period: string; // e.g. "Last 7 Days"
@@ -39,10 +33,19 @@ export interface DashboardMeta {
   generatedAt: string;
 }
 
+// Main GIS Dashboard response
+export interface GisDashboardData {
+  meta: DashboardMeta;
+  fleet: FleetOverview;
+  optimization: OptimizationSummary;
+  weather: WeatherSummary;
+  analytics?: DashboardAnalytics;
+}
+
 export interface POI {
   id: string;
   name: string;
-  position: [number, number];
+  position: LatLon;
   type: "gas" | "ev";
   brand?: string;
   operator?: string;
@@ -58,7 +61,7 @@ export interface POI {
 export interface CustomPOI {
   id: string;
   name: string;
-  position: [number, number];
+  position: LatLon;
   type: "custom";
   description?: string;
   createdAt: number;
@@ -68,13 +71,10 @@ export interface CustomPOI {
 export interface Zone {
   id: string;
   name: string;
-  coordinates: [number, number][];
+  coordinates: LatLon[];
   type?: string;
   description?: string;
   requiredTags?: string[];
-  boundary?: string;
-  zone?: string;
-  access?: string;
 }
 
 export interface VehicleType {
@@ -86,15 +86,23 @@ export interface VehicleType {
 }
 
 export interface FleetVehicle {
-  id: string;
-  coords: [number, number];
+  id: string | number;
+  coords: LatLon;
   type: VehicleType;
+  // Vroom-specific
+  start_index?: number;
+  profile?: string;
 }
 
 export interface FleetJob {
-  id: string;
-  coords: [number, number];
+  id: string | number;
+  coords: LatLon;
   label: string;
+  // Vroom-specific
+  location_index?: number;
+  service?: number;
+  delivery?: number[];
+  description?: string;
 }
 
 export const VEHICLE_TYPES: VehicleType[] = [
@@ -136,54 +144,13 @@ export const VEHICLE_TYPES: VehicleType[] = [
 ];
 
 export interface VehicleRoute {
-  vehicleId: string;
-  coordinates: [number, number][];
+  vehicleId: string | number;
+  coordinates: LatLon[];
   distance: number;
   duration: number;
   color: string;
   jobsAssigned: number;
   error?: string;
-}
-
-export interface WeatherMarker {
-  vehicleId: string;
-  segmentIndex: number;
-  coords: [number, number];
-  icon: any; // Using any for L.DivIcon to avoid Leaflet dependency in types if needed, or keeping it
-  message: string;
-  timeWindow: string;
-}
-
-export interface WeatherAlert {
-  segmentIndex: number;
-  event: "SNOW" | "RAIN" | "ICE" | "WIND" | "FOG";
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  timeWindow: string;
-  message: string;
-  lat: number;
-  lon: number;
-}
-
-export interface RouteWeather {
-  vehicle: string;
-  riskLevel: "LOW" | "MEDIUM" | "HIGH";
-  alerts: WeatherAlert[];
-}
-
-export interface RouteData {
-  coordinates: [number, number][];
-  distance: number;
-  duration: number;
-  waypoints?: Array<{
-    name?: string;
-    location: [number, number];
-  }>;
-  vehicleRoutes?: VehicleRoute[];
-  weatherRoutes?: RouteWeather[];
-  weatherMarkers?: WeatherMarker[];
-  unassignedJobs?: Array<{ id: string; description: string; reason?: string }>;
-  notices?: Array<{ title: string; message: string; type: "info" | "warning" }>;
-  avoidPolygons?: [number, number][][];
 }
 
 export interface WeatherData {
@@ -194,6 +161,61 @@ export interface WeatherData {
   humidity: number;
   windSpeed: number;
   alerts?: string[];
+}
+
+export interface WeatherAlert {
+  segmentIndex: number;
+  event: "SNOW" | "RAIN" | "ICE" | "WIND" | "FOG" | "HEAT" | "COLD";
+  severity: RiskLevel;
+  timeWindow: string;
+  message: string;
+  lat: number;
+  lon: number;
+}
+
+export interface RouteWeather {
+  vehicle: string | number;
+  riskLevel: RiskLevel;
+  alerts: WeatherAlert[];
+}
+
+// Optimization request types
+export interface WeatherRiskRequestFull {
+  vehicles: FleetVehicle[];
+  jobs: FleetJob[];
+  locations: LatLon[];
+  matrix: number[][];
+  startTime?: string;
+}
+
+export type WeatherIncomingBody =
+  | WeatherRiskRequestFull
+  | { vehicleRoutes?: VehicleRoute[]; startTime?: string }
+  | any;
+
+export interface WeatherMarker {
+  vehicleId: string | number;
+  segmentIndex: number;
+  coords: LatLon;
+  icon: any;
+  message: string;
+  timeWindow: string;
+}
+
+export interface RouteData {
+  coordinates: LatLon[];
+  distance: number;
+  duration: number;
+  waypoints?: Array<{
+    name?: string;
+    location: LatLon;
+  }>;
+  vehicleRoutes?: VehicleRoute[];
+  weatherRoutes?: RouteWeather[];
+  weatherMarkers?: WeatherMarker[];
+  unassignedJobs?: Array<{ id: string; description: string; reason?: string }>;
+  notices?: Array<{ title: string; message: string; type: "info" | "warning" }>;
+  avoidPolygons?: LatLon[][];
 }
 
 export interface LayerVisibility {
@@ -225,12 +247,38 @@ export interface NominatimResult {
   address: NominatimAddress;
 }
 
+// Overpass API Types
+export interface OverpassGeometry {
+  lat: number;
+  lon: number;
+}
+
+export interface OverpassElement {
+  type: "node" | "way" | "relation";
+  id: number;
+  lat?: number;
+  lon?: number;
+  center?: OverpassGeometry;
+  geometry?: OverpassGeometry[];
+  tags?: Record<string, string>;
+  members?: Array<{
+    type: string;
+    ref: number;
+    role: string;
+    geometry?: OverpassGeometry[];
+  }>;
+}
+
+export interface OverpassResponse {
+  elements: OverpassElement[];
+}
+
 // Optimization contexts for GIS Data Service
 export interface FleetVehicleSummary {
-  id: string;
+  id: string | number;
   type: string;
   label: string;
-  position: [number, number];
+  position: LatLon;
 }
 
 export interface FleetOverview {
@@ -241,12 +289,12 @@ export interface FleetOverview {
 }
 
 export interface RouteSummary {
-  vehicleId: string;
+  vehicleId: string | number;
   jobsAssigned: number;
   distanceFormatted: string;
   durationFormatted: string;
-  startPoint: [number, number];
-  endPoint: [number, number];
+  startPoint: LatLon;
+  endPoint: LatLon;
 }
 
 export interface OptimizationSummary {
@@ -263,16 +311,16 @@ export interface OptimizationSummary {
 }
 
 export interface WeatherAlertSummary {
-  vehicleId: string;
+  vehicleId: string | number;
   event: string;
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  location: [number, number];
+  severity: RiskLevel;
+  location: LatLon;
   message: string;
   timeWindow: string;
 }
 
 export interface WeatherSummary {
-  overallRisk: "LOW" | "MEDIUM" | "HIGH";
+  overallRisk: RiskLevel;
   alertCount: number;
   alertsByType: Record<string, number>;
   affectedRoutes: number;
@@ -287,12 +335,12 @@ export interface GisDataContext {
 }
 
 export interface OrsLocation {
-  location?: [number, number];
+  location?: LatLon;
   snapped_distance?: number;
 }
 
 export interface SnappedPoint {
-  location: [number, number];
+  location: LatLon;
   snapped: boolean;
   distance?: number;
 }

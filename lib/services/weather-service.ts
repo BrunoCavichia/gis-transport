@@ -1,5 +1,5 @@
 import { OPENWEATHER_URL } from "@/lib/config";
-import { Alert, RouteAlerts, VehicleRouteSimple } from "@/lib/types/weather-types";
+import { WeatherAlert, RouteWeather, VehicleRoute } from "@/lib/types";
 
 export class WeatherService {
     private static cache = new Map<string, { data: any[]; timestamp: number }>();
@@ -9,9 +9,9 @@ export class WeatherService {
      * Samples points along routes and fetches weather alerts.
      */
     static async analyzeRoutes(
-        vehicleRoutes: VehicleRouteSimple[],
+        vehicleRoutes: VehicleRoute[],
         startTime: string = new Date().toISOString()
-    ): Promise<RouteAlerts[]> {
+    ): Promise<RouteWeather[]> {
         const apiKey = process.env.OPENWEATHERMAP_API_KEY;
         if (!apiKey) {
             console.error("WeatherService: Missing OpenWeatherMap API key");
@@ -19,10 +19,10 @@ export class WeatherService {
         }
 
         const startDate = new Date(startTime);
-        const results: RouteAlerts[] = [];
+        const results: RouteWeather[] = [];
 
         for (const vr of vehicleRoutes) {
-            const alerts: Alert[] = [];
+            const alerts: WeatherAlert[] = [];
             const coords = vr.coordinates || [];
 
             if (coords.length === 0) {
@@ -99,8 +99,8 @@ export class WeatherService {
         lon: number,
         timeWindow: string,
         segmentIndex: number
-    ): Alert[] {
-        const alerts: Alert[] = [];
+    ): WeatherAlert[] {
+        const alerts: WeatherAlert[] = [];
 
         const temp = data.main?.temp ?? 0;
         const rain = data.rain?.["3h"] ?? 0;

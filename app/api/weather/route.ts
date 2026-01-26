@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { WeatherService } from "@/lib/services/weather-service";
-import { IncomingBody, VehicleRouteSimple } from "@/lib/types/weather-types";
+import { WeatherIncomingBody, VehicleRoute } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const body: IncomingBody = await req.json();
+    const body: WeatherIncomingBody = await req.json();
     const startTime = body?.startTime ?? new Date().toISOString();
 
-    let routesToAnalyze: VehicleRouteSimple[] = [];
+    let routesToAnalyze: VehicleRoute[] = [];
 
     if (Array.isArray(body?.vehicleRoutes)) {
       routesToAnalyze = body.vehicleRoutes;
