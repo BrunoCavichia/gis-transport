@@ -352,7 +352,7 @@ export const Sidebar = memo(function Sidebar({
               </Button>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="p-4 pt-0 space-y-6">
                 {addMode && (
                   <div className="bg-primary text-primary-foreground p-3 rounded-xl flex items-center justify-between shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-top-2 mb-4">
@@ -460,7 +460,7 @@ export const Sidebar = memo(function Sidebar({
               </p>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="p-5 space-y-8">
                 {/* Layer Toggles */}
                 <div className="space-y-3">

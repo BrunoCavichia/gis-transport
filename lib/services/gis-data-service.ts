@@ -1,17 +1,11 @@
 import { prisma } from "@/lib/db";
 import {
-  GisDashboardData,
+  GisDataContext,
   FleetOverview,
   OptimizationSummary,
   WeatherSummary,
-} from "@/lib/types/api-types";
-
-export interface GisDataContext {
-  fleet: FleetOverview;
-  optimization: OptimizationSummary;
-  weather: WeatherSummary;
-  includeGeoData?: boolean;
-}
+  GisDashboardData,
+} from "@/lib/types";
 
 export class GisDataService {
   /**
@@ -23,11 +17,11 @@ export class GisDataService {
       totalJobs: context.optimization.totalJobs,
       vehicleMetrics: {
         create: context.optimization.routes.map((r) => {
-          // Try to find the matching fleet vehicle info
-          // The route.vehicleId is likely an index from VROOM if mapped that way,
-          // or an ID. Assuming it maps to fleet.vehicles index as per frontend logic.
-          const fleetVehicle = context.fleet.vehicles[r.vehicleId] || {
-            id: String(r.vehicleId),
+          // Find the matching fleet vehicle info by string ID
+          const fleetVehicle = context.fleet.vehicles.find(
+            (v) => v.id === r.vehicleId
+          ) || {
+            id: r.vehicleId,
             type: "unknown",
           };
 

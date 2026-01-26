@@ -2,12 +2,26 @@
 import { NextResponse } from "next/server";
 import { RoutingService } from "@/lib/services/routing-service";
 import { GisDataService } from "@/lib/services/gis-data-service";
-import { GisDataContext } from "@/lib/services/gis-data-service";
+import {
+  GisDataContext,
+  FleetVehicle,
+  FleetJob,
+  RouteData,
+  VehicleRoute,
+  RouteWeather,
+  WeatherAlert,
+  Zone,
+} from "@/lib/types";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { vehicles, jobs, startTime, zones } = body;
+    const { vehicles, jobs, startTime, zones } = body as {
+      vehicles: FleetVehicle[];
+      jobs: FleetJob[];
+      startTime?: string;
+      zones?: Zone[];
+    };
 
     if (!vehicles || !jobs) {
       return NextResponse.json(
@@ -16,14 +30,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Run the heavy lifting
-    const routeData = await RoutingService.optimize(vehicles, jobs, {
+    const routeData: RouteData = await RoutingService.optimize(vehicles, jobs, {
       startTime,
       zones,
     });
 
-    const vehicleRoutes = routeData.vehicleRoutes || [];
-    const weatherRoutes = routeData.weatherRoutes || [];
+    const vehicleRoutes: VehicleRoute[] = routeData.vehicleRoutes || [];
+    const weatherRoutes: RouteWeather[] = routeData.weatherRoutes || [];
 
     // 2. Build context for persistence
     const context: GisDataContext = {
@@ -31,13 +44,13 @@ export async function POST(req: Request) {
         totalVehicles: vehicles.length,
         activeVehicles: vehicleRoutes.length,
         vehiclesByType: vehicles.reduce(
-          (acc: any, v: any) => ({
+          (acc: Record<string, number>, v: FleetVehicle) => ({
             ...acc,
             [v.type.id]: (acc[v.type.id] || 0) + 1,
           }),
           {}
         ),
-        vehicles: vehicles.map((v: any) => ({
+        vehicles: vehicles.map((v: FleetVehicle) => ({
           id: v.id,
           type: v.type.id,
           label: v.type.label,
@@ -48,16 +61,16 @@ export async function POST(req: Request) {
         status: "optimized",
         totalJobs: jobs.length,
         assignedJobs: vehicleRoutes.reduce(
-          (acc: number, r: any) => acc + (r.jobsAssigned || 0),
+          (acc: number, r: VehicleRoute) => acc + (r.jobsAssigned || 0),
           0
         ),
         unassignedJobs:
           jobs.length -
           vehicleRoutes.reduce(
-            (acc: number, r: any) => acc + (r.jobsAssigned || 0),
+            (acc: number, r: VehicleRoute) => acc + (r.jobsAssigned || 0),
             0
           ),
-        routes: vehicleRoutes.map((r: any) => ({
+        routes: vehicleRoutes.map((r: VehicleRoute) => ({
           vehicleId: r.vehicleId,
           jobsAssigned: r.jobsAssigned,
           distanceFormatted: `${(r.distance / 1000).toFixed(1)} km`,
@@ -75,24 +88,27 @@ export async function POST(req: Request) {
         },
       },
       weather: {
-        overallRisk: weatherRoutes.some((r: any) => r.riskLevel === "HIGH")
+        overallRisk: weatherRoutes.some(
+          (r: RouteWeather) => r.riskLevel === "HIGH"
+        )
           ? "HIGH"
-          : weatherRoutes.some((r: any) => r.riskLevel === "MEDIUM")
+          : weatherRoutes.some((r: RouteWeather) => r.riskLevel === "MEDIUM")
             ? "MEDIUM"
             : "LOW",
         alertCount: weatherRoutes.reduce(
-          (acc: number, r: any) => acc + (r.alerts?.length || 0),
+          (acc: number, r: RouteWeather) => acc + (r.alerts?.length || 0),
           0
         ),
         alertsByType: {},
-        affectedRoutes: weatherRoutes.filter((r: any) => r.alerts?.length > 0)
-          .length,
-        alerts: weatherRoutes.flatMap((r: any) =>
-          r.alerts.map((a: any) => ({
+        affectedRoutes: weatherRoutes.filter(
+          (r: RouteWeather) => r.alerts?.length > 0
+        ).length,
+        alerts: weatherRoutes.flatMap((r: RouteWeather) =>
+          r.alerts.map((a: WeatherAlert) => ({
             vehicleId: r.vehicle,
             event: a.event,
             severity: a.severity,
-            location: [a.lat, a.lon],
+            location: [a.lat, a.lon] as [number, number],
             message: a.message,
             timeWindow: a.timeWindow || new Date().toISOString(),
           }))

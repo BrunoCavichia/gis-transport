@@ -1,5 +1,44 @@
 // lib/types.ts - Archivo completo actualizado
-import type { RouteWeather } from "@/components/weather-panel";
+
+// Standard API envelope
+export interface ApiResponse<T> {
+  timestamp: string;
+  data?: T;
+  error?: ApiError;
+}
+
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: string;
+}
+
+// Main GIS Dashboard response
+export interface GisDashboardData {
+  meta: DashboardMeta;
+  fleet: FleetOverview;
+  optimization: OptimizationSummary;
+  weather: WeatherSummary;
+  analytics?: DashboardAnalytics;
+}
+
+export interface DashboardAnalytics {
+  period: string; // e.g. "Last 7 Days"
+  summary: {
+    totalOptimizations: number;
+    totalDistanceKm: number;
+    totalDurationHours: number;
+  };
+  trend: Array<{
+    date: string;
+    distanceKm: number;
+  }>;
+}
+
+export interface DashboardMeta {
+  generatedAt: string;
+}
+
 export interface POI {
   id: string;
   name: string;
@@ -110,9 +149,25 @@ export interface WeatherMarker {
   vehicleId: string;
   segmentIndex: number;
   coords: [number, number];
-  icon: L.DivIcon;
+  icon: any; // Using any for L.DivIcon to avoid Leaflet dependency in types if needed, or keeping it
   message: string;
   timeWindow: string;
+}
+
+export interface WeatherAlert {
+  segmentIndex: number;
+  event: "SNOW" | "RAIN" | "ICE" | "WIND" | "FOG";
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  timeWindow: string;
+  message: string;
+  lat: number;
+  lon: number;
+}
+
+export interface RouteWeather {
+  vehicle: string;
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  alerts: WeatherAlert[];
 }
 
 export interface RouteData {
@@ -168,6 +223,67 @@ export interface NominatimResult {
   lon: string;
   display_name: string;
   address: NominatimAddress;
+}
+
+// Optimization contexts for GIS Data Service
+export interface FleetVehicleSummary {
+  id: string;
+  type: string;
+  label: string;
+  position: [number, number];
+}
+
+export interface FleetOverview {
+  totalVehicles: number;
+  activeVehicles: number;
+  vehiclesByType: Record<string, number>;
+  vehicles: FleetVehicleSummary[];
+}
+
+export interface RouteSummary {
+  vehicleId: string;
+  jobsAssigned: number;
+  distanceFormatted: string;
+  durationFormatted: string;
+  startPoint: [number, number];
+  endPoint: [number, number];
+}
+
+export interface OptimizationSummary {
+  status: "idle" | "optimized" | "error";
+  lastOptimizedAt?: string;
+  totalJobs: number;
+  assignedJobs: number;
+  unassignedJobs: number;
+  routes: RouteSummary[];
+  totals: {
+    distanceFormatted: string;
+    durationFormatted: string;
+  };
+}
+
+export interface WeatherAlertSummary {
+  vehicleId: string;
+  event: string;
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  location: [number, number];
+  message: string;
+  timeWindow: string;
+}
+
+export interface WeatherSummary {
+  overallRisk: "LOW" | "MEDIUM" | "HIGH";
+  alertCount: number;
+  alertsByType: Record<string, number>;
+  affectedRoutes: number;
+  alerts: WeatherAlertSummary[];
+}
+
+export interface GisDataContext {
+  fleet: FleetOverview;
+  optimization: OptimizationSummary;
+  weather: WeatherSummary;
+  includeGeoData?: boolean;
 }
 
 export const ROUTE_COLORS = [
