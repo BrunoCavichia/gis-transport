@@ -1,14 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
-
+import { fetchWithRetry } from "@/app/helpers/fetch-helpers";
+import { FetchError } from "@/lib/types";
 
 const COST_PER_METER = 1;
 const COST_PER_SECOND = 0.3;
 const UNREACHABLE_COST = 999999999;
 const MAX_LOCATIONS = 50;
 const REQUEST_TIMEOUT = 60000; // 60 segundos
-const RETRIES = 2;
-
-import { fetchWithRetry } from "@/app/helpers/fetch-helpers";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,13 +25,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-    // if (!apiKey)
-    //   return NextResponse.json(
-    //     { error: "OpenRouteService API key not set" },
-    //     { status: 500 }
-    //   );
 
     const locations = coordinates.map((coord) => [coord[1], coord[0]]);
 
@@ -97,7 +88,8 @@ export async function POST(request: NextRequest) {
       );
 
       return NextResponse.json({ cost });
-    } catch (fetchError: any) {
+    } catch (err) {
+      const fetchError = err as FetchError;
       clearTimeout(timeoutId);
 
       if (fetchError.name === "AbortError") {
