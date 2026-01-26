@@ -13,7 +13,7 @@ export async function POST(req: Request) {
 
     if (!vroomRes.ok) {
       const errorText = await vroomRes.text();
-      console.error("❌ VROOM error:", vroomRes.status, errorText);
+      console.error("VROOM error:", vroomRes.status, errorText);
       return new Response(JSON.stringify({ error: errorText }), {
         status: vroomRes.status,
       });
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("💥 [/api/vroom] proxy error:", err);
+    console.error(" [/api/vroom] proxy error:", err);
     return new Response(
       JSON.stringify({
         error: "Failed to connect to VROOM service",

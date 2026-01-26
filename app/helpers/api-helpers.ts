@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export interface POIParams {
+export interface Params {
     lat: number;
     lon: number;
     radius: number;
@@ -14,10 +14,10 @@ export interface POIParams {
  * @param defaultRadius - The default radius in meters.
  * @returns An object with validated parameters or a NextResponse error.
  */
-export function extractPOIParams(
+export function extractParams(
     request: NextRequest,
     defaultRadius = 5000
-): { params: POIParams } | NextResponse {
+): { params: Params } | NextResponse {
     const searchParams = request.nextUrl.searchParams;
     const latStr = searchParams.get("lat");
     const lonStr = searchParams.get("lon");

@@ -2,7 +2,7 @@
  * Global application configuration and constants.
  */
 
-export const OVERPASS_URL = "https://overpass.private.coffee/api/interpreter";
+export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 // Local OpenRouteService (Docker) - Internal redirect via Gateway or direct
 export const ORS_URL = "http://localhost:8080/ors/v2";
@@ -47,12 +47,12 @@ export const DEFAULT_TIMEOUT = 15000;
 export const DEFAULT_RETRIES = 2;
 
 export const TIMEOUTS = {
-    GENERAL: 15000,
+    GENERAL: 30000,
     GEOCODE: 10000,
     ROUTING: 15000,
     SNAP: 30000,
     MATRIX: 60000,
-    OVERPASS: 15000,
+    OVERPASS: 30000,
 };
 
 export const RETRIES = {

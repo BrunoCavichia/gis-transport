@@ -1,28 +1,22 @@
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { ZoneService } from "@/lib/services/zone-service";
+import { extractParams } from "@/app/helpers/api-helpers";
 
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const lat = parseFloat(url.searchParams.get("lat") || "");
-  const lon = parseFloat(url.searchParams.get("lon") || "");
-  const radius = parseFloat(url.searchParams.get("radius") || "5000");
+export async function GET(request: NextRequest) {
+  const result = extractParams(request);
+  if (result instanceof NextResponse) return result;
 
-  if (isNaN(lat) || isNaN(lon)) {
-    return NextResponse.json(
-      { error: "Missing or invalid coordinates" },
-      { status: 400 }
-    );
-  }
+  const { lat, lon, radius, limit } = result.params;
 
   try {
-    const zones = await ZoneService.getZones(lat, lon, radius);
+    const allZones = await ZoneService.getZones(lat, lon, radius);
+    const zones = allZones.slice(0, limit);
+    console.log(
+      `[API Zones] lat=${lat}, lon=${lon}, radius=${radius}, limit=${limit} => ${zones.length} zones`,
+    );
     return NextResponse.json({ zones });
   } catch (err) {
     console.error("API Zones Error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch zones" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Zones data unavailable" }, { status: 503 });
   }
 }

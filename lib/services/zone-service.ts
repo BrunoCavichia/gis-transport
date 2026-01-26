@@ -85,13 +85,13 @@ export class ZoneService {
 
         console.log(`[ZoneService] Fetching zones for ${lat},${lon} radius=${radiusKm}km`);
 
-        // Optimized query: shorter timeout, simplified structure
-        const query = `[out:json][timeout:20];
+        // Optimized query: broader tags, longer timeout
+        const query = `[out:json][timeout:30];
             (
-                relation["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
-                way["boundary"="low_emission_zone"](around:${radiusKm * 1000},${lat},${lon});
-                relation["zone:traffic"](around:${radiusKm * 1000},${lat},${lon});
-                way["zone:traffic"](around:${radiusKm * 1000},${lat},${lon});
+                relation["boundary"~"low_emission_zone|environmental|limited_traffic_zone"](around:${radiusKm * 1000},${lat},${lon});
+                way["boundary"~"low_emission_zone|environmental|limited_traffic_zone"](around:${radiusKm * 1000},${lat},${lon});
+                relation["zone:traffic"~"environmental|no_emission|low_emission"](around:${radiusKm * 1000},${lat},${lon});
+                way["zone:traffic"~"environmental|no_emission|low_emission"](around:${radiusKm * 1000},${lat},${lon});
             );
             out geom;`;
 
@@ -111,16 +111,16 @@ export class ZoneService {
                         // Determine type based on tags
                         let type = "RESTRICTED";
                         const tags = el.tags || {};
-                        if (tags.boundary === "low_emission_zone" || tags["zone:environmental"]) {
+                        if (tags.boundary === "low_emission_zone" || tags["zone:environmental"] || tags["zone:traffic"] === "environmental") {
                             type = "LEZ";
-                        } else if (tags.boundary === "limited_traffic_zone") {
-                            type = "RESTRICTED";
+                        } else if (tags.boundary === "limited_traffic_zone" || tags.boundary === "environmental") {
+                            type = "ENVIRONMENTAL";
                         } else if (tags.highway === "pedestrian") {
                             type = "PEDESTRIAN";
                         }
 
-                        let zoneName = tags.name || type;
-                        const isRestriction = type === "LEZ" || type === "RESTRICTED" || tags["zone:environmental"];
+                        let zoneName = tags.name || tags.description || type;
+                        const isRestriction = type === "LEZ" || type === "ENVIRONMENTAL" || type === "RESTRICTED";
                         const requiredTags = isRestriction ? ["eco", "zero"] : [];
 
                         return {

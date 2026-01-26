@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { POIService } from "@/lib/services/poi-service";
 
-import { extractPOIParams } from "@/app/helpers/api-helpers";
+import { extractParams } from "@/app/helpers/api-helpers";
 
 export async function GET(request: NextRequest) {
-  const result = extractPOIParams(request);
+  const result = extractParams(request);
   if (result instanceof NextResponse) return result;
 
   const { lat, lon, radius, limit } = result.params;

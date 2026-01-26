@@ -9,11 +9,6 @@ export class POIService {
     // In-flight request deduplication
     private static pendingRequests = new Map<string, Promise<POI[]>>();
 
-
-
-    /**
-     * Internal helper to fetch POIs from Overpass with optimized query
-     */
     private static async fetchFromOverpass(
         lat: number,
         lon: number,
