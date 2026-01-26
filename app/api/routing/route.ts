@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
-import { FetchError } from "@/lib/types";
+import { FetchError, SnappedPoint } from "@/lib/types";
 import { TIMEOUTS } from "@/lib/config";
 
 async function snapCoordinatesInternal(
@@ -23,8 +23,10 @@ async function snapCoordinatesInternal(
     const data = await response.json();
     if (!data.snapped || !Array.isArray(data.snapped)) return coordinates;
 
-    return data.snapped.map((item: any, idx: number) => {
-      if (item.snapped && item.location?.length === 2) return item.location;
+    return data.snapped.map((item: SnappedPoint, idx: number) => {
+      if (item.snapped && item.location?.length === 2) {
+        return item.location;
+      }
       return coordinates[idx];
     });
   } catch (error) {

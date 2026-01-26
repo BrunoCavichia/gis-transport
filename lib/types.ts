@@ -286,6 +286,17 @@ export interface GisDataContext {
   includeGeoData?: boolean;
 }
 
+export interface OrsLocation {
+  location?: [number, number];
+  snapped_distance?: number;
+}
+
+export interface SnappedPoint {
+  location: [number, number];
+  snapped: boolean;
+  distance?: number;
+}
+
 export interface FetchError extends Error {
   response?: Response;
   status?: number;

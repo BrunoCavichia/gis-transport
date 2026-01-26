@@ -1,21 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { FetchError } from "@/lib/types";
+import { FetchError, OrsLocation, SnappedPoint } from "@/lib/types";
 import { fetchWithTimeout } from "@/app/helpers/fetch-helpers";
-import { TIMEOUTS } from "@/lib/config";
-
-const SNAP_RADIUS = 5000;
-const RETRIES = 2;
-
-interface OrsLocation {
-  location?: [number, number];
-  snapped_distance?: number;
-}
-
-interface SnappedPoint {
-  location: [number, number];
-  snapped: boolean;
-  distance?: number;
-}
+import { TIMEOUTS, ROUTING_CONFIG } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +25,7 @@ export async function POST(request: NextRequest) {
             // Authorization: apiKey,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ locations, radius: SNAP_RADIUS }),
+          body: JSON.stringify({ locations, radius: ROUTING_CONFIG.DEFAULT_RADIUS }),
           timeout: TIMEOUTS.SNAP,
         }
       );
