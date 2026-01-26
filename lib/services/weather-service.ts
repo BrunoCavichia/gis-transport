@@ -1,5 +1,5 @@
 import { OPENWEATHER_URL } from "@/lib/config";
-import { WeatherAlert, RouteWeather, VehicleRoute } from "@/lib/types";
+import { WeatherAlert, RawWeatherData, RouteWeather, VehicleRoute } from "@/lib/types";
 
 export class WeatherService {
     private static cache = new Map<string, { data: any[]; timestamp: number }>();
@@ -94,7 +94,7 @@ export class WeatherService {
     }
 
     private static evaluateThresholds(
-        data: any,
+        data: RawWeatherData,
         lat: number,
         lon: number,
         timeWindow: string,

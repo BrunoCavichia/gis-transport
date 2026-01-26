@@ -127,6 +127,22 @@ export interface VehicleRoute {
   error?: string;
 }
 
+export interface RawWeatherData {
+  main?: {
+    temp?: number;
+  };
+  rain?: {
+    "3h"?: number;
+  };
+  snow?: {
+    "3h"?: number;
+  };
+  wind?: {
+    speed?: number;
+  };
+  visibility?: number;
+}
+
 export interface WeatherData {
   location?: string;
   temperature: number;
@@ -135,6 +151,7 @@ export interface WeatherData {
   humidity: number;
   windSpeed: number;
   alerts?: string[];
+
 }
 
 export interface WeatherAlert {

@@ -68,13 +68,13 @@ export function useFleet(
     }
   }, [initialVehicles]);
 
+  const cryptoId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? (crypto as Crypto & { randomUUID: () => string }).randomUUID()
+    : `vehicle-${Date.now()}`;
   // Function to add a vehicle at specific coordinates
   const addVehicleAt = useCallback(
     (coords: [number, number], type: VehicleType) => {
-      const id =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? (crypto as any).randomUUID()
-          : `vehicle-${Date.now()}`;
+      const id = cryptoId;
       const newVehicle: FleetVehicle = { id, coords, type };
       setFleetVehicles((prev) => {
         const next = [...prev, newVehicle];
@@ -88,10 +88,7 @@ export function useFleet(
 
   // Function to add a job at specific coordinates
   const addJobAt = useCallback((coords: [number, number], label?: string) => {
-    const id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? (crypto as any).randomUUID()
-        : `job-${Date.now()}`;
+    const id = cryptoId;
     setFleetJobs((prev) => {
       const next = [
         ...prev,
