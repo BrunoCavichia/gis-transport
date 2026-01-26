@@ -5,7 +5,7 @@ import {
   OptimizationSummary,
   WeatherSummary,
   GisDashboardData,
-} from "@/lib/types";
+} from "@/lib/types/dashboard";
 
 export class GisDataService {
   /**

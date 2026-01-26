@@ -16,32 +16,6 @@ export interface ApiResponse<T> {
 export type LatLon = [number, number];
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
-export interface DashboardAnalytics {
-  period: string; // e.g. "Last 7 Days"
-  summary: {
-    totalOptimizations: number;
-    totalDistanceKm: number;
-    totalDurationHours: number;
-  };
-  trend: Array<{
-    date: string;
-    distanceKm: number;
-  }>;
-}
-
-export interface DashboardMeta {
-  generatedAt: string;
-}
-
-// Main GIS Dashboard response
-export interface GisDashboardData {
-  meta: DashboardMeta;
-  fleet: FleetOverview;
-  optimization: OptimizationSummary;
-  weather: WeatherSummary;
-  analytics?: DashboardAnalytics;
-}
-
 export interface POI {
   id: string;
   name: string;
@@ -245,6 +219,18 @@ export interface NominatimResult {
   lon: string;
   display_name: string;
   address: NominatimAddress;
+  osm_id: number;
+}
+
+export interface GeocodingResult {
+  point: { lat: number; lng: number };
+  name: string;
+  country: string;
+  city?: string;
+  state?: string;
+  street?: string;
+  housenumber?: string;
+  osm_id?: number | string;
 }
 
 // Overpass API Types
@@ -273,67 +259,6 @@ export interface OverpassResponse {
   elements: OverpassElement[];
 }
 
-// Optimization contexts for GIS Data Service
-export interface FleetVehicleSummary {
-  id: string | number;
-  type: string;
-  label: string;
-  position: LatLon;
-}
-
-export interface FleetOverview {
-  totalVehicles: number;
-  activeVehicles: number;
-  vehiclesByType: Record<string, number>;
-  vehicles: FleetVehicleSummary[];
-}
-
-export interface RouteSummary {
-  vehicleId: string | number;
-  jobsAssigned: number;
-  distanceFormatted: string;
-  durationFormatted: string;
-  startPoint: LatLon;
-  endPoint: LatLon;
-}
-
-export interface OptimizationSummary {
-  status: "idle" | "optimized" | "error";
-  lastOptimizedAt?: string;
-  totalJobs: number;
-  assignedJobs: number;
-  unassignedJobs: number;
-  routes: RouteSummary[];
-  totals: {
-    distanceFormatted: string;
-    durationFormatted: string;
-  };
-}
-
-export interface WeatherAlertSummary {
-  vehicleId: string | number;
-  event: string;
-  severity: RiskLevel;
-  location: LatLon;
-  message: string;
-  timeWindow: string;
-}
-
-export interface WeatherSummary {
-  overallRisk: RiskLevel;
-  alertCount: number;
-  alertsByType: Record<string, number>;
-  affectedRoutes: number;
-  alerts: WeatherAlertSummary[];
-}
-
-export interface GisDataContext {
-  fleet: FleetOverview;
-  optimization: OptimizationSummary;
-  weather: WeatherSummary;
-  includeGeoData?: boolean;
-}
-
 export interface OrsLocation {
   location?: LatLon;
   snapped_distance?: number;
@@ -350,14 +275,3 @@ export interface FetchError extends Error {
   status?: number;
   data?: any;
 }
-
-export const ROUTE_COLORS = [
-  "#4F46E5", // Indigo - Primary route
-  "#0891B2", // Cyan - Cool, professional
-  "#7C3AED", // Violet - Elegant accent
-  "#0D9488", // Teal - Fresh, modern
-  "#6366F1", // Periwinkle - Soft, refined
-  "#2563EB", // Blue - Classic, trustworthy
-  "#8B5CF6", // Purple - Premium accent
-  "#0EA5E9", // Sky - Light, airy
-];

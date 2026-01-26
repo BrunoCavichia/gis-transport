@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { RoutingService } from "@/lib/services/routing-service";
 import { GisDataService } from "@/lib/services/gis-data-service";
 import {
-  GisDataContext,
   FleetVehicle,
   FleetJob,
   RouteData,
@@ -12,6 +11,7 @@ import {
   WeatherAlert,
   Zone,
 } from "@/lib/types";
+import { GisDataContext } from "@/lib/types/dashboard";
 
 export async function POST(req: Request) {
   try {

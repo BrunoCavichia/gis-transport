@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GisDataService } from '@/lib/services/gis-data-service';
-import { GisDataContext } from '@/lib/types';
+import { GisDataContext } from '@/lib/types/dashboard';
 
 export async function POST(request: Request) {
     try {

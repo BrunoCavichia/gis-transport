@@ -11,6 +11,16 @@ export const THEME = {
     secondary: "#6b7280",
     textMuted: "#666",
     routeShadow: "#1e293b",
+    route: [
+      "#4F46E5", // Indigo - Primary route
+      "#0891B2", // Cyan - Cool, professional
+      "#7C3AED", // Violet - Elegant accent
+      "#0D9488", // Teal - Fresh, modern
+      "#6366F1", // Periwinkle - Soft, refined
+      "#2563EB", // Blue - Classic, trustworthy
+      "#8B5CF6", // Purple - Premium accent
+      "#0EA5E9", // Sky - Light, airy
+    ],
   },
   map: {
     interaction: {

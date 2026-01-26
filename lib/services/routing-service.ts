@@ -1,5 +1,7 @@
 // lib/services/routing-service.ts
-import { FleetVehicle, FleetJob, RouteData, Zone, ROUTE_COLORS } from "@/lib/types";
+import { FleetVehicle, FleetJob, RouteData, Zone } from "@/lib/types";
+import { THEME } from "@/lib/theme";
+const { route: ROUTE_COLORS } = THEME.colors;
 
 import { ORS_URL, VROOM_URL, SNAP_URL, TIMEOUTS, ROUTING_CONFIG } from "@/lib/config";
 import { WeatherService } from "./weather-service";

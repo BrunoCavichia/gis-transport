@@ -5,17 +5,8 @@ import { Search, MapPin, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface SearchResult {
-  point: { lat: number; lng: number };
-  name: string;
-  country: string;
-  city?: string;
-  state?: string;
-  street?: string;
-  housenumber?: string;
-  osm_id: number;
-}
+import { GeocodingResult } from "@/lib/types";
+import { GeocodingService } from "@/lib/services/geocoding-service";
 
 interface AddressSearchProps {
   onSelectLocation: (coords: [number, number], name: string) => void;
@@ -29,7 +20,7 @@ export function AddressSearch({
   className,
 }: AddressSearchProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<GeocodingResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -57,40 +48,7 @@ export function AddressSearch({
 
     setIsLoading(true);
     try {
-      // Using Nominatim with addressdetails to get city information
-      const nominatimResponse = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery
-        )}&limit=10&addressdetails=1`,
-        {
-          headers: { "User-Agent": "GIS-Transport-Demo/1.0" },
-          signal: AbortSignal.timeout(5000),
-        }
-      );
-      const nominatimData = await nominatimResponse.json();
-      const mapped = nominatimData.map((item: any) => {
-        const city =
-          item.address?.city ||
-          item.address?.town ||
-          item.address?.village ||
-          item.address?.municipality;
-        const road = item.address?.road;
-        const housenumber = item.address?.house_number;
-
-        return {
-          point: {
-            lat: Number.parseFloat(item.lat),
-            lng: Number.parseFloat(item.lon),
-          },
-          name: item.display_name,
-          country: item.address?.country,
-          city: city,
-          state: item.address?.state,
-          street: road,
-          housenumber: housenumber,
-          osm_id: item.osm_id,
-        };
-      });
+      const mapped = await GeocodingService.search(searchQuery);
       setResults(mapped);
       setIsOpen(mapped.length > 0);
     } catch (error) {
@@ -113,27 +71,16 @@ export function AddressSearch({
     }, 300);
   };
 
-  const handleSelect = (result: SearchResult) => {
-    // Construir nombre con ciudad
-    let displayName = result.name;
-
-    if (result.street) {
-      const cityPart = result.city || result.state || "";
-      displayName = `${result.street}${
-        result.housenumber ? ` ${result.housenumber}` : ""
-      }`;
-      if (cityPart) {
-        displayName += `, ${cityPart}`;
-      }
-    } else if (result.city) {
-      // Si es solo una ciudad, mostrarla claramente
-      displayName = result.city;
-    }
+  const handleSelect = (result: GeocodingResult) => {
+    const displayName = result.street
+      ? `${result.street}${result.housenumber ? ` ${result.housenumber}` : ""}${result.city || result.state ? `, ${result.city || result.state}` : ""}`
+      : result.city || result.name;
 
     setQuery(displayName);
     setIsOpen(false);
     onSelectLocation([result.point.lat, result.point.lng], displayName);
   };
+
 
   const clearSearch = () => {
     setQuery("");
@@ -182,9 +129,8 @@ export function AddressSearch({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-foreground">
                       {result.street
-                        ? `${result.street}${
-                            result.housenumber ? ` ${result.housenumber}` : ""
-                          }`
+                        ? `${result.street}${result.housenumber ? ` ${result.housenumber}` : ""
+                        }`
                         : result.name?.split(",")[0]}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
