@@ -43,7 +43,7 @@ export const VehicleItem = memo(function VehicleItem({
                 <div>
                     <p className="text-xs font-bold">{type.label}</p>
                     <p className="text-[10px] text-muted-foreground font-mono">
-                        {String(id).slice(0, 6)}
+                        {String(id).split('-').pop()?.slice(0, 6)}
                     </p>
                 </div>
             </div>

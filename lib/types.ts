@@ -181,14 +181,13 @@ export interface WeatherRiskRequestFull {
 
 export type WeatherIncomingBody =
   | WeatherRiskRequestFull
-  | { vehicleRoutes?: VehicleRoute[]; startTime?: string }
-  | any;
+  | { vehicleRoutes?: VehicleRoute[]; startTime?: string };
 
 export interface WeatherMarker {
   vehicleId: string | number;
   segmentIndex: number;
   coords: LatLon;
-  icon: any;
+  icon: string;
   message: string;
   timeWindow: string;
 }
@@ -290,5 +289,65 @@ export interface SnappedPoint {
 export interface FetchError extends Error {
   response?: Response;
   status?: number;
-  data?: any;
+  data?: unknown;
+}
+
+// VROOM Interfaces
+export interface VroomStep {
+  type: "start" | "job" | "end";
+  location_index?: number;
+  id?: number;
+  service?: number;
+  arrival?: number;
+  duration?: number;
+  distance?: number;
+}
+
+export interface VroomRoute {
+  vehicle: number;
+  steps: VroomStep[];
+  cost: number;
+  duration: number;
+  distance: number;
+}
+
+export interface VroomUnassigned {
+  id: number;
+  location?: LatLon;
+}
+
+export interface VroomResult {
+  code: number;
+  routes: VroomRoute[];
+  unassigned?: VroomUnassigned[];
+  summary: {
+    cost: number;
+    unassigned: number;
+    service: number;
+    duration: number;
+    distance: number;
+  };
+}
+
+// ORS Interfaces
+export interface OrsMatrixResponse {
+  distances?: number[][];
+  durations?: number[][];
+  destinations: Array<{ location: [number, number]; snapped_distance: number }>;
+  sources: Array<{ location: [number, number]; snapped_distance: number }>;
+}
+
+export interface OrsDirectionsResponse {
+  features: Array<{
+    geometry: {
+      coordinates: [number, number][];
+      type: string;
+    };
+    properties: {
+      summary: {
+        distance: number;
+        duration: number;
+      };
+    };
+  }>;
 }

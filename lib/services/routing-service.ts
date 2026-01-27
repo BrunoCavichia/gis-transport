@@ -1,174 +1,90 @@
 // lib/services/routing-service.ts
-import { FleetVehicle, FleetJob, RouteData, Zone } from "@/lib/types";
+import {
+    FleetVehicle,
+    FleetJob,
+    RouteData,
+    Zone,
+    VehicleRoute,
+    LatLon,
+    VroomResult,
+    VroomStep,
+    OrsMatrixResponse,
+    OrsDirectionsResponse
+} from "@/lib/types";
 import { THEME } from "@/lib/theme";
-const { route: ROUTE_COLORS } = THEME.colors;
-
-import { ORS_URL, VROOM_URL, SNAP_URL, TIMEOUTS, ROUTING_CONFIG } from "@/lib/config";
+import { ORS_URL, VROOM_URL, SNAP_URL, ROUTING_CONFIG } from "@/lib/config";
 import { WeatherService } from "./weather-service";
+
+const { route: ROUTE_COLORS } = THEME.colors;
 
 export interface OptimizeOptions {
     startTime?: string;
     zones?: Zone[];
 }
 
+interface ProfileData {
+    name: string;
+    avoidPolygons: LatLon[][];
+}
+
+interface JobLocation {
+    id: string;
+    coords: LatLon;
+    label: string;
+}
+
 export class RoutingService {
-    private static getWeatherApiKey() {
-        return process.env.OPENWEATHERMAP_API_KEY;
-    }
-
-    private static formatAvoidPolygons(avoidPolygons: [number, number][][]) {
-        if (!avoidPolygons || avoidPolygons.length === 0) return null;
-
-        return {
-            type: "MultiPolygon",
-            coordinates: avoidPolygons
-                .map(poly => {
-                    if (poly.length < 3) return null;
-                    const closedPoly = [...poly];
-                    const first = closedPoly[0];
-                    const last = closedPoly[closedPoly.length - 1];
-                    if (first[0] !== last[0] || first[1] !== last[1]) {
-                        closedPoly.push(first);
-                    }
-                    if (closedPoly.length < 4) return null; // A closed linear ring must have at least 4 points
-                    return [closedPoly.map(([lat, lon]) => [lon, lat])];
-                })
-                .filter(p => p !== null) as [number, number][][][]
-        };
-    }
-
     /**
      * Main orchestrator function: Snap -> Matrix -> VROOM -> Routing -> Weather
      */
     static async optimize(
         vehicles: FleetVehicle[],
-        jobs: (FleetJob | { id: string; coords: [number, number]; label: string })[],
+        jobs: (FleetJob | JobLocation)[],
         options: OptimizeOptions = {}
     ): Promise<RouteData> {
-        console.log(`🚀 Starting multi-matrix optimization for ${vehicles.length} vehicles and ${jobs.length} jobs`);
         const startTime = options.startTime || new Date().toISOString();
         const zones = options.zones || [];
 
-        // 1. Snapshot all coordinates for snapped locations
-        const allCoords = [
-            ...vehicles.map(v => v.coords),
-            ...jobs.map(j => j.coords)
-        ];
+        // 1. Snapping
+        const allCoords = [...vehicles.map(v => v.coords), ...jobs.map(j => j.coords)];
         const snappedLocations = await this.snapCoordinates(allCoords);
 
-        // 2. Group vehicles by unique profiles (avoidance polygons)
-        const profiles = new Map<string, { vehiclesIdx: number[], avoidPolygons: [number, number][][] }>();
-
-        vehicles.forEach((v, idx) => {
+        // 2. Profiles Mapping
+        const vehicleProfiles = vehicles.map(v => {
             const forbidden = this.getForbiddenZonesForVehicle(v.type.tags, zones);
-            const avoidPolygons = forbidden.map(z => z.coordinates);
-            const signature = JSON.stringify(avoidPolygons);
-
-            console.log(`[Profile Analysis] Vehicle ${idx} (${v.type.label}):
-              - Tags: ${JSON.stringify(v.type.tags)}
-              - Forbidden Zones: ${forbidden.map(fz => fz.name).join(", ") || "None"}
-              - Polygon Signature Digest: ${signature.length > 20 ? signature.substring(0, 20) + "..." : signature}`);
-
-            if (!profiles.has(signature)) {
-                profiles.set(signature, { vehiclesIdx: [], avoidPolygons });
-            }
-            profiles.get(signature)!.vehiclesIdx.push(idx);
+            return forbidden.map(z => z.coordinates);
         });
 
-        console.log(`📡 Identified ${profiles.size} unique routing profiles`);
+        const uniqueProfiles = this.getUniqueProfiles(vehicleProfiles);
+        const matrices = await this.getMatricesForProfiles(snappedLocations, uniqueProfiles);
 
-        // 3. Fetch matrices for each profile
-        const matrices: Record<string, number[][]> = {};
-        let profileCounter = 0;
-        const vehicleToProfile = new Array(vehicles.length);
-
-        for (const [sig, data] of profiles.entries()) {
-            const profileName = `p${profileCounter++}`;
-            console.log(`📥 Fetching matrix for profile ${profileName} (${data.vehiclesIdx.length} vehicles)`);
-            const matrix = await this.getMatrix(snappedLocations, data.avoidPolygons);
-            matrices[profileName] = matrix;
-            data.vehiclesIdx.forEach(vIdx => {
-                vehicleToProfile[vIdx] = { name: profileName, avoidPolygons: data.avoidPolygons };
-            });
-        }
-
-        // 4. VROOM Optimization with multi-matrix
-        const vroomResult = await this.runVroomMulti(vehicles, jobs, matrices, vehicleToProfile);
-
-        console.log(`🏁 VROOM Result:
-          - Assigned Jobs: ${(vroomResult.routes || []).reduce((acc: number, r: any) => acc + (r.steps || []).filter((s: any) => s.type === "job").length, 0)}
-          - Unassigned Jobs: ${vroomResult.unassigned?.length || 0}`);
-
-        // Map unassigned jobs back to original descriptions
-        const unassignedJobs = (vroomResult.unassigned || []).map((u: any) => {
-            const jobIdx = u.id - vehicles.length;
-            const originalJob = jobs[jobIdx];
+        // Map each vehicle index to its profile name and avoid polygons
+        const vehicleToProfile = vehicles.map((_, idx) => {
+            const currentAvoidPolygons = vehicleProfiles[idx];
+            const profile = uniqueProfiles.find(p => JSON.stringify(p.avoidPolygons) === JSON.stringify(currentAvoidPolygons))!;
             return {
-                id: originalJob?.id || u.id.toString(),
-                description: originalJob?.label || `Job ${jobIdx + 1}`,
-                reason: "Restrictions or unreachable location"
+                name: profile.name,
+                avoidPolygons: currentAvoidPolygons
             };
         });
 
-        // Generate notices for the user
-        const notices: any[] = [];
+        // 3. VROOM Optimization
+        const vroomResult = await this.runVroom(vehicles, jobs, matrices, vehicleToProfile);
 
-        // Notice for vehicles bypassed due to LEZ (Consolidated)
-        vehicles.forEach((v, idx) => {
-            const assignedRoute = (vroomResult.routes || []).find((r: any) => r.vehicle === idx);
-            const jobSteps = assignedRoute?.steps?.filter((s: any) => s.type === "job") || [];
-            const profile = vehicleToProfile[idx];
+        // 4. Data Processing
+        const unassignedJobs = this.processUnassignedJobs(vroomResult, jobs, vehicles.length);
+        const notices = this.generateNotices(vroomResult, vehicles, jobs, vehicleToProfile);
 
-            if (profile?.avoidPolygons && profile.avoidPolygons.length > 0) {
-                // Find which jobs (assigned or not) are in this vehicle's forbidden zones
-                const forbiddenJobNames = jobs.map((job, jIdx) => {
-                    const isForbidden = profile.avoidPolygons.some((poly: [number, number][]) =>
-                        RoutingService.isPointInPolygon(job.coords, poly)
-                    );
-                    return isForbidden ? (job.label || `Job ${jIdx + 1}`) : null;
-                }).filter((name: string | null) => name !== null);
-
-                const vehicleLabel = v.type?.label || `Vehicle ${idx + 1}`;
-
-                // Show notice if the vehicle has 0 jobs AND there were jobs it couldn't enter
-                if (jobSteps.length === 0 && forbiddenJobNames.length > 0) {
-                    notices.push({
-                        title: `Vehicle: ${vehicleLabel}`,
-                        message: `The vehicle "${vehicleLabel}" was bypassed for the following jobs because it lacks the required environmental labels (e.g. ECO, ZERO) to enter their restricted zones: ${forbiddenJobNames.join(", ")}.`,
-                        type: "info"
-                    });
-                }
-            }
-        });
-
-        // Fallback for general unassigned jobs (if not already covered by vehicle restrictions)
-        if (notices.length === 0 && unassignedJobs.length > 0) {
-            const jobNames = unassignedJobs.map((j: any) => j.description).join(", ");
-            notices.push({
-                title: "Unassigned Jobs",
-                message: `The following jobs could not be assigned due to restrictions or reachability: ${jobNames}.`,
-                type: "warning"
-            });
-        }
-
-        // 5. Individual Routing with per-vehicle avoidance
-        const vehicleRoutes = await this.calculateVehicleRoutesMulti(vroomResult, snappedLocations, vehicleToProfile, vehicles);
+        // 5. Individual Routing
+        const vehicleRoutes = await this.calculateVehicleRoutes(vroomResult, snappedLocations, vehicleToProfile, vehicles);
 
         // 6. Weather Analysis
-        let weatherRoutes: any[] = [];
-        const weatherAnalysis = await WeatherService.analyzeRoutes(
-            vehicleRoutes,
-            startTime
-        );
-        weatherRoutes = weatherAnalysis;
-
-        const totalDistance = (vehicleRoutes as any[]).reduce((acc: number, r: any) => acc + (r.distance || 0), 0);
-        const totalDuration = (vehicleRoutes as any[]).reduce((acc: number, r: any) => acc + (r.duration || 0), 0);
+        const weatherRoutes = await WeatherService.analyzeRoutes(vehicleRoutes, startTime);
 
         return {
             coordinates: [],
-            distance: totalDistance,
-            duration: totalDuration,
+            distance: vehicleRoutes.reduce((acc, r) => acc + (r.distance || 0), 0),
+            duration: vehicleRoutes.reduce((acc, r) => acc + (r.duration || 0), 0),
             vehicleRoutes,
             weatherRoutes,
             unassignedJobs,
@@ -176,131 +92,200 @@ export class RoutingService {
         };
     }
 
-    private static isPointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
-        const [lat, lon] = point;
-        let isInside = false;
-        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-            const [xi, yi] = polygon[i];
-            const [xj, yj] = polygon[j];
-            const intersect = ((yi > lon) !== (yj > lon)) &&
-                (lat < (xj - xi) * (lon - yi) / (yj - yi) + xi);
-            if (intersect) isInside = !isInside;
-        }
-        return isInside;
+    private static getUniqueProfiles(vehicleAvoidPolygons: LatLon[][][]): ProfileData[] {
+        const profilesMap = new Map<string, LatLon[][]>();
+        vehicleAvoidPolygons.forEach(polys => {
+            profilesMap.set(JSON.stringify(polys), polys);
+        });
+
+        return Array.from(profilesMap.entries()).map(([_, avoidPolygons], idx) => ({
+            name: `p${idx}`,
+            avoidPolygons
+        }));
     }
 
-    private static getForbiddenZonesForVehicle(vehicleTags: string[], allZones: Zone[]): Zone[] {
-        return allZones.filter(zone => {
-            const zType = (zone.type || "").toUpperCase();
+    private static async getMatricesForProfiles(locations: LatLon[], profiles: ProfileData[]): Promise<Record<string, number[][]>> {
+        const matrices: Record<string, number[][]> = {};
+        for (const profile of profiles) {
+            matrices[profile.name] = await this.getMatrix(locations, profile.avoidPolygons);
+        }
+        return matrices;
+    }
 
-            // Priority: if zone specifies required tags, check compliance
-            if (zone.requiredTags && zone.requiredTags.length > 0) {
-                const isCompliant = zone.requiredTags.some(tag => vehicleTags.includes(tag));
-                return !isCompliant;
-            }
-
-            // Fallback: Permanent restrictions (Pedestrian zones) are forbidden for everyone
-            if (zType === "PEDESTRIAN") {
-                return true;
-            }
-
-            // If it's a generic Restricted/Environmental zone without specific requirements,
-            // we assume it's forbidden for vehicles with NO labels at all.
-            if (zType === "RESTRICTED" || zType === "LEZ" || zType === "ENVIRONMENTAL") {
-                return vehicleTags.length === 0;
-            }
-
-            return false;
+    private static processUnassignedJobs(vroomResult: VroomResult, jobs: (FleetJob | JobLocation)[], vehicleOffset: number) {
+        return (vroomResult.unassigned || []).map(u => {
+            const jobIdx = u.id - vehicleOffset;
+            const originalJob = jobs[jobIdx];
+            return {
+                id: originalJob?.id.toString() || u.id.toString(),
+                description: originalJob?.label || `Job ${jobIdx + 1}`,
+                reason: "Restrictions or unreachable location"
+            };
         });
     }
 
-    private static async snapCoordinates(coordinates: [number, number][]): Promise<[number, number][]> {
+    private static generateNotices(
+        vroomResult: VroomResult,
+        vehicles: FleetVehicle[],
+        jobs: (FleetJob | JobLocation)[],
+        vehicleToProfile: { avoidPolygons: LatLon[][] }[]
+    ) {
+        const notices: { title: string; message: string; type: "info" | "warning" }[] = [];
+
+        vehicles.forEach((v, idx) => {
+            const assignedRoute = vroomResult.routes.find(r => r.vehicle === idx);
+            const jobSteps = assignedRoute?.steps.filter(s => s.type === "job") || [];
+            const profile = vehicleToProfile[idx];
+
+            if (jobSteps.length === 0 && profile.avoidPolygons.length > 0) {
+                const forbiddenJobNames = jobs
+                    .filter(job => profile.avoidPolygons.some(poly => this.isPointInPolygon(job.coords, poly)))
+                    .map(job => job.label);
+
+                if (forbiddenJobNames.length > 0) {
+                    const label = v.type.label;
+                    notices.push({
+                        title: `Vehicle: ${label}`,
+                        message: `The vehicle "${label}" was bypassed for: ${forbiddenJobNames.join(", ")} due to environmental restrictions.`,
+                        type: "info"
+                    });
+                }
+            }
+        });
+
+        return notices;
+    }
+
+    private static async calculateVehicleRoutes(
+        vroomResult: VroomResult,
+        allLocations: LatLon[],
+        vehicleToProfile: { name: string; avoidPolygons: LatLon[][] }[],
+        originalVehicles: FleetVehicle[]
+    ): Promise<VehicleRoute[]> {
+        const results: VehicleRoute[] = [];
+
+        for (const route of vroomResult.routes) {
+            const vIdx = route.vehicle;
+            const profile = vehicleToProfile[vIdx];
+            const waypoints = route.steps
+                .filter(s => typeof s.location_index === "number")
+                .map(s => allLocations[s.location_index!]);
+
+            if (waypoints.length < 2) continue;
+
+            const vehicle = originalVehicles[vIdx];
+            const color = ROUTE_COLORS[vIdx % ROUTE_COLORS.length];
+
+            // LEZ Pre-check
+            const hasForbiddenWaypoint = waypoints.some(wp =>
+                profile.avoidPolygons.some(poly => this.isPointInPolygon(wp, poly))
+            );
+
+            if (hasForbiddenWaypoint) {
+                results.push(this.createErrorRoute(vehicle.id, color, `Vehicle "${vehicle.type.label}" cannot enter LEZ zones.`));
+                continue;
+            }
+
+            results.push(await this.fetchOrsRoute(vehicle.id, waypoints, profile.avoidPolygons, color, route.steps));
+        }
+        return results;
+    }
+
+    private static async fetchOrsRoute(
+        vehicleId: string | number,
+        waypoints: LatLon[],
+        avoidPolygons: LatLon[][],
+        color: string,
+        steps: VroomStep[]
+    ): Promise<VehicleRoute> {
+        const orsWaypoints = waypoints.map(([lat, lon]) => [lon, lat]);
+        const avoid_polygons = this.formatAvoidPolygons(avoidPolygons);
+
+        const body = {
+            coordinates: orsWaypoints,
+            instructions: false,
+            preference: "recommended",
+            radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS),
+            ...(avoid_polygons && { options: { avoid_polygons } })
+        };
+
         try {
-            const res = await fetch(SNAP_URL, {
+            const res = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ coordinates })
+                body: JSON.stringify(body)
             });
-            if (!res.ok) return coordinates;
-            const data = await res.json();
-            return data.snapped.map((s: any, idx: number) => s.snapped ? s.location : coordinates[idx]);
+
+            if (!res.ok) throw new Error(await res.text());
+
+            const data: OrsDirectionsResponse = await res.json();
+            const feat = data.features[0];
+
+            return {
+                vehicleId,
+                coordinates: feat.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
+                distance: Math.round(feat.properties.summary.distance),
+                duration: Math.round(feat.properties.summary.duration),
+                color,
+                jobsAssigned: steps.filter(s => s.type === "job").length
+            };
         } catch (e) {
-            console.warn("Snap service failed, using original coordinates", e);
-            return coordinates;
+            return this.createErrorRoute(vehicleId, color, "Route failed due to restrictions or reachability.");
         }
     }
 
-    private static async getMatrix(locations: [number, number][], avoidPolygons?: [number, number][][]): Promise<number[][]> {
-        // if (!this.getApiKey()) throw new Error("ORS API key missing");
+    private static createErrorRoute(vehicleId: string | number, color: string, error: string): VehicleRoute {
+        return {
+            vehicleId,
+            coordinates: [],
+            distance: 0,
+            duration: 0,
+            color,
+            jobsAssigned: 0,
+            error
+        };
+    }
 
-        // ORS expects [lon, lat]
+    private static async getMatrix(locations: LatLon[], avoidPolygons: LatLon[][]): Promise<number[][]> {
         const orsLocations = locations.map(([lat, lon]) => [lon, lat]);
-
-        const body: any = {
+        const body = {
             locations: orsLocations,
             metrics: ["distance", "duration"],
             units: "m"
         };
 
-        // Note: We DO NOT send options.avoid_polygons to the Matrix API because it often 
-        // triggers "Search exceeds limit of visited nodes" (Error 6020) on complex LEZ areas.
-        // Instead, we rely on our Manual Matrix Penalization below to block jobs inside LEZs.
-
         const res = await fetch(`${ORS_URL}/matrix/driving-car`, {
             method: "POST",
-            headers: {
-                // Authorization: this.getApiKey()!,
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
         });
 
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error(`❌ ORS Matrix failed [${res.status}]:`, errorText);
-            throw new Error(`ORS Matrix failed: ${errorText}`);
-        }
-        const data = await res.json();
+        if (!res.ok) throw new Error(`ORS Matrix failed: ${await res.text()}`);
 
-        // Detect which locations are in forbidden zones for manual penalization
-        const isLocForbidden = locations.map(loc =>
-            (avoidPolygons || []).some(poly => this.isPointInPolygon(loc, poly))
-        );
+        const data: OrsMatrixResponse = await res.json();
+        const isLocForbidden = locations.map(loc => avoidPolygons.some(poly => this.isPointInPolygon(loc, poly)));
 
-        const forbiddenCount = isLocForbidden.filter(f => f).length;
-        if (forbiddenCount > 0) {
-            console.log(`🛡️  RoutingService: ${forbiddenCount}/${locations.length} locations fall in forbidden zones for this profile`);
-        }
-
-        // Create cost matrix (distance * 1 + duration * 0.3 as per your logic)
         return Array.from({ length: locations.length }, (_, i) =>
             Array.from({ length: locations.length }, (_, j) => {
                 if (i === j) return 0;
-
-                // Manual Penalization: if source or dest is in a forbidden zone, massive cost
-                if (isLocForbidden[i] || isLocForbidden[j]) {
-                    return ROUTING_CONFIG.UNREACHABLE_COST;
-                }
+                if (isLocForbidden[i] || isLocForbidden[j]) return ROUTING_CONFIG.UNREACHABLE_COST;
 
                 const d = data.distances?.[i]?.[j];
                 const t = data.durations?.[i]?.[j];
 
-                // If point is unreachable from ORS perspective
-                if (d === null || d === undefined || t === null || t === undefined) {
-                    return ROUTING_CONFIG.UNREACHABLE_COST;
-                }
+                if (d === undefined || t === undefined || d === null || t === null) return ROUTING_CONFIG.UNREACHABLE_COST;
 
                 return Math.round(d * ROUTING_CONFIG.COST_PER_METER + t * ROUTING_CONFIG.COST_PER_SECOND);
             })
         );
     }
 
-    private static async runVroomMulti(
+    private static async runVroom(
         vehicles: FleetVehicle[],
-        jobs: any[],
+        jobs: (FleetJob | JobLocation)[],
         matrices: Record<string, number[][]>,
-        vehicleToProfile: any[]
-    ): Promise<any> {
+        vehicleToProfile: { name: string }[]
+    ): Promise<VroomResult> {
         const payload = {
             vehicles: vehicles.map((v, idx) => ({
                 id: idx,
@@ -313,9 +298,9 @@ export class RoutingService {
                 location_index: vehicles.length + jidx,
                 service: ROUTING_CONFIG.DEFAULT_SERVICE_TIME,
                 delivery: [1],
-                description: job.label || `Job ${jidx + 1}`
+                description: job.label
             })),
-            matrices: Object.entries(matrices).reduce((acc: any, [name, matrix]) => {
+            matrices: Object.entries(matrices).reduce((acc: Record<string, { durations: number[][] }>, [name, matrix]) => {
                 acc[name] = { durations: matrix };
                 return acc;
             }, {})
@@ -331,119 +316,62 @@ export class RoutingService {
         return await res.json();
     }
 
-    private static async calculateVehicleRoutesMulti(
-        vroomResult: any,
-        allLocations: [number, number][],
-        vehicleToProfile: any[],
-        originalVehicles: FleetVehicle[]
-    ): Promise<any[]> {
-        const results = [];
-
-        // Track unassigned jobs if needed
-        const unassignedMap = new Set((vroomResult.unassigned || []).map((u: any) => u.id));
-
-        for (const route of (vroomResult.routes || [])) {
-            const vIdx = route.vehicle;
-            const profile = vehicleToProfile[vIdx];
-            const assignedJobs = (route.steps || []).filter((s: any) => s.type === "job");
-
-            if (assignedJobs.length === 0) continue;
-
-            const waypoints = route.steps
-                .filter((s: any) => typeof s.location_index === "number")
-                .map((s: any) => allLocations[s.location_index]);
-
-            if (waypoints.length < 2) continue;
-
-            const orsWaypoints = waypoints.map(([lat, lon]: [number, number]) => [lon, lat]);
-            const body: any = {
-                coordinates: orsWaypoints,
-                instructions: false,
-                preference: "recommended",
-                radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS)
-            };
-
-            const avoid_polygons = this.formatAvoidPolygons(profile.avoidPolygons || []);
-            if (avoid_polygons) {
-                body.options = { avoid_polygons };
-                console.log(`📡 ORS Directions: Profile ${profile.name} avoiding zones for vehicle ${vIdx}`);
-            }
-
-            // Pre-check: Are any waypoints inside forbidden zones?
-            const waypointsInForbiddenZone = waypoints.filter((wp: [number, number]) =>
-                (profile.avoidPolygons || []).some((poly: [number, number][]) =>
-                    RoutingService.isPointInPolygon(wp, poly)
-                )
-            );
-
-            if (waypointsInForbiddenZone.length > 0) {
-                const vehicleLabel = originalVehicles[vIdx].type?.label || `Vehicle ${vIdx + 1}`;
-                console.log(`🚫 Vehicle ${vIdx} (${vehicleLabel}): ${waypointsInForbiddenZone.length} waypoints are inside forbidden zones`);
-                results.push({
-                    vehicleId: originalVehicles[vIdx].id,
-                    coordinates: [],
-                    distance: 0,
-                    duration: 0,
-                    color: ROUTE_COLORS[vIdx % ROUTE_COLORS.length],
-                    jobsAssigned: 0,
-                    error: `El vehículo "${vehicleLabel}" no puede acceder a la zona de bajas emisiones (LEZ) porque no dispone de las etiquetas ambientales requeridas (ej: ECO, CERO).`
-                });
-                continue;
-            }
-
-            const res = await fetch(`${ORS_URL}/directions/driving-car/geojson`, {
+    private static async snapCoordinates(coordinates: LatLon[]): Promise<LatLon[]> {
+        try {
+            const res = await fetch(SNAP_URL, {
                 method: "POST",
-                headers: {
-                    // Authorization: this.getApiKey()!,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(body)
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ coordinates })
             });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data.features && data.features.length > 0) {
-                    const feat = data.features[0];
-                    results.push({
-                        vehicleId: originalVehicles[vIdx].id,
-                        coordinates: feat.geometry.coordinates.map(([lon, lat]: any) => [lat, lon]),
-                        distance: Math.round(feat.properties.summary.distance),
-                        duration: Math.round(feat.properties.summary.duration),
-                        color: ROUTE_COLORS[vIdx % ROUTE_COLORS.length],
-                        jobsAssigned: route.steps.filter((s: any) => s.type === "job").length
-                    });
-                }
-            } else {
-                const errorText = await res.text();
-                let errorMessage = "Route failed due to restrictions";
-                let isLezError = false;
-
-                try {
-                    const errorData = JSON.parse(errorText);
-                    const orsMsg = errorData.error?.message || "";
-
-                    // Detect ORS "could not find routable point" which often means the point is in an avoided area
-                    if (orsMsg.includes("routable point") || orsMsg.includes("400.0 meters")) {
-                        isLezError = true;
-                        const vehicleLabel = originalVehicles[vIdx].type?.label || `Vehicle ${vIdx + 1}`;
-                        errorMessage = `El vehículo "${vehicleLabel}" no puede acceder a uno de los destinos asignados. Esto puede deberse a restricciones de zona de bajas emisiones (LEZ) o a que el punto está en una zona peatonal.`;
-                    } else {
-                        errorMessage = orsMsg || errorMessage;
-                    }
-                } catch (e) { }
-
-                results.push({
-                    vehicleId: originalVehicles[vIdx].id,
-                    coordinates: [],
-                    distance: 0,
-                    duration: route.duration,
-                    color: ROUTE_COLORS[vIdx % ROUTE_COLORS.length],
-                    jobsAssigned: 0,
-                    error: errorMessage
-                });
-            }
+            if (!res.ok) return coordinates;
+            const data = await res.json();
+            return data.snapped.map((s: { snapped: boolean; location: LatLon }, idx: number) => s.snapped ? s.location : coordinates[idx]);
+        } catch (e) {
+            return coordinates;
         }
-        return results;
     }
 
+    private static formatAvoidPolygons(avoidPolygons: LatLon[][]) {
+        if (!avoidPolygons || avoidPolygons.length === 0) return null;
+        const coords = avoidPolygons
+            .map(poly => {
+                if (poly.length < 3) return null;
+                const closed = [...poly];
+                if (closed[0][0] !== closed[closed.length - 1][0] || closed[0][1] !== closed[closed.length - 1][1]) {
+                    closed.push(closed[0]);
+                }
+                return [closed.map(([lat, lon]) => [lon, lat])];
+            })
+            .filter((p): p is [number, number][][] => p !== null);
+
+        return coords.length > 0 ? { type: "MultiPolygon", coordinates: coords } : null;
+    }
+
+    private static isPointInPolygon(point: LatLon, polygon: LatLon[]): boolean {
+        const [px, py] = point;
+        let inside = false;
+
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const [ix, iy] = polygon[i];
+            const [jx, jy] = polygon[j];
+
+            const intersects =
+                (iy > py) !== (jy > py) &&
+                px < ((jx - ix) * (py - iy)) / (jy - iy) + ix;
+
+            if (intersects) inside = !inside;
+        }
+
+        return inside;
+    }
+
+
+    private static getForbiddenZonesForVehicle(vehicleTags: string[], allZones: Zone[]): Zone[] {
+        return allZones.filter(zone => {
+            const type = (zone.type || "").toUpperCase();
+            if (zone.requiredTags?.length) return !zone.requiredTags.some(tag => vehicleTags.includes(tag));
+            if (type === "PEDESTRIAN") return true;
+            return ["RESTRICTED", "LEZ", "ENVIRONMENTAL"].includes(type) && vehicleTags.length === 0;
+        });
+    }
 }

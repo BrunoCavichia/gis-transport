@@ -61,7 +61,7 @@ export function useRouting({
 
     const startRouting = useCallback(async () => {
         const key = JSON.stringify({
-            vehicles: fleetVehicles.map((v) => ({ id: v.id, coords: v.coords })),
+            vehicles: fleetVehicles.map((v) => ({ id: v.id, coords: v.coords, type: v.type })),
             jobs: fleetJobs.map((j) => ({ id: j.id, coords: j.coords })),
             selectedPOIs: customPOIs
                 .filter((poi) => poi.selectedForFleet)
