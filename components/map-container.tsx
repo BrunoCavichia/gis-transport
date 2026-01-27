@@ -119,9 +119,15 @@ export default memo(function MapContainer({
   const [viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(null);
 
   // Custom Hooks for modular logic
-  const { showIcons, isExitingIcons } = useMapLOD(zoom);
+  const { showIcons, isExitingIcons, debouncedZoom } = useMapLOD(zoom);
   const { loading, wrapAsync } = useLoadingLayers();
   const poiCache = usePOICache();
+
+  // Memoized boolean to avoid re-rendering on every zoom change
+  const shouldShowZoomLevelPOIs = useMemo(
+    () => zoom >= THEME.map.poi.lod.minZoomForDots,
+    [zoom]
+  );
 
   const mapIcons = useMemo(() => createMapIcons(), []);
   const { job, customPOI, picking, vehicle, weather, gasStation, evStation } = mapIcons;
@@ -140,7 +146,7 @@ export default memo(function MapContainer({
   );
 
   const renderedGasStations = useMemo(() => {
-    if (!layers.gasStations || zoom < THEME.map.poi.lod.minZoomForDots) return null;
+    if (!layers.gasStations || !shouldShowZoomLevelPOIs) return null;
     const shouldRenderIcons = showIcons || isExitingIcons;
     let stations = dynamicGasStations;
     if (shouldRenderIcons && viewportBounds) {
@@ -154,10 +160,10 @@ export default memo(function MapContainer({
       isEV: false,
       isExiting: isExitingIcons,
     });
-  }, [layers.gasStations, dynamicGasStations, gasStation, isRouting, showIcons, isExitingIcons, viewportBounds, zoom]);
+  }, [layers.gasStations, dynamicGasStations, gasStation, isRouting, showIcons, isExitingIcons, viewportBounds, shouldShowZoomLevelPOIs]);
 
   const renderedEVStations = useMemo(() => {
-    if (!layers.evStations || zoom < THEME.map.poi.lod.minZoomForDots) return null;
+    if (!layers.evStations || !shouldShowZoomLevelPOIs) return null;
     const shouldRenderIcons = showIcons || isExitingIcons;
     let stations = dynamicEVStations;
     if (shouldRenderIcons && viewportBounds) {
@@ -171,7 +177,7 @@ export default memo(function MapContainer({
       useDots: !shouldRenderIcons,
       isExiting: isExitingIcons,
     });
-  }, [layers.evStations, dynamicEVStations, evStation, isRouting, showIcons, isExitingIcons, viewportBounds, zoom]);
+  }, [layers.evStations, dynamicEVStations, evStation, isRouting, showIcons, isExitingIcons, viewportBounds, shouldShowZoomLevelPOIs]);
 
   const renderedCustomPOIs = useMemo(() => {
     return renderCustomPOIs({ customPOIs: customPOIs || [], isRouting, icon: customPOI });
@@ -260,5 +266,31 @@ export default memo(function MapContainer({
         {pickedJobCoords && <Marker position={pickedJobCoords} icon={picking} />}
       </LeafletMap>
     </div>
+  );
+}, (prev: MapContainerProps, next: MapContainerProps) => {
+  // Custom comparator: only re-render if critical data props change
+  // Ignore setters (setRouteData, setWeather, setDynamicEVStations, etc.)
+  // as they don't affect visual output
+  return (
+    prev.layers === next.layers &&
+    prev.routeData === next.routeData &&
+    prev.isRouting === next.isRouting &&
+    prev.routePoints === next.routePoints &&
+    prev.dynamicEVStations === next.dynamicEVStations &&
+    prev.dynamicGasStations === next.dynamicGasStations &&
+    prev.mapCenter === next.mapCenter &&
+    prev.selectedVehicle === next.selectedVehicle &&
+    prev.customPOIs === next.customPOIs &&
+    prev.fleetVehicles === next.fleetVehicles &&
+    prev.fleetJobs === next.fleetJobs &&
+    prev.selectedVehicleId === next.selectedVehicleId &&
+    prev.pickedPOICoords === next.pickedPOICoords &&
+    prev.pickedJobCoords === next.pickedJobCoords &&
+    prev.isInteracting === next.isInteracting &&
+    prev.toggleLayer === next.toggleLayer &&
+    prev.onMapClick === next.onMapClick &&
+    prev.onZonesUpdate === next.onZonesUpdate &&
+    prev.onVehicleTypeChange === next.onVehicleTypeChange &&
+    prev.onVehicleSelect === next.onVehicleSelect
   );
 });

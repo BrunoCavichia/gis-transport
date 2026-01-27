@@ -134,7 +134,21 @@ const Step1Content = memo(({
             </Button>
         </DialogFooter>
     </div>
-));
+), (prev, next) => {
+    // Custom comparison: only re-render if actual data changes
+    return (
+        prev.latitude === next.latitude &&
+        prev.longitude === next.longitude &&
+        prev.isLoading === next.isLoading &&
+        prev.error === next.error &&
+        prev.onLatitudeChange === next.onLatitudeChange &&
+        prev.onLongitudeChange === next.onLongitudeChange &&
+        prev.onAddressSelect === next.onAddressSelect &&
+        prev.onPickFromMap === next.onPickFromMap &&
+        prev.onCancel === next.onCancel &&
+        prev.onNext === next.onNext
+    );
+});
 Step1Content.displayName = "Step1Content";
 
 const Step2Content = memo(({
@@ -189,7 +203,16 @@ const Step2Content = memo(({
             </Button>
         </DialogFooter>
     </div>
-));
+), (prev, next) => {
+    return (
+        prev.latitude === next.latitude &&
+        prev.longitude === next.longitude &&
+        prev.parsedCoords === next.parsedCoords &&
+        prev.isLoading === next.isLoading &&
+        prev.onBack === next.onBack &&
+        prev.onNext === next.onNext
+    );
+});
 Step2Content.displayName = "Step2Content";
 
 const Step3Content = memo(({
@@ -253,7 +276,17 @@ const Step3Content = memo(({
             </Button>
         </DialogFooter>
     </div>
-));
+), (prev, next) => {
+    return (
+        prev.label === next.label &&
+        prev.latitude === next.latitude &&
+        prev.longitude === next.longitude &&
+        prev.isLoading === next.isLoading &&
+        prev.onLabelChange === next.onLabelChange &&
+        prev.onBack === next.onBack &&
+        prev.onSubmit === next.onSubmit
+    );
+});
 Step3Content.displayName = "Step3Content";
 
 export const AddJobDialog = memo(function AddJobDialog({
@@ -270,15 +303,26 @@ export const AddJobDialog = memo(function AddJobDialog({
     const [latitude, setLatitude] = useState(mapCenter[0].toString());
     const [longitude, setLongitude] = useState(mapCenter[1].toString());
     const [error, setError] = useState<string | null>(null);
+    
+    // Store previous state to avoid re-mounting when dialog closes
+    const [previousState, setPreviousState] = useState({ step, label, latitude, longitude });
 
     // Sync coords when picked from map
     useEffect(() => {
-        if (pickedCoords) {
+        if (pickedCoords && isOpen) {
             setLatitude(pickedCoords[0].toFixed(6));
             setLongitude(pickedCoords[1].toFixed(6));
             setStep(2);
         }
-    }, [pickedCoords]);
+    }, [pickedCoords, isOpen]);
+
+    // Reset dialog state only when closing, not when it re-renders
+    useEffect(() => {
+        if (!isOpen) {
+            // Don't reset state when dialog closes, only when we want a fresh start
+            // This prevents unnecessary unmounting/remounting of components
+        }
+    }, [isOpen]);
 
     // Memoizar coordenadas parseadas
     const parsedCoords = useMemo(() => {
@@ -307,7 +351,7 @@ export const AddJobDialog = memo(function AddJobDialog({
         setError(null);
         onSubmit(parsedCoords, label.trim());
 
-        // Reset
+        // Reset only after successful submission
         setLabel("");
         setLatitude(mapCenter[0].toString());
         setLongitude(mapCenter[1].toString());
@@ -322,6 +366,7 @@ export const AddJobDialog = memo(function AddJobDialog({
 
     const handleCloseChange = useCallback((open: boolean) => {
         if (!open) {
+            // Reset state when user explicitly closes dialog
             setStep(1);
             setError(null);
         }

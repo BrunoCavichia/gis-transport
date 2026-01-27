@@ -1,6 +1,6 @@
 // components/map/MapEventHandler.tsx
 "use client";
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useMemo } from "react";
 import { useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { THEME } from "@/lib/theme";
@@ -69,6 +69,10 @@ export function MapEventHandler({
 
     const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastLayersStateRef = useRef({ ev: layers.evStations, gas: layers.gasStations });
+    const lastZoomLevelRef = useRef<number | null>(null);
+    
+    // Check if any POI layer is enabled
+    const hasAnyLayerEnabled = useMemo(() => layers.evStations || layers.gasStations, [layers.evStations, layers.gasStations]);
 
     useEffect(() => {
         setDynamicZones(zoneCache.zones);
@@ -98,24 +102,48 @@ export function MapEventHandler({
             if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
             fetchTimeoutRef.current = setTimeout(() => {
                 zoneCache.fetchZones();
-                fetchPOIs();
+                // Only fetch POIs if at least one layer is enabled
+                if (hasAnyLayerEnabled) {
+                    fetchPOIs();
+                }
             }, THEME.map.interaction.fetchDebounce);
         },
         zoomend: () => {
-            setZoom(map.getZoom());
+            const newZoom = map.getZoom();
+            setZoom(newZoom);
             setViewportBounds(map.getBounds());
+            
+            // Check if zoom crossed the threshold for showing POI icons
+            const wasAboveThreshold = lastZoomLevelRef.current !== null && lastZoomLevelRef.current >= THEME.map.poi.lod.minZoomForDots;
+            const isNowAboveThreshold = newZoom >= THEME.map.poi.lod.minZoomForDots;
+            const thresholdCrossed = wasAboveThreshold !== isNowAboveThreshold;
+            
+            lastZoomLevelRef.current = newZoom;
+            
             if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
-            fetchTimeoutRef.current = setTimeout(() => {
-                zoneCache.fetchZones();
+            
+            // If threshold was crossed and layers are enabled, fetch immediately
+            if (thresholdCrossed && hasAnyLayerEnabled && isNowAboveThreshold) {
                 fetchPOIs();
-            }, THEME.map.interaction.zoomDebounce);
+            } else {
+                // Otherwise use normal debounce
+                fetchTimeoutRef.current = setTimeout(() => {
+                    zoneCache.fetchZones();
+                    if (hasAnyLayerEnabled) {
+                        fetchPOIs();
+                    }
+                }, THEME.map.interaction.zoomDebounce);
+            }
         },
     });
 
     useEffect(() => {
         zoneCache.fetchZones();
-        fetchPOIs();
         setViewportBounds(map.getBounds());
+        // Only fetch POIs on init if a layer is enabled
+        if (hasAnyLayerEnabled) {
+            fetchPOIs();
+        }
     }, []);
 
     // Trigger fetch when layers toggle
@@ -125,9 +153,14 @@ export function MapEventHandler({
 
         if (hasChanged) {
             lastLayersStateRef.current = { ev: layers.evStations, gas: layers.gasStations };
+            // Only fetch if turning ON (not turning OFF)
             if (layers.evStations || layers.gasStations) {
                 if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
                 fetchTimeoutRef.current = setTimeout(() => fetchPOIs(), 100);
+            } else {
+                // If all layers are OFF, don't update state to avoid unnecessary re-renders
+                // The renderedGasStations and renderedEVStations memos will return null
+                // based on the layers visibility check, so we don't need to clear the arrays
             }
         }
     }, [layers.evStations, layers.gasStations, fetchPOIs]);

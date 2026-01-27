@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Sidebar } from "@/components/sidebar";
 import type {
   LayerVisibility,
@@ -55,10 +55,6 @@ export function GISMap() {
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [activeZones, setActiveZones] = useState<Zone[]>([]);
 
-
-
-
-
   const {
     fleetVehicles,
     fleetJobs,
@@ -82,10 +78,18 @@ export function GISMap() {
   const addJobAtRef = useRef(addJobAt);
 
   // Sync refs for stable map click handler
-  useEffect(() => { interactionModeRef.current = interactionMode; }, [interactionMode]);
-  useEffect(() => { selectedVehicleRef.current = selectedVehicle; }, [selectedVehicle]);
-  useEffect(() => { addVehicleAtRef.current = addVehicleAt; }, [addVehicleAt]);
-  useEffect(() => { addJobAtRef.current = addJobAt; }, [addJobAt]);
+  useEffect(() => {
+    interactionModeRef.current = interactionMode;
+  }, [interactionMode]);
+  useEffect(() => {
+    selectedVehicleRef.current = selectedVehicle;
+  }, [selectedVehicle]);
+  useEffect(() => {
+    addVehicleAtRef.current = addVehicleAt;
+  }, [addVehicleAt]);
+  useEffect(() => {
+    addJobAtRef.current = addJobAt;
+  }, [addJobAt]);
 
   const {
     customPOIs,
@@ -148,64 +152,70 @@ export function GISMap() {
     });
   }, []);
 
-  const handleMapClick = useCallback(
-    (coords: [number, number]) => {
-      if (
-        !coords ||
-        coords.length !== 2 ||
-        coords.some((c) => typeof c !== "number")
-      ) {
-        console.error("Invalid coordinates clicked:", coords);
-        return;
-      }
+  const handleMapClick = useCallback((coords: [number, number]) => {
+    if (
+      !coords ||
+      coords.length !== 2 ||
+      coords.some((c) => typeof c !== "number")
+    ) {
+      console.error("Invalid coordinates clicked:", coords);
+      return;
+    }
 
-      const mode = interactionModeRef.current;
-      const vehicle = selectedVehicleRef.current;
-      const doAddVehicle = addVehicleAtRef.current;
-      const doAddJob = addJobAtRef.current;
+    const mode = interactionModeRef.current;
+    const vehicle = selectedVehicleRef.current;
+    const doAddVehicle = addVehicleAtRef.current;
+    const doAddJob = addJobAtRef.current;
 
-      switch (mode) {
-        case "pick-poi":
-          setPickedPOICoords(coords);
-          setInteractionMode(null);
-          setIsAddCustomPOIOpen(true);
-          break;
-        case "pick-job":
-          setPickedJobCoords(coords);
-          setInteractionMode(null);
-          setIsAddJobOpen(true);
-          break;
-        case "add-vehicle":
-          doAddVehicle(coords, vehicle);
-          setInteractionMode(null);
-          break;
-        case "add-job":
-          doAddJob(coords);
-          setInteractionMode(null);
-          break;
-        default:
-          break;
-      }
-    },
+    switch (mode) {
+      case "pick-poi":
+        setPickedPOICoords(coords);
+        setInteractionMode(null);
+        setIsAddCustomPOIOpen(true);
+        break;
+      case "pick-job":
+        setPickedJobCoords(coords);
+        setInteractionMode(null);
+        setIsAddJobOpen(true);
+        break;
+      case "add-vehicle":
+        doAddVehicle(coords, vehicle);
+        setInteractionMode(null);
+        break;
+      case "add-job":
+        doAddJob(coords);
+        setInteractionMode(null);
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const handleAddVehicle = useCallback(
+    () => setInteractionMode("add-vehicle"),
     [],
   );
-
-  const handleAddVehicle = useCallback(() => setInteractionMode("add-vehicle"), []);
 
   const handleAddJob = useCallback(() => {
     setPickedJobCoords(null);
     setIsAddJobOpen(true);
   }, []);
 
-  const handleAddJobDirectly = useCallback((coords: [number, number], label: string) => {
-    setPickedJobCoords(null);
-    addJobAt(coords, label);
-  }, [addJobAt]);
+  const handleAddJobDirectly = useCallback(
+    (coords: [number, number], label: string) => {
+      setPickedJobCoords(null);
+      addJobAt(coords, label);
+    },
+    [addJobAt],
+  );
 
-  const handleAddCustomPOI = useCallback((name: string, coords: [number, number], desc?: string) => {
-    setPickedPOICoords(null);
-    return addCustomPOI(name, coords, desc);
-  }, [addCustomPOI]);
+  const handleAddCustomPOI = useCallback(
+    (name: string, coords: [number, number], desc?: string) => {
+      setPickedPOICoords(null);
+      return addCustomPOI(name, coords, desc);
+    },
+    [addCustomPOI],
+  );
 
   const handleStartPicking = useCallback(() => {
     setInteractionMode("pick-poi");
@@ -217,49 +227,86 @@ export function GISMap() {
     setIsAddJobOpen(false);
   }, []);
 
-  const handleSetSelectedVehicleId = useCallback((id: string | number | null) => {
-    setSelectedVehicleId(id ? String(id) : null);
-  }, [setSelectedVehicleId]);
+  const handleSetSelectedVehicleId = useCallback(
+    (id: string | number | null) => {
+      setSelectedVehicleId(id ? String(id) : null);
+    },
+    [setSelectedVehicleId],
+  );
 
-  const handleRemoveVehicle = useCallback((id: string | number) => {
-    removeVehicle(String(id));
-  }, [removeVehicle]);
+  const handleRemoveVehicle = useCallback(
+    (id: string | number) => {
+      removeVehicle(String(id));
+    },
+    [removeVehicle],
+  );
 
-  const handleRemoveJob = useCallback((id: string | number) => {
-    removeJob(String(id));
-  }, [removeJob]);
+  const handleRemoveJob = useCallback(
+    (id: string | number) => {
+      removeJob(String(id));
+    },
+    [removeJob],
+  );
 
   const handleCancelAddMode = useCallback(() => {
     setInteractionMode(null);
   }, []);
 
-  const handleAddJobSubmit = useCallback((coords: [number, number], label: string) => {
-    addJobAt(coords, label);
-    setIsAddJobOpen(false);
-    setPickedJobCoords(null);
-  }, [addJobAt]);
-
-  const handleAddCustomPOISubmit = useCallback((name: string, coords: [number, number], desc?: string) => {
-    addCustomPOI(name, coords, desc);
-    setIsAddCustomPOIOpen(false);
-    setPickedPOICoords(null);
-  }, [addCustomPOI]);
-
-  const handleOpenAddJobChange = useCallback((open: boolean) => {
-    setIsAddJobOpen(open);
-    if (!open) {
+  const handleAddJobSubmit = useCallback(
+    (coords: [number, number], label: string) => {
+      addJobAt(coords, label);
+      setIsAddJobOpen(false);
       setPickedJobCoords(null);
-      if (interactionMode === "pick-job") setInteractionMode(null);
-    }
-  }, [interactionMode]);
+    },
+    [addJobAt],
+  );
 
-  const handleOpenAddCustomPOIChange = useCallback((open: boolean) => {
-    setIsAddCustomPOIOpen(open);
-    if (!open) {
+  const handleAddCustomPOISubmit = useCallback(
+    (name: string, coords: [number, number], desc?: string) => {
+      addCustomPOI(name, coords, desc);
+      setIsAddCustomPOIOpen(false);
       setPickedPOICoords(null);
-      if (interactionMode === "pick-poi") setInteractionMode(null);
-    }
-  }, [interactionMode]);
+    },
+    [addCustomPOI],
+  );
+
+  const handleOpenAddJobChange = useCallback(
+    (open: boolean) => {
+      setIsAddJobOpen(open);
+      if (!open) {
+        setPickedJobCoords(null);
+        if (interactionMode === "pick-job") setInteractionMode(null);
+      }
+    },
+    [interactionMode],
+  );
+
+  const handleOpenAddCustomPOIChange = useCallback(
+    (open: boolean) => {
+      setIsAddCustomPOIOpen(open);
+      if (!open) {
+        setPickedPOICoords(null);
+        if (interactionMode === "pick-poi") setInteractionMode(null);
+      }
+    },
+    [interactionMode],
+  );
+
+  // Memoize computed addMode to prevent object recreation
+  const computedAddMode = interactionMode === "add-vehicle"
+    ? "vehicle"
+    : interactionMode === "add-job"
+      ? "job"
+      : null;
+
+  // Memoize customPOIs list to send to MapContainer (only non-empty if showCustomPOIs)
+  const displayedCustomPOIs = useMemo(
+    () => (showCustomPOIs ? customPOIs : []),
+    [showCustomPOIs, customPOIs]
+  );
+
+  // Memoize hasRoute to avoid object recreation
+  const hasRoute = useMemo(() => !!routeData, [routeData]);
 
   return (
     <div className="relative flex h-full w-full">
@@ -281,13 +328,7 @@ export function GISMap() {
         addJobDirectly={handleAddJobDirectly}
         removeVehicle={handleRemoveVehicle}
         removeJob={handleRemoveJob}
-        addMode={
-          interactionMode === "add-vehicle"
-            ? "vehicle"
-            : interactionMode === "add-job"
-              ? "job"
-              : null
-        }
+        addMode={computedAddMode}
         cancelAddMode={handleCancelAddMode}
         startRouting={startRouting}
         isCalculatingRoute={isCalculatingRoute}
@@ -304,7 +345,7 @@ export function GISMap() {
         fetchVehicles={fetchVehicles}
         isTracking={isTracking}
         toggleTracking={toggleTracking}
-        hasRoute={!!routeData}
+        hasRoute={hasRoute}
       />
       <div className="relative flex-1">
         <MapContainer
@@ -323,7 +364,7 @@ export function GISMap() {
           mapCenter={mapCenter}
           setMapCenter={setMapCenter}
           selectedVehicle={selectedVehicle}
-          customPOIs={showCustomPOIs ? customPOIs : []}
+          customPOIs={displayedCustomPOIs}
           fleetVehicles={fleetVehicles}
           fleetJobs={fleetJobs}
           selectedVehicleId={selectedVehicleId}

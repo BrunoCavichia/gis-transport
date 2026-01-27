@@ -51,26 +51,33 @@ export function useMapPOIManager({
         const snapLat = snapToGrid(center.lat);
         const snapLng = snapToGrid(center.lng);
 
+        // Fetch both in parallel to avoid race conditions
+        const [evStations, gasStations] = await Promise.all([
+            willFetchEV 
+                ? poiCache.fetchPOI(
+                    "ev",
+                    snapLat,
+                    snapLng,
+                    Math.ceil(radiusMeters),
+                    selectedVehicle.label,
+                  )
+                : Promise.resolve(null),
+            willFetchGas
+                ? poiCache.fetchPOI(
+                    "gas",
+                    snapLat,
+                    snapLng,
+                    Math.ceil(Math.min(radiusMeters, THEME.map.poi.maxGasRadius)),
+                    selectedVehicle.label,
+                  )
+                : Promise.resolve(null),
+        ]);
+
+        // Update state for fetched stations
         if (willFetchEV) {
-            const evStations = await poiCache.fetchPOI(
-                "ev",
-                snapLat,
-                snapLng,
-                Math.ceil(radiusMeters),
-                selectedVehicle.label,
-            );
             setDynamicEVStations(evStations || []);
         }
-
         if (willFetchGas) {
-            const gasRadius = Math.min(radiusMeters, THEME.map.poi.maxGasRadius);
-            const gasStations = await poiCache.fetchPOI(
-                "gas",
-                snapLat,
-                snapLng,
-                Math.ceil(gasRadius),
-                selectedVehicle.label,
-            );
             setDynamicGasStations(gasStations || []);
         }
     }, [
