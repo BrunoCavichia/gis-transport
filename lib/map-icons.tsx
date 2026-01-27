@@ -1,8 +1,6 @@
 import L from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  Fuel,
-  Zap,
   MapPin,
   Package,
   Store,
@@ -162,10 +160,6 @@ const createMapIcon = (
  */
 function createMapIcons() {
   return {
-    // Stations
-    gasStation: createMapIcon(Fuel, "#f97316"),
-    evStation: createMapIcon(Zap, "#22c55e"),
-
     // Routing
     start: createMapIcon(Circle, THEME.colors.info, 28, 16, {
       isEnd: true,

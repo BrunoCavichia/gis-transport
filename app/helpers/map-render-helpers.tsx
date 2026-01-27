@@ -6,11 +6,8 @@ import type { POI, FleetVehicle, FleetJob, CustomPOI, VehicleType } from "@/lib/
 
 interface RenderPOIsProps {
   stations: POI[];
-  icon: any;
   isEV?: boolean;
   isRouting: boolean;
-  useDots?: boolean;
-  isExiting?: boolean;
 }
 
 interface RenderVehiclesProps {
@@ -36,88 +33,32 @@ interface RenderCustomPOIsProps {
 
 export function renderPOIs({
   stations,
-  icon,
   isRouting,
   isEV = false,
-  useDots = false,
-  isExiting = false,
 }: RenderPOIsProps) {
   const type = isEV ? "ev" : "gas";
   const color = POI_CONFIG[type].color;
 
-  if (!useDots && !icon) {
-    console.error(`[renderPOIs] No icon for ${type}! icon=${icon}`);
-    return null;
-  }
-
   return (stations || []).map((station) => {
     const pos = station.position as [number, number];
 
-    if (useDots) {
-      return (
-        <CircleMarker
-          key={`dot-${station.id}`}
-          center={pos}
-          radius={5}
-          pathOptions={{
-            fillColor: color,
-            fillOpacity: 0.9,
-            color: "white",
-            weight: 1.5,
-          }}
-          interactive={true}
-        >
-          <Tooltip direction="top" offset={[0, -5]} opacity={0.8}>
-            <span style={{ fontSize: 10 }}>{station.name}</span>
-          </Tooltip>
-        </CircleMarker>
-      );
-    }
-
     return (
-      <Marker
-        key={station.id}
-        position={pos}
-        icon={icon}
-        eventHandlers={{
-          add: (e) => {
-            if (isExiting) {
-              e.target.getElement()?.classList.add("exiting");
-            }
-          },
+      <CircleMarker
+        key={`dot-${station.id}`}
+        center={pos}
+        radius={5}
+        pathOptions={{
+          fillColor: color,
+          fillOpacity: 0.9,
+          color: "white",
+          weight: 1.5,
         }}
+        interactive={true}
       >
-        <Tooltip
-          direction="top"
-          offset={THEME.map.popups.tooltipOffset}
-          opacity={THEME.map.popups.tooltipOpacity}
-        >
-          <span style={{ fontSize: THEME.map.popups.fontSize }}>
-            {station.name}
-          </span>
+        <Tooltip direction="top" offset={[0, -5]} opacity={0.8}>
+          <span style={{ fontSize: 10 }}>{station.name}</span>
         </Tooltip>
-        {!isRouting && (
-          <Popup offset={[0, -30]}>
-            <div style={{ fontSize: THEME.map.popups.fontSize }}>
-              <strong>{station.name}</strong>
-              <div
-                style={{
-                  marginTop: THEME.map.popups.padding,
-                  color: THEME.colors.textMuted,
-                  fontSize: THEME.map.popups.subtitleFontSize,
-                }}
-              ></div>
-              <div style={{ marginTop: 6 }}>
-                {isEV
-                  ? station.connectors
-                    ? `${station.connectors} connectors`
-                    : "EV station"
-                  : station.address}
-              </div>
-            </div>
-          </Popup>
-        )}
-      </Marker>
+      </CircleMarker>
     );
   });
 }

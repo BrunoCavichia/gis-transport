@@ -130,7 +130,7 @@ export default memo(function MapContainer({
   );
 
   const mapIcons = useMemo(() => createMapIcons(), []);
-  const { job, customPOI, picking, vehicle, weather, gasStation, evStation } = mapIcons;
+  const { job, customPOI, picking, vehicle, weather } = mapIcons;
   const { snow, rain, ice, wind, fog } = weather;
 
   const canAccessZone = useCallback(
@@ -147,37 +147,21 @@ export default memo(function MapContainer({
 
   const renderedGasStations = useMemo(() => {
     if (!layers.gasStations || !shouldShowZoomLevelPOIs) return null;
-    const shouldRenderIcons = showIcons || isExitingIcons;
-    let stations = dynamicGasStations;
-    if (shouldRenderIcons && viewportBounds) {
-      stations = dynamicGasStations.filter(s => viewportBounds.contains(L.latLng(s.position[0], s.position[1])));
-    }
     return renderPOIs({
-      stations,
-      icon: gasStation,
+      stations: dynamicGasStations,
       isRouting,
-      useDots: !shouldRenderIcons,
       isEV: false,
-      isExiting: isExitingIcons,
     });
-  }, [layers.gasStations, dynamicGasStations, gasStation, isRouting, showIcons, isExitingIcons, viewportBounds, shouldShowZoomLevelPOIs]);
+  }, [layers.gasStations, dynamicGasStations, isRouting, shouldShowZoomLevelPOIs]);
 
   const renderedEVStations = useMemo(() => {
     if (!layers.evStations || !shouldShowZoomLevelPOIs) return null;
-    const shouldRenderIcons = showIcons || isExitingIcons;
-    let stations = dynamicEVStations;
-    if (shouldRenderIcons && viewportBounds) {
-      stations = dynamicEVStations.filter(s => viewportBounds.contains(L.latLng(s.position[0], s.position[1])));
-    }
     return renderPOIs({
-      stations,
-      icon: evStation,
+      stations: dynamicEVStations,
       isEV: true,
       isRouting,
-      useDots: !shouldRenderIcons,
-      isExiting: isExitingIcons,
     });
-  }, [layers.evStations, dynamicEVStations, evStation, isRouting, showIcons, isExitingIcons, viewportBounds, shouldShowZoomLevelPOIs]);
+  }, [layers.evStations, dynamicEVStations, isRouting, shouldShowZoomLevelPOIs]);
 
   const renderedCustomPOIs = useMemo(() => {
     return renderCustomPOIs({ customPOIs: customPOIs || [], isRouting, icon: customPOI });
