@@ -13,6 +13,16 @@ export function useLiveTracking({
     const [isTracking, setIsTracking] = useState(false);
     const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Refs for stable callback
+    const isTrackingRef = useRef(isTracking);
+    const routeDataRef = useRef(routeData);
+    const updateVehiclePositionRef = useRef(updateVehiclePosition);
+
+    // Keep refs in sync
+    useEffect(() => { isTrackingRef.current = isTracking; }, [isTracking]);
+    useEffect(() => { routeDataRef.current = routeData; }, [routeData]);
+    useEffect(() => { updateVehiclePositionRef.current = updateVehiclePosition; }, [updateVehiclePosition]);
+
     // Cleanup tracking on unmount
     useEffect(() => {
         return () => {
@@ -22,8 +32,13 @@ export function useLiveTracking({
         };
     }, []);
 
+    // STABLE callback - uses refs
     const toggleTracking = useCallback(() => {
-        if (isTracking) {
+        const tracking = isTrackingRef.current;
+        const routes = routeDataRef.current;
+        const updatePos = updateVehiclePositionRef.current;
+
+        if (tracking) {
             // Stop tracking
             if (trackingIntervalRef.current) {
                 clearInterval(trackingIntervalRef.current);
@@ -32,9 +47,9 @@ export function useLiveTracking({
             setIsTracking(false);
         } else {
             // Start tracking - pass route data to the API for simulation
-            if (routeData?.vehicleRoutes) {
+            if (routes?.vehicleRoutes) {
                 const activeRoutes: Record<string, [number, number][]> = {};
-                routeData.vehicleRoutes.forEach((route) => {
+                routes.vehicleRoutes.forEach((route) => {
                     if (route.vehicleId && route.coordinates) {
                         activeRoutes[route.vehicleId] = route.coordinates;
                     }
@@ -58,7 +73,7 @@ export function useLiveTracking({
                         const data = await res.json();
                         // Update each vehicle's position
                         Object.entries(data.positions || {}).forEach(([vehicleId, coords]) => {
-                            updateVehiclePosition(vehicleId, coords as [number, number]);
+                            updatePos(vehicleId, coords as [number, number]);
                         });
                     }
                 } catch (err) {
@@ -66,7 +81,7 @@ export function useLiveTracking({
                 }
             }, 2000); // Poll every 2 seconds
         }
-    }, [isTracking, routeData, updateVehiclePosition]);
+    }, []); // Empty deps = stable reference
 
     return {
         isTracking,
@@ -74,3 +89,4 @@ export function useLiveTracking({
         setIsTracking,
     };
 }
+

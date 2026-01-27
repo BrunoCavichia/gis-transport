@@ -30,6 +30,22 @@ export function useRouting({
 
     const lastRoutingKeyRef = useRef<string>("");
 
+    // Store current values in refs to make startRouting stable
+    const fleetVehiclesRef = useRef(fleetVehicles);
+    const fleetJobsRef = useRef(fleetJobs);
+    const customPOIsRef = useRef(customPOIs);
+    const activeZonesRef = useRef(activeZones);
+    const removeJobRef = useRef(removeJob);
+    const setLayersRef = useRef(setLayers);
+
+    // Keep refs in sync with props
+    useEffect(() => { fleetVehiclesRef.current = fleetVehicles; }, [fleetVehicles]);
+    useEffect(() => { fleetJobsRef.current = fleetJobs; }, [fleetJobs]);
+    useEffect(() => { customPOIsRef.current = customPOIs; }, [customPOIs]);
+    useEffect(() => { activeZonesRef.current = activeZones; }, [activeZones]);
+    useEffect(() => { removeJobRef.current = removeJob; }, [removeJob]);
+    useEffect(() => { setLayersRef.current = setLayers; }, [setLayers]);
+
     // Cleanup route data when vehicles/jobs are removed
     useEffect(() => {
         if (routeData) {
@@ -59,11 +75,19 @@ export function useRouting({
         setIsCalculatingRoute(false);
     }, []);
 
+    // STABLE callback - uses refs to access current values
     const startRouting = useCallback(async () => {
+        const vehicles = fleetVehiclesRef.current;
+        const jobs = fleetJobsRef.current;
+        const pois = customPOIsRef.current;
+        const zones = activeZonesRef.current;
+        const doRemoveJob = removeJobRef.current;
+        const doSetLayers = setLayersRef.current;
+
         const key = JSON.stringify({
-            vehicles: fleetVehicles.map((v) => ({ id: v.id, coords: v.coords, type: v.type })),
-            jobs: fleetJobs.map((j) => ({ id: j.id, coords: j.coords })),
-            selectedPOIs: customPOIs
+            vehicles: vehicles.map((v) => ({ id: v.id, coords: v.coords, type: v.type })),
+            jobs: jobs.map((j) => ({ id: j.id, coords: j.coords })),
+            selectedPOIs: pois
                 .filter((poi) => poi.selectedForFleet)
                 .map((p) => ({ id: p.id, coords: p.position })),
         });
@@ -71,7 +95,7 @@ export function useRouting({
         if (key === lastRoutingKeyRef.current) return;
         lastRoutingKeyRef.current = key;
 
-        const selectedPOIsAsJobs = customPOIs
+        const selectedPOIsAsJobs = pois
             .filter((poi) => poi.selectedForFleet)
             .map((poi) => ({
                 id: poi.id,
@@ -79,8 +103,8 @@ export function useRouting({
                 label: `POI: ${poi.name}`,
             }));
 
-        const allFleetJobs = [...fleetJobs, ...selectedPOIsAsJobs];
-        if (fleetVehicles.length === 0 || allFleetJobs.length === 0) {
+        const allFleetJobs = [...jobs, ...selectedPOIsAsJobs];
+        if (vehicles.length === 0 || allFleetJobs.length === 0) {
             alert("You need at least 1 vehicle and 1 job or selected POI");
             return;
         }
@@ -92,10 +116,10 @@ export function useRouting({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    vehicles: fleetVehicles,
+                    vehicles: vehicles,
                     jobs: allFleetJobs,
                     startTime: new Date().toISOString(),
-                    zones: activeZones,
+                    zones: zones,
                 }),
             });
 
@@ -106,7 +130,7 @@ export function useRouting({
 
             const data: RouteData = await res.json();
             setRouteData(data);
-            setLayers((prev) => ({ ...prev, route: true }));
+            doSetLayers((prev) => ({ ...prev, route: true }));
 
             // Process unassigned jobs as errors
             const unassignedErrors: RouteError[] = (data.unassignedJobs || []).map(
@@ -129,7 +153,7 @@ export function useRouting({
             // If there are unassigned jobs, remove them from the fleet as requested
             if (data.unassignedJobs && data.unassignedJobs.length > 0) {
                 data.unassignedJobs.forEach((uj) => {
-                    removeJob(uj.id);
+                    doRemoveJob(uj.id);
                 });
             }
         } catch (err) {
@@ -139,14 +163,7 @@ export function useRouting({
         } finally {
             setIsCalculatingRoute(false);
         }
-    }, [
-        fleetVehicles,
-        fleetJobs,
-        customPOIs,
-        activeZones,
-        setLayers,
-        removeJob,
-    ]);
+    }, []); // Empty deps = stable reference
 
     return {
         routeData,
@@ -162,3 +179,4 @@ export function useRouting({
         clearRoute,
     };
 }
+

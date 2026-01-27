@@ -1,6 +1,9 @@
 // lib/hooks/use-fleet.ts
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { VehicleType, FleetJob, FleetVehicle } from "@/lib/types";
+
+const EMPTY_VEHICLES: FleetVehicle[] = [];
+const EMPTY_JOBS: FleetJob[] = [];
 
 /**
  * Custom hook to manage fleet state and operations
@@ -9,8 +12,8 @@ import type { VehicleType, FleetJob, FleetVehicle } from "@/lib/types";
  * @returns Object with state and functions to manipulate the fleet
  */
 export function useFleet(
-  initialVehicles: FleetVehicle[] = [],
-  initialJobs: FleetJob[] = []
+  initialVehicles: FleetVehicle[] = EMPTY_VEHICLES,
+  initialJobs: FleetJob[] = EMPTY_JOBS
 ) {
   // Hook states
   const [fleetVehicles, setFleetVehicles] =
@@ -21,6 +24,10 @@ export function useFleet(
   );
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
 
+  // Ref to stabilize fetchVehicles callback
+  const initialVehiclesRef = useRef(initialVehicles);
+  useEffect(() => { initialVehiclesRef.current = initialVehicles; }, [initialVehicles]);
+
   // Function to clear all fleet data
   const clearFleet = useCallback(() => {
     setFleetVehicles([]);
@@ -28,8 +35,9 @@ export function useFleet(
     setSelectedVehicleId(null);
   }, []);
 
-  // Simulate vehicle fetching from a physical device
+  // Simulate vehicle fetching from a physical device - STABLE callback
   const fetchVehicles = useCallback(async () => {
+    const initVehicles = initialVehiclesRef.current;
     setIsLoadingVehicles(true);
     try {
       // Simulating network/device delay
@@ -39,7 +47,7 @@ export function useFleet(
         {
           id: `phys-${Date.now()}-1`,
           coords: [40.4233, -3.7121],
-          type: initialVehicles[0]?.type || {
+          type: initVehicles[0]?.type || {
             id: "zero",
             label: "Zero Emission Vehicle",
             tags: ["0", "eco"],
@@ -50,7 +58,7 @@ export function useFleet(
         {
           id: `phys-${Date.now()}-2`,
           coords: [40.415, -3.702],
-          type: initialVehicles[0]?.type || {
+          type: initVehicles[0]?.type || {
             id: "eco",
             label: "ECO Vehicle",
             tags: ["eco"],
@@ -66,7 +74,8 @@ export function useFleet(
     } finally {
       setIsLoadingVehicles(false);
     }
-  }, [initialVehicles]);
+  }, []); // Empty deps = stable reference
+
 
   const generateId = (prefix = "id"): string => {
     if (typeof globalThis.crypto?.randomUUID === "function") {
@@ -74,15 +83,9 @@ export function useFleet(
     }
 
     const time = Date.now().toString(36);
-    const random = Math.random()
-      .toString(36)
-      .slice(2)
-      .padEnd(8, "0")
-      .slice(0, 8);
-
+    const random = Math.random().toString(36).slice(2, 10);
     return `${prefix}-${time}-${random}`;
   };
-
 
   // Function to add a vehicle at specific coordinates
   const addVehicleAt = useCallback(

@@ -328,6 +328,10 @@ export const AddJobDialog = memo(function AddJobDialog({
         onOpenChange(open);
     }, [onOpenChange]);
 
+    const handleCancel = useCallback(() => handleCloseChange(false), [handleCloseChange]);
+    const handleBackToStep1 = useCallback(() => setStep(1), []);
+    const handleBackToStep2 = useCallback(() => setStep(2), []);
+
     return (
         <Dialog open={isOpen} onOpenChange={handleCloseChange}>
             <DialogContent className="max-w-md p-0 overflow-hidden border-none shadow-2xl">
@@ -358,7 +362,7 @@ export const AddJobDialog = memo(function AddJobDialog({
                             onLongitudeChange={setLongitude}
                             onAddressSelect={handleAddressSelect}
                             onPickFromMap={onStartPicking}
-                            onCancel={() => handleCloseChange(false)}
+                            onCancel={handleCancel}
                             onNext={handleToPreview}
                         />
                     )}
@@ -369,7 +373,7 @@ export const AddJobDialog = memo(function AddJobDialog({
                             longitude={longitude}
                             parsedCoords={parsedCoords}
                             isLoading={isLoading}
-                            onBack={() => setStep(1)}
+                            onBack={handleBackToStep1}
                             onNext={handleConfirmLocation}
                         />
                     )}
@@ -381,7 +385,7 @@ export const AddJobDialog = memo(function AddJobDialog({
                             longitude={longitude}
                             isLoading={isLoading}
                             onLabelChange={setLabel}
-                            onBack={() => setStep(2)}
+                            onBack={handleBackToStep2}
                             onSubmit={handleSubmit}
                         />
                     )}

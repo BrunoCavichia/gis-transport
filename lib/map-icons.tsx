@@ -17,6 +17,11 @@ import {
 import { THEME } from "./theme";
 
 /**
+ * Icon Cache to ensure stable references and prevent unnecessary re-renders
+ */
+const iconCache: Record<string, L.DivIcon> = {};
+
+/**
  * Needle & Glass map icon factory
  */
 const createMapIcon = (
@@ -32,6 +37,14 @@ const createMapIcon = (
     opacity?: number;
   } = {}
 ) => {
+  // Generate a unique cache key
+  const iconName = IconComponent.displayName || IconComponent.name || 'icon';
+  const cacheKey = `${iconName}-${color}-${size}-${iconSize}-${JSON.stringify(options)}`;
+
+  if (iconCache[cacheKey]) {
+    return iconCache[cacheKey];
+  }
+
   const baseColor = color.startsWith("#") ? color.slice(0, 7) : color;
   const isSolid = options.opacity === 1;
   const alphaValue =
@@ -133,12 +146,15 @@ const createMapIcon = (
     </div>
   );
 
-  return L.divIcon({
+  const icon = L.divIcon({
     html,
     className: "custom-marker-needle",
     iconSize: [size, size + 12],
     iconAnchor: [size / 2, size + 10],
   });
+
+  iconCache[cacheKey] = icon;
+  return icon;
 };
 
 /**
