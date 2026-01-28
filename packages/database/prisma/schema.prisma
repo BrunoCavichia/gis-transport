@@ -52,3 +52,28 @@ model VehicleMetric {
   // Metrics
   jobsAssigned        Int
 }
+
+model GeoZone {
+  id        String   @id @default(uuid())
+  osmId     String   @unique
+  name      String
+  type      String   // "LEZ", "ENVIRONMENTAL", "PEDESTRIAN", "RESTRICTED"
+  
+  // Geometry stored as JSON string for SQLite 
+  // Should follow the [ [lat, lon], ... ] pattern or GeoJSON
+  geometry  String
+  
+  // Metadata for filtering and UI
+  metadata  String?  // JSON with extra OSM tags
+  
+  // Boundary box for fast spatial queries
+  minLat    Float
+  maxLat    Float
+  minLon    Float
+  maxLon    Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([minLat, maxLat, minLon, maxLon])
+}

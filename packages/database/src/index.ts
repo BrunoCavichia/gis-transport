@@ -1,9 +1,10 @@
 import { PrismaClient } from "@prisma/client";
-import { GisDashboardData } from "@gis/shared";
+import { GisDashboardData, Zone } from "@gis/shared";
 
 export interface IGisRepository {
     getLatestSnapshot(): Promise<GisDashboardData | null>;
     saveSnapshot(data: any): Promise<string>;
+    getZones(lat: number, lon: number, radiusMs: number): Promise<Zone[]>;
 }
 
 export class PrismaGisRepository implements IGisRepository {
@@ -64,6 +65,34 @@ export class PrismaGisRepository implements IGisRepository {
         });
 
         return snapshot.id;
+    }
+
+    async getZones(lat: number, lon: number, radiusMs: number): Promise<Zone[]> {
+        // Approximate degrees for radius (111km per degree)
+        const radiusDeg = radiusMs / 111000;
+
+        const rawZones = await this.prisma.geoZone.findMany({
+            where: {
+                OR: [
+                    {
+                        // Check if the search point is within the BBox
+                        minLat: { lte: lat + radiusDeg },
+                        maxLat: { gte: lat - radiusDeg },
+                        minLon: { lte: lon + radiusDeg },
+                        maxLon: { gte: lon - radiusDeg },
+                    }
+                ]
+            }
+        });
+
+        return rawZones.map(rz => ({
+            id: rz.osmId,
+            name: rz.name,
+            type: rz.type as any,
+            coordinates: JSON.parse(rz.geometry),
+            description: rz.metadata || "",
+            requiredTags: rz.type === "PEDESTRIAN" ? [] : ["eco", "zero"]
+        }));
     }
 }
 
