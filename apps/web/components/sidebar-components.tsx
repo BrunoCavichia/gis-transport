@@ -15,7 +15,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -39,10 +38,10 @@ SidebarLogo.displayName = "SidebarLogo";
 
 // --- NavigationButton ---
 interface NavigationButtonProps {
-  tabId: "fleet" | "layers";
-  activeTab: "fleet" | "layers" | "settings";
+  tabId: "fleet" | "layers" | "dashboard";
+  activeTab: "fleet" | "layers" | "dashboard" | "settings";
   isExpanded: boolean;
-  onClick: (tab: "fleet" | "layers" | "settings") => void;
+  onClick: (tab: "fleet" | "layers" | "dashboard" | "settings") => void;
   label: string;
   icon: React.ElementType;
 }

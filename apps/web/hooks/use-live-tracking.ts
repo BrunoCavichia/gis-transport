@@ -3,25 +3,77 @@ import type { RouteData } from "@/lib/types";
 
 interface UseLiveTrackingProps {
     routeData: RouteData | null;
+    selectedVehicleId: string | number | null;
     updateVehiclePosition: (vehicleId: string, coords: [number, number]) => void;
+    updateVehicleMetrics: (vehicleId: string, metrics: any) => void;
 }
 
 export function useLiveTracking({
     routeData,
+    selectedVehicleId,
     updateVehiclePosition,
+    updateVehicleMetrics,
 }: UseLiveTrackingProps) {
     const [isTracking, setIsTracking] = useState(false);
     const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const lastTimestampRef = useRef(0);
 
     // Refs for stable callback
     const isTrackingRef = useRef(isTracking);
     const routeDataRef = useRef(routeData);
     const updateVehiclePositionRef = useRef(updateVehiclePosition);
+    const updateVehicleMetricsRef = useRef(updateVehicleMetrics);
+    const selectedVehicleIdRef = useRef(selectedVehicleId);
 
     // Keep refs in sync
     useEffect(() => { isTrackingRef.current = isTracking; }, [isTracking]);
     useEffect(() => { routeDataRef.current = routeData; }, [routeData]);
     useEffect(() => { updateVehiclePositionRef.current = updateVehiclePosition; }, [updateVehiclePosition]);
+    useEffect(() => { updateVehicleMetricsRef.current = updateVehicleMetrics; }, [updateVehicleMetrics]);
+    useEffect(() => { selectedVehicleIdRef.current = selectedVehicleId; }, [selectedVehicleId]);
+
+    const fetchPositions = useCallback(async () => {
+        const updatePos = updateVehiclePositionRef.current;
+        const updateMet = updateVehicleMetricsRef.current;
+        const vehicleId = selectedVehicleIdRef.current;
+
+        try {
+            const url = vehicleId ? `/api/gps/positions?vehicleId=${vehicleId}` : "/api/gps/positions";
+            const res = await fetch(url);
+
+            if (res.ok) {
+                const data = await res.json();
+
+                // Ignore out-of-order or stale responses
+                if (data.timestamp && data.timestamp < lastTimestampRef.current) {
+                    return;
+                }
+                lastTimestampRef.current = data.timestamp;
+
+                // Update each vehicle's position and metrics
+                if (data.positions) {
+                    Object.entries(data.positions).forEach(([vid, coords]) => {
+                        updatePos(vid, coords as [number, number]);
+                    });
+                }
+
+                if (data.metrics) {
+                    Object.entries(data.metrics).forEach(([vid, metrics]) => {
+                        updateMet(vid, metrics);
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("GPS poll error:", err);
+        }
+    }, []);
+
+    // Immediate fetch when selected vehicle changes for snappier UI
+    useEffect(() => {
+        if (isTracking && selectedVehicleId) {
+            fetchPositions();
+        }
+    }, [selectedVehicleId, isTracking, fetchPositions]);
 
     // Cleanup tracking on unmount
     useEffect(() => {
@@ -36,7 +88,6 @@ export function useLiveTracking({
     const toggleTracking = useCallback(() => {
         const tracking = isTrackingRef.current;
         const routes = routeDataRef.current;
-        const updatePos = updateVehiclePositionRef.current;
 
         if (tracking) {
             // Stop tracking
@@ -49,7 +100,7 @@ export function useLiveTracking({
             // Start tracking - pass route data to the API for simulation
             if (routes?.vehicleRoutes) {
                 const activeRoutes: Record<string, [number, number][]> = {};
-                routes.vehicleRoutes.forEach((route) => {
+                routes.vehicleRoutes.forEach((route: any) => {
                     if (route.vehicleId && route.coordinates) {
                         activeRoutes[route.vehicleId] = route.coordinates;
                     }
@@ -65,23 +116,13 @@ export function useLiveTracking({
 
             setIsTracking(true);
 
-            // Start polling for GPS updates
-            trackingIntervalRef.current = setInterval(async () => {
-                try {
-                    const res = await fetch("/api/gps/positions");
-                    if (res.ok) {
-                        const data = await res.json();
-                        // Update each vehicle's position
-                        Object.entries(data.positions || {}).forEach(([vehicleId, coords]) => {
-                            updatePos(vehicleId, coords as [number, number]);
-                        });
-                    }
-                } catch (err) {
-                    console.error("GPS poll error:", err);
-                }
-            }, 2000); // Poll every 2 seconds
+            // Start polling for updates
+            trackingIntervalRef.current = setInterval(fetchPositions, 4000);
+
+            // Initial fetch
+            fetchPositions();
         }
-    }, []); // Empty deps = stable reference
+    }, [fetchPositions]); // Empty deps = stable reference
 
     return {
         isTracking,
@@ -89,4 +130,3 @@ export function useLiveTracking({
         setIsTracking,
     };
 }
-

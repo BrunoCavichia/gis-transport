@@ -1,6 +1,6 @@
 // lib/hooks/use-fleet.ts
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { VehicleType, FleetJob, FleetVehicle } from "@gis/shared";
+import type { VehicleType, FleetJob, FleetVehicle, VehicleMetrics } from "@gis/shared";
 
 const EMPTY_VEHICLES: FleetVehicle[] = [];
 const EMPTY_JOBS: FleetJob[] = [];
@@ -55,6 +55,15 @@ export function useFleet(
             description: "Full electric",
             vroomType: "car",
           },
+          metrics: {
+            speed: 0,
+            batteryLevel: 85,
+            distanceTotal: 12450,
+            status: "idle",
+            movementState: "stopped",
+            health: 98,
+            updatedAt: Date.now(),
+          } as VehicleMetrics,
         },
         {
           id: `phys-${Date.now()}-2`,
@@ -67,6 +76,15 @@ export function useFleet(
             description: "Hybrid",
             vroomType: "car",
           },
+          metrics: {
+            speed: 0,
+            fuelLevel: 62,
+            distanceTotal: 45120,
+            status: "idle",
+            movementState: "stopped",
+            health: 92,
+            updatedAt: Date.now(),
+          } as VehicleMetrics,
         },
       ];
 
@@ -146,6 +164,17 @@ export function useFleet(
   }, []);
 
   /**
+   * Update a vehicle's telemetry metrics
+   */
+  const updateVehicleMetrics = useCallback((vehicleId: string | number, metrics: VehicleMetrics) => {
+    setFleetVehicles((prev) =>
+      prev.map((v) =>
+        v.id === vehicleId ? { ...v, metrics } : v
+      )
+    );
+  }, []);
+
+  /**
    * Update a vehicle's type (label/tag)
    */
   const updateVehicleType = useCallback((vehicleId: string | number, newType: VehicleType) => {
@@ -175,6 +204,7 @@ export function useFleet(
     removeVehicle,
     removeJob,
     updateVehiclePosition,
+    updateVehicleMetrics,
     updateVehicleType,
   };
 }

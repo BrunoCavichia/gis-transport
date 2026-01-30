@@ -8,6 +8,12 @@ export type LatLon = z.infer<typeof LatLonSchema>;
 export const RiskLevelSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 export type RiskLevel = z.infer<typeof RiskLevelSchema>;
 
+export const RoadInfoSchema = z.object({
+    maxSpeed: z.number().optional(),
+    roadName: z.string().optional(),
+});
+export type RoadInfo = z.infer<typeof RoadInfoSchema>;
+
 // Domain - POI
 export const POISchema = z.object({
     id: z.string(),
@@ -57,11 +63,42 @@ export const VehicleTypeSchema = z.object({
 });
 export type VehicleType = z.infer<typeof VehicleTypeSchema>;
 
+export const MovementStateSchema = z.enum(["stopped", "moving", "on_route"]);
+export type MovementState = z.infer<typeof MovementStateSchema>;
+
+export const VehicleStatusSchema = z.enum(["active", "idle", "maintenance", "offline"]);
+export type VehicleStatus = z.infer<typeof VehicleStatusSchema>;
+
+export const DriverSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    licenseNumber: z.string().optional(),
+});
+export type Driver = z.infer<typeof DriverSchema>;
+
+export const VehicleMetricsSchema = z.object({
+    fuelLevel: z.number().min(0).max(100).optional(),
+    batteryLevel: z.number().min(0).max(100).optional(),
+    distanceTotal: z.number(),
+    speed: z.number(),
+    maxSpeed: z.number().optional(),
+    address: z.string().optional(),
+    health: z.number().min(0).max(100),
+    consumptionAverage: z.number().optional(),
+    status: VehicleStatusSchema,
+    movementState: MovementStateSchema,
+    updatedAt: z.number(),
+});
+export type VehicleMetrics = z.infer<typeof VehicleMetricsSchema>;
+
 export const FleetVehicleSummarySchema = z.object({
     id: z.union([z.string(), z.number()]),
     type: z.string(),
     label: z.string(),
     position: LatLonSchema,
+    licensePlate: z.string().optional(),
+    driver: DriverSchema.optional(),
+    metrics: VehicleMetricsSchema.optional(),
 });
 export type FleetVehicleSummary = z.infer<typeof FleetVehicleSummarySchema>;
 
@@ -70,6 +107,13 @@ export const FleetOverviewSchema = z.object({
     activeVehicles: z.number(),
     vehiclesByType: z.record(z.string(), z.number()),
     vehicles: z.array(FleetVehicleSummarySchema),
+    kpis: z.object({
+        averageFuel: z.number().optional(),
+        averageBattery: z.number().optional(),
+        totalDistance: z.number(),
+        activeRate: z.number(),
+        averageHealth: z.number(),
+    }).optional(),
 });
 export type FleetOverview = z.infer<typeof FleetOverviewSchema>;
 
@@ -78,6 +122,9 @@ export const FleetVehicleSchema = z.object({
     type: VehicleTypeSchema,
     label: z.string(),
     position: LatLonSchema,
+    licensePlate: z.string().optional(),
+    driver: DriverSchema.optional(),
+    metrics: VehicleMetricsSchema.optional(),
 });
 export type FleetVehicle = z.infer<typeof FleetVehicleSchema>;
 
@@ -422,3 +469,4 @@ export interface IGisResponse<T = unknown> {
         details?: string;
     };
 }
+export * from "./overpass-client";

@@ -68,6 +68,7 @@ export function GISMap() {
     isLoadingVehicles,
     fetchVehicles,
     updateVehiclePosition,
+    updateVehicleMetrics,
     updateVehicleType,
   } = useFleet();
 
@@ -127,9 +128,17 @@ export function GISMap() {
     [updateVehiclePosition],
   );
 
+  const handleUpdateVehicleMetrics = useCallback(
+    (vehicleId: string | number, metrics: any) =>
+      updateVehicleMetrics(String(vehicleId), metrics),
+    [updateVehicleMetrics],
+  );
+
   const { isTracking, toggleTracking } = useLiveTracking({
     routeData,
+    selectedVehicleId,
     updateVehiclePosition: handleUpdateVehiclePosition,
+    updateVehicleMetrics: handleUpdateVehicleMetrics,
   });
 
   const clearAll = useCallback(() => {

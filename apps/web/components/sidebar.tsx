@@ -14,6 +14,7 @@ import {
   Package,
   Warehouse,
   Route,
+  LayoutDashboard,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ const STABLE_NOOP = () => { };
 const STABLE_PROMISE_NOOP = () => Promise.resolve();
 
 import { FleetJob, FleetVehicle } from "@/lib/types";
+import { FleetDashboard } from "@/components/fleet-dashboard";
 
 interface SidebarProps {
   layers: LayerVisibility;
@@ -72,7 +74,7 @@ interface SidebarProps {
   hasRoute?: boolean;
 }
 
-type SidebarTab = "fleet" | "layers" | "settings";
+type SidebarTab = "fleet" | "layers" | "dashboard" | "settings";
 
 interface NavigationRailProps {
   activeTab: SidebarTab;
@@ -107,6 +109,15 @@ const NavigationRail = memo(
         onClick={onSetTab}
         label="Capas y POIs"
         icon={Layers}
+      />
+
+      <NavigationButton
+        tabId="dashboard"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onClick={onSetTab}
+        label="Dashboard"
+        icon={LayoutDashboard}
       />
 
       <div className="flex-1" />
@@ -159,7 +170,7 @@ const FleetTab = memo(
     toggleTracking,
     hasRoute,
   }: FleetTabProps) => (
-    <div className="flex flex-col h-full min-w-[20rem]">
+    <div className="flex flex-col h-auto min-h-0 min-w-0">
       <div className="p-5 border-b border-border/10">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-black tracking-tight text-foreground">
@@ -300,7 +311,7 @@ const LayersTab = memo(
     removeCustomPOI,
     clearAllCustomPOIs,
   }: LayersTabProps) => (
-    <div className="flex flex-col h-full min-w-[20rem]">
+    <div className="flex flex-col h-auto min-h-0 min-w-0">
       <div className="p-5 border-b border-border/10">
         <h2 className="text-xl font-black tracking-tight text-foreground">
           Capas
@@ -482,7 +493,7 @@ export const Sidebar = memo(function Sidebar({
   );
 
   return (
-    <div className="fixed left-4 top-4 bottom-4 z-[1000] flex pointer-events-none">
+    <div className="fixed left-4 top-4 z-[1000] flex pointer-events-none max-h-[calc(100vh-2rem)]">
       <NavigationRail
         activeTab={activeTab}
         isExpanded={isExpanded}
@@ -492,9 +503,14 @@ export const Sidebar = memo(function Sidebar({
 
       <div
         className={cn(
-          "h-full ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto",
+          "ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto h-auto max-h-full",
           isExpanded
-            ? "w-80 opacity-100 translate-x-0"
+            ? cn(
+              "opacity-100 translate-x-0",
+              activeTab === "dashboard"
+                ? selectedVehicleId !== null ? "w-[32rem]" : (fleetVehicles.length > 3 ? "w-[28rem]" : "w-80")
+                : "w-80"
+            )
             : "w-0 opacity-0 -translate-x-10",
         )}
       >
@@ -529,6 +545,11 @@ export const Sidebar = memo(function Sidebar({
             removeCustomPOI={removeCustomPOI}
             clearAllCustomPOIs={clearAllCustomPOIs}
           />
+        )}
+        {activeTab === "dashboard" && (
+          <ScrollArea className="flex-1 h-auto min-h-0 min-w-0">
+            <FleetDashboard vehicles={fleetVehicles} jobs={fleetJobs} isTracking={isTracking} />
+          </ScrollArea>
         )}
       </div>
     </div>

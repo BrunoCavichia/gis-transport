@@ -1,16 +1,7 @@
-import axios from "axios";
 import { PrismaClient } from "@prisma/client";
+import { OverpassClient, OverpassElement } from "@gis/shared";
 
 const prisma = new PrismaClient();
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
-
-interface OverpassElement {
-    type: string;
-    id: number;
-    tags?: Record<string, string>;
-    geometry?: { lat: number; lon: number }[];
-    members?: { type: string; ref: number; role: string; geometry?: { lat: number; lon: number }[] }[];
-}
 
 const MAJOR_CITIES = [
     "Madrid", "Barcelona", "Valencia", "Sevilla", "Zaragoza", "Málaga", "Murcia",
@@ -31,11 +22,8 @@ async function queryOverpass(city: string, retryCount = 0): Promise<OverpassElem
     `;
 
     try {
-        const response = await axios.post(OVERPASS_URL, query, {
-            headers: { "Content-Type": "text/plain" },
-            timeout: 150000
-        });
-        return response.data.elements as OverpassElement[];
+        const data = await OverpassClient.query(query, { timeout: 150000 });
+        return data.elements || [];
     } catch (error: any) {
         if (retryCount < 3) {
             const delay = (retryCount + 1) * 15000;
@@ -63,12 +51,9 @@ async function extractZBE() {
 
     try {
         console.log("📡 Sending national query (this may take up to 5 minutes)...");
-        const response = await axios.post(OVERPASS_URL, nationalQuery, {
-            headers: { "Content-Type": "text/plain" },
-            timeout: 320000
-        });
+        const data = await OverpassClient.query(nationalQuery, { timeout: 320000 });
 
-        const elements = response.data.elements as OverpassElement[];
+        const elements = data.elements || [];
         console.log(`📦 Found ${elements.length} zones across Spain!`);
         await saveElements(elements);
         console.log("✅ National data saved.");
