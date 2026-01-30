@@ -133,6 +133,11 @@ export const FleetJobSchema = z.object({
     label: z.string(),
     position: LatLonSchema,
     requirements: z.array(z.string()).optional(),
+    assignedVehicleId: z.union([z.string(), z.number()]).optional(),
+    sequence: z.number().optional(),
+    status: z.enum(["pending", "in_progress", "completed", "failed"]).default("pending"),
+    estimatedArrival: z.string().optional(),
+    completedAt: z.number().optional(),
 });
 export type FleetJob = z.infer<typeof FleetJobSchema>;
 

@@ -102,7 +102,7 @@ export const VEHICLE_TYPES: VehicleType[] = [
   },
 ];
 
-export type InteractionMode = "pick-poi" | "pick-job" | "add-vehicle" | "add-job" | null;
+export type InteractionMode = "pick-poi" | "pick-job" | "pick-stop" | "add-vehicle" | "add-job" | null;
 
 // Redundant types have been moved to @gis/shared and are re-exported above.
 

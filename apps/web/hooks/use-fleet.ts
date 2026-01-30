@@ -129,7 +129,25 @@ export function useFleet(
     setFleetJobs((prev) => {
       const next: FleetJob[] = [
         ...prev,
-        { id, position, label: label || `Job ${prev.length + 1}` },
+        { id, position, label: label || `Job ${prev.length + 1}`, status: "pending" },
+      ];
+      return next;
+    });
+  }, []);
+
+  // Function to add a stop (pinned job) to a specific vehicle
+  const addStopToVehicle = useCallback((vehicleId: string | number, position: [number, number], label?: string) => {
+    const id = generateId("stop");
+    setFleetJobs((prev) => {
+      const next: FleetJob[] = [
+        ...prev,
+        {
+          id,
+          position,
+          label: label || `Stop for ${vehicleId}`,
+          assignedVehicleId: vehicleId,
+          status: "pending"
+        },
       ];
       return next;
     });
@@ -201,6 +219,7 @@ export function useFleet(
     fetchVehicles,
     addVehicleAt,
     addJobAt,
+    addStopToVehicle,
     removeVehicle,
     removeJob,
     updateVehiclePosition,

@@ -23,6 +23,13 @@ interface FleetDashboardProps {
     vehicles: FleetVehicle[];
     jobs?: FleetJob[];
     isTracking?: boolean;
+    addStopToVehicle?: (vehicleId: string | number, position: [number, number], label?: string) => void;
+    startRouting?: () => void;
+    isAddStopOpen?: boolean;
+    setIsAddStopOpen?: (open: boolean) => void;
+    onStartPickingStop?: () => void;
+    pickedStopCoords?: [number, number] | null;
+    onAddStopSubmit?: (coords: [number, number], label: string) => void;
 }
 
 function getMovementLabel(state: MovementState): { label: string; color: string } {
@@ -38,7 +45,17 @@ function getMovementLabel(state: MovementState): { label: string; color: string 
     }
 }
 
-export function FleetDashboard({ vehicles, jobs = [] }: FleetDashboardProps) {
+export function FleetDashboard({
+    vehicles,
+    jobs = [],
+    addStopToVehicle,
+    startRouting,
+    isAddStopOpen,
+    setIsAddStopOpen,
+    onStartPickingStop,
+    pickedStopCoords,
+    onAddStopSubmit,
+}: FleetDashboardProps) {
     const [selectedVehicleId, setSelectedVehicleId] = useState<string | number | null>(null);
 
     // Get live vehicle data from the updated prop array
@@ -100,6 +117,13 @@ export function FleetDashboard({ vehicles, jobs = [] }: FleetDashboardProps) {
                         vehicle={selectedVehicle}
                         metrics={selectedVehicle.metrics ?? null}
                         jobs={jobs}
+                        addStopToVehicle={addStopToVehicle}
+                        startRouting={startRouting}
+                        isAddStopOpen={isAddStopOpen}
+                        setIsAddStopOpen={setIsAddStopOpen}
+                        onStartPickingStop={onStartPickingStop}
+                        pickedStopCoords={pickedStopCoords}
+                        onAddStopSubmit={onAddStopSubmit}
                         onClose={() => {
                             setSelectedVehicleId(null);
                         }}

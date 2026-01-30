@@ -283,13 +283,20 @@ export class RoutingService {
                 profile: vehicleToProfile[idx].name,
                 capacity: [ROUTING_CONFIG.MAX_CAPACITY]
             })),
-            jobs: jobs.map((job, jidx) => ({
-                id: vehicles.length + jidx,
-                location_index: vehicles.length + jidx,
-                service: ROUTING_CONFIG.DEFAULT_SERVICE_TIME,
-                delivery: [1],
-                description: job.label
-            })),
+            jobs: jobs.map((job, jidx) => {
+                const vehicleIdx = job.assignedVehicleId
+                    ? vehicles.findIndex(v => String(v.id) === String(job.assignedVehicleId))
+                    : -1;
+
+                return {
+                    id: vehicles.length + jidx,
+                    location_index: vehicles.length + jidx,
+                    service: ROUTING_CONFIG.DEFAULT_SERVICE_TIME,
+                    delivery: [1],
+                    description: job.label,
+                    ...(vehicleIdx !== -1 && { vehicle: vehicleIdx })
+                };
+            }),
             matrices: Object.entries(matrices).reduce((acc: Record<string, { durations: number[][] }>, [name, matrix]) => {
                 acc[name] = { durations: matrix };
                 return acc;

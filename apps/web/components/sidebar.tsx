@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { LayerVisibility, VehicleType, CustomPOI } from "@/lib/types";
+import type { LayerVisibility, VehicleType, CustomPOI, FleetJob, FleetVehicle } from "@gis/shared";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
 import {
   SidebarLogo,
@@ -32,7 +32,6 @@ import {
 const STABLE_NOOP = () => { };
 const STABLE_PROMISE_NOOP = () => Promise.resolve();
 
-import { FleetJob, FleetVehicle } from "@/lib/types";
 import { FleetDashboard } from "@/components/fleet-dashboard";
 
 interface SidebarProps {
@@ -49,6 +48,7 @@ interface SidebarProps {
   setSelectedVehicleId: (id: string | number | null) => void;
   addVehicle: () => void;
   addJob: () => void;
+  addStopToVehicle?: (vehicleId: string | number, position: [number, number], label?: string) => void;
   addJobDirectly?: (coords: [number, number], label: string) => void;
   removeVehicle: (vehicleId: string | number) => void;
   removeJob: (jobId: string | number) => void;
@@ -72,6 +72,11 @@ interface SidebarProps {
   isTracking?: boolean;
   toggleTracking?: () => void;
   hasRoute?: boolean;
+  isAddStopOpen?: boolean;
+  setIsAddStopOpen?: (open: boolean) => void;
+  onStartPickingStop?: () => void;
+  pickedStopCoords?: [number, number] | null;
+  onAddStopSubmit?: (coords: [number, number], label: string) => void;
 }
 
 type SidebarTab = "fleet" | "layers" | "dashboard" | "settings";
@@ -147,6 +152,11 @@ interface FleetTabProps {
   isTracking: boolean;
   toggleTracking: () => void;
   hasRoute: boolean;
+  isAddStopOpen?: boolean;
+  setIsAddStopOpen?: (open: boolean) => void;
+  onStartPickingStop?: () => void;
+  pickedStopCoords?: [number, number] | null;
+  onAddStopSubmit?: (coords: [number, number], label: string) => void;
 }
 
 const FleetTab = memo(
@@ -169,6 +179,11 @@ const FleetTab = memo(
     isTracking,
     toggleTracking,
     hasRoute,
+    isAddStopOpen,
+    setIsAddStopOpen,
+    onStartPickingStop,
+    pickedStopCoords,
+    onAddStopSubmit,
   }: FleetTabProps) => (
     <div className="flex flex-col h-auto min-h-0 min-w-0">
       <div className="p-5 border-b border-border/10">
@@ -431,6 +446,7 @@ export const Sidebar = memo(function Sidebar({
   selectedVehicleId,
   setSelectedVehicleId,
   addVehicle,
+  addStopToVehicle,
   removeVehicle,
   removeJob,
   addMode,
@@ -447,6 +463,11 @@ export const Sidebar = memo(function Sidebar({
   isTracking = false,
   toggleTracking,
   hasRoute = false,
+  isAddStopOpen,
+  setIsAddStopOpen,
+  onStartPickingStop,
+  pickedStopCoords,
+  onAddStopSubmit,
 }: SidebarProps) {
   // Local state for sidebar visibility
   const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
@@ -534,6 +555,11 @@ export const Sidebar = memo(function Sidebar({
             isTracking={isTracking ?? false}
             toggleTracking={toggleTracking ?? STABLE_NOOP}
             hasRoute={hasRoute ?? false}
+            isAddStopOpen={isAddStopOpen}
+            setIsAddStopOpen={setIsAddStopOpen}
+            onStartPickingStop={onStartPickingStop}
+            pickedStopCoords={pickedStopCoords}
+            onAddStopSubmit={onAddStopSubmit}
           />
         )}
         {activeTab === "layers" && (
@@ -548,7 +574,18 @@ export const Sidebar = memo(function Sidebar({
         )}
         {activeTab === "dashboard" && (
           <ScrollArea className="flex-1 h-auto min-h-0 min-w-0">
-            <FleetDashboard vehicles={fleetVehicles} jobs={fleetJobs} isTracking={isTracking} />
+            <FleetDashboard
+              vehicles={fleetVehicles}
+              jobs={fleetJobs}
+              isTracking={isTracking}
+              addStopToVehicle={addStopToVehicle}
+              startRouting={startRouting}
+              isAddStopOpen={isAddStopOpen}
+              setIsAddStopOpen={setIsAddStopOpen}
+              onStartPickingStop={onStartPickingStop}
+              pickedStopCoords={pickedStopCoords}
+              onAddStopSubmit={onAddStopSubmit}
+            />
           </ScrollArea>
         )}
       </div>
@@ -567,6 +604,8 @@ export const Sidebar = memo(function Sidebar({
     prev.isTracking === next.isTracking &&
     prev.hasRoute === next.hasRoute &&
     prev.customPOIs === next.customPOIs &&
-    prev.isLoadingVehicles === next.isLoadingVehicles
+    prev.isLoadingVehicles === next.isLoadingVehicles &&
+    prev.isAddStopOpen === next.isAddStopOpen &&
+    prev.pickedStopCoords === next.pickedStopCoords
   );
 });

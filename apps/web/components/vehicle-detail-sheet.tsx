@@ -16,15 +16,29 @@ import {
     ArrowLeft,
     AlertTriangle,
     Info,
+    Plus,
+    Clock,
+    CheckCircle2,
+    Circle,
+    Route,
+    Package,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { FleetVehicle, VehicleMetrics, FleetJob } from "@gis/shared";
 import { GeocodingService } from "@/lib/services/geocoding-service";
+import { AddStopDialog } from "./add-stop-dialog";
 
 interface VehicleDetailSheetProps {
     vehicle: FleetVehicle | null;
     metrics: VehicleMetrics | null;
     jobs?: FleetJob[];
+    addStopToVehicle?: (vehicleId: string | number, position: [number, number], label?: string) => void;
+    startRouting?: () => void;
+    isAddStopOpen?: boolean;
+    setIsAddStopOpen?: (open: boolean) => void;
+    onStartPickingStop?: () => void;
+    pickedStopCoords?: [number, number] | null;
+    onAddStopSubmit?: (coords: [number, number], label: string) => void;
     onClose: () => void;
 }
 
@@ -32,11 +46,25 @@ export function VehicleDetailSheet({
     vehicle,
     metrics,
     jobs = [],
+    addStopToVehicle,
+    startRouting,
+    isAddStopOpen = false,
+    setIsAddStopOpen,
+    onStartPickingStop,
+    pickedStopCoords,
+    onAddStopSubmit,
     onClose,
 }: VehicleDetailSheetProps) {
     const [address, setAddress] = useState<string | null>(null);
     const [isLoadingAddress, setIsLoadingAddress] = useState(false);
     const geocodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Filter jobs assigned to this vehicle
+    const assignedJobs = useMemo(() => {
+        return jobs
+            .filter(j => String(j.assignedVehicleId) === String(vehicle?.id))
+            .sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+    }, [jobs, vehicle?.id]);
 
     useEffect(() => {
         // Reset local address state when vehicle changes
@@ -197,23 +225,95 @@ export function VehicleDetailSheet({
                     </div>
                 </div>
 
-                {/* Operator Profile - Ultra Compact */}
-                <div className="bg-card border border-border/50 rounded-xl p-2.5 shadow-sm flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-lg bg-zinc-100 flex items-center justify-center shrink-0 border border-zinc-200/50">
-                        <User className="h-3.5 w-3.5 text-zinc-500 opacity-60" />
+                {/* Route Management Section */}
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between pl-1">
+                        <h3 className="text-[9px] font-black text-muted-foreground/40 flex items-center gap-1.5 uppercase tracking-widest pl-1">
+                            <Route className="h-3 w-3" /> Gestión de Ruta
+                        </h3>
+                        {vehicle && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 gap-1 text-[9px] font-black uppercase text-primary hover:text-primary hover:bg-primary/5 px-2 rounded-lg"
+                                onClick={() => setIsAddStopOpen?.(true)}
+                            >
+                                <Plus className="h-3 w-3" /> Añadir Parada
+                            </Button>
+                        )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <div className="text-[7px] font-black text-muted-foreground/40 uppercase tracking-widest leading-none mb-0.5">Conductor</div>
-                        <div className="font-bold text-[10px] text-foreground truncate">{vehicle.driver?.name || "No asignado"}</div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                        <div className="text-[7px] font-black text-muted-foreground/40 uppercase tracking-widest leading-none mb-0.5">Licencia</div>
-                        <div className="text-[9px] font-mono font-bold text-muted-foreground/70">{vehicle.driver?.licenseNumber || "---"}</div>
+
+                    <div className="bg-card border border-border/50 rounded-xl overflow-hidden shadow-sm">
+                        {assignedJobs.length === 0 ? (
+                            <div className="p-6 text-center">
+                                <Package className="h-8 w-8 text-muted-foreground/10 mx-auto mb-2" />
+                                <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-tighter">Sin paradas asignadas</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-border/20">
+                                {assignedJobs.map((job, idx) => (
+                                    <div key={job.id} className="p-3 flex items-start gap-3 hover:bg-muted/30 transition-colors group">
+                                        <div className="flex flex-col items-center gap-1 h-full pt-1">
+                                            <div className={cn(
+                                                "h-5 w-5 rounded-full flex items-center justify-center border-2 shrink-0 transition-all",
+                                                job.status === "completed"
+                                                    ? "bg-emerald-500 border-emerald-500 text-white shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                                                    : job.status === "in_progress"
+                                                        ? "bg-blue-500 border-blue-500 text-white animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.4)]"
+                                                        : "bg-background border-muted text-muted-foreground"
+                                            )}>
+                                                {job.status === "completed" ? <CheckCircle2 className="h-3 w-3" /> : <span className="text-[9px] font-black">{idx + 1}</span>}
+                                            </div>
+                                            {idx < assignedJobs.length - 1 && (
+                                                <div className="w-0.5 flex-1 bg-border/20 min-h-[1rem]" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-foreground truncate">{job.label}</span>
+                                                {job.status === "completed" ? (
+                                                    <Badge className="bg-emerald-100/80 text-emerald-800 hover:bg-emerald-100 text-[7px] font-black border-none h-4 px-1.5">COMPL</Badge>
+                                                ) : (
+                                                    <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground/60">
+                                                        <Clock className="h-2.5 w-2.5" />
+                                                        {job.estimatedArrival || "--:--"}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-0.5 opacity-60">
+                                                <p className="text-[8px] text-muted-foreground font-mono truncate uppercase tracking-tighter">
+                                                    REF-{job.id.toString().slice(-6).toUpperCase()}
+                                                </p>
+                                                <span className="text-[8px] text-muted-foreground/20">•</span>
+                                                <p className="text-[8px] text-muted-foreground font-medium truncate">
+                                                    {job.position[0].toFixed(4)}, {job.position[1].toFixed(4)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="h-2" />
             </div>
+
+            {vehicle && (
+                <AddStopDialog
+                    vehicleId={vehicle.id}
+                    vehicleLabel={vehicle.label}
+                    open={isAddStopOpen}
+                    onOpenChange={setIsAddStopOpen || (() => { })}
+                    onStartPicking={onStartPickingStop}
+                    pickedCoords={pickedStopCoords}
+                    onAddStop={onAddStopSubmit || ((pos, lbl) => {
+                        addStopToVehicle?.(vehicle.id, pos, lbl);
+                        setTimeout(() => startRouting?.(), 500);
+                    })}
+                />
+            )}
         </div>
     );
 }

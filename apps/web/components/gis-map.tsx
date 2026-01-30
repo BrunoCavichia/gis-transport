@@ -52,7 +52,11 @@ export function GISMap() {
   const [pickedJobCoords, setPickedJobCoords] = useState<
     [number, number] | null
   >(null);
+  const [pickedStopCoords, setPickedStopCoords] = useState<
+    [number, number] | null
+  >(null);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
+  const [isAddStopOpen, setIsAddStopOpen] = useState(false);
   const [activeZones, setActiveZones] = useState<Zone[]>([]);
 
   const {
@@ -63,6 +67,7 @@ export function GISMap() {
     clearFleet,
     addVehicleAt,
     addJobAt,
+    addStopToVehicle,
     removeVehicle,
     removeJob,
     isLoadingVehicles,
@@ -195,6 +200,11 @@ export function GISMap() {
         doAddJob(coords);
         setInteractionMode(null);
         break;
+      case "pick-stop":
+        setPickedStopCoords(coords);
+        setInteractionMode(null);
+        setIsAddStopOpen(true);
+        break;
       default:
         break;
     }
@@ -234,6 +244,11 @@ export function GISMap() {
   const handleStartPickingJob = useCallback(() => {
     setInteractionMode("pick-job");
     setIsAddJobOpen(false);
+  }, []);
+
+  const handleStartPickingStop = useCallback(() => {
+    setInteractionMode("pick-stop");
+    setIsAddStopOpen(false);
   }, []);
 
   const handleSetSelectedVehicleId = useCallback(
@@ -301,6 +316,29 @@ export function GISMap() {
     [interactionMode],
   );
 
+  const handleOpenAddStopChange = useCallback(
+    (open: boolean) => {
+      setIsAddStopOpen(open);
+      if (!open) {
+        setPickedStopCoords(null);
+        if (interactionMode === "pick-stop") setInteractionMode(null);
+      }
+    },
+    [interactionMode],
+  );
+
+  const handleAddStopSubmit = useCallback(
+    (coords: [number, number], label: string) => {
+      if (selectedVehicleId) {
+        addStopToVehicle(selectedVehicleId, coords, label);
+        setTimeout(() => startRouting(), 500);
+      }
+      setIsAddStopOpen(false);
+      setPickedStopCoords(null);
+    },
+    [addStopToVehicle, selectedVehicleId, startRouting],
+  );
+
   // Memoize computed addMode to prevent object recreation
   const computedAddMode = interactionMode === "add-vehicle"
     ? "vehicle"
@@ -334,6 +372,7 @@ export function GISMap() {
         setSelectedVehicleId={handleSetSelectedVehicleId}
         addVehicle={handleAddVehicle}
         addJob={handleAddJob}
+        addStopToVehicle={addStopToVehicle}
         addJobDirectly={handleAddJobDirectly}
         removeVehicle={handleRemoveVehicle}
         removeJob={handleRemoveJob}
@@ -355,6 +394,11 @@ export function GISMap() {
         isTracking={isTracking}
         toggleTracking={toggleTracking}
         hasRoute={hasRoute}
+        isAddStopOpen={isAddStopOpen}
+        setIsAddStopOpen={handleOpenAddStopChange}
+        onStartPickingStop={handleStartPickingStop}
+        pickedStopCoords={pickedStopCoords}
+        onAddStopSubmit={handleAddStopSubmit}
       />
       <div className="relative flex-1">
         <MapContainer

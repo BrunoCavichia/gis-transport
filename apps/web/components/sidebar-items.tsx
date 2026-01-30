@@ -4,7 +4,7 @@ import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Car, Package, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { VehicleType, FleetJob, FleetVehicle } from "@/lib/types";
+import type { VehicleType, FleetJob, FleetVehicle } from "@gis/shared";
 
 interface VehicleItemProps {
     id: string | number;
