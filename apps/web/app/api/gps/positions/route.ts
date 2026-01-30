@@ -27,25 +27,26 @@ export async function GET(request: Request) {
         if (tel) {
             positions[vehicleId] = data.coords;
 
-            // Fetch road info ONLY for the selected vehicle to save resources
+            // Calculate speed first
+            const isMoving = global.gpsSimulation!.isRunning;
+            const speed = isMoving ? Math.round(40 + Math.random() * 40) : 0;
+
+            // Fetch road info ONLY for the selected vehicle AND if it's moving
             let roadInfo: any = {};
-            if (vehicleId === selectedVehicleId) {
+            if (vehicleId === selectedVehicleId && speed > 0) {
                 roadInfo = await RoadService.getMaxSpeed(data.coords[0], data.coords[1]);
             }
 
-            // Build Metrics Object - Uses current indices without incrementing them
-            const isMoving = global.gpsSimulation!.isRunning; // Logic simplified for simulation
-
             metrics[vehicleId] = {
-                speed: isMoving ? Math.round(40 + Math.random() * 40) : 0,
+                speed,
                 maxSpeed: roadInfo.maxSpeed,
                 address: roadInfo.roadName,
                 fuelLevel: tel.isElectric ? undefined : Math.round(tel.fuel || 0),
                 batteryLevel: tel.isElectric ? Math.round(tel.battery || 0) : undefined,
                 distanceTotal: Math.round(tel.distance * 1000), // in meters
                 health: 100,
-                status: isMoving ? "active" : "idle",
-                movementState: isMoving ? "on_route" : "stopped",
+                status: speed > 0 ? "active" : "idle",
+                movementState: speed > 0 ? "on_route" : "stopped",
                 updatedAt: Date.now(),
             };
         }

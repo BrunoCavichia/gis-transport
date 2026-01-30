@@ -43,7 +43,9 @@ export function VehicleDetailSheet({
         setAddress(null);
         setIsLoadingAddress(false);
 
-        if (vehicle?.position) {
+        const isMoving = (metrics?.speed ?? 0) > 0;
+
+        if (vehicle?.position && isMoving) {
             if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
 
             geocodeTimeoutRef.current = setTimeout(async () => {
@@ -62,7 +64,7 @@ export function VehicleDetailSheet({
                 if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
             };
         }
-    }, [vehicle?.id]); // Only reset/start timer when vehicle changes. Position updates handled by metrics.
+    }, [vehicle?.id, metrics?.speed === 0]); // Re-run when vehicle changes OR it stops/starts
 
     if (!vehicle) return null;
 
@@ -137,7 +139,7 @@ export function VehicleDetailSheet({
                                         "text-[10px] font-bold text-foreground leading-tight truncate transition-opacity duration-500",
                                         isLoadingAddress ? "opacity-50 animate-pulse" : "opacity-100"
                                     )}>
-                                        {metrics?.address || address || (isLoadingAddress ? "Consultando..." : "Detectando vía...")}
+                                        {metrics?.address || address || (isLoadingAddress ? "Consultando..." : speed > 0 ? "Detectando vía..." : "Sin movimiento")}
                                     </div>
                                 </div>
                             </div>
