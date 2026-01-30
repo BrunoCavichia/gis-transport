@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import {
     Fuel,
     Battery,
-    User,
+    Users,
+    X,
     MapPin,
     Zap,
     Gauge,
@@ -40,6 +41,8 @@ interface VehicleDetailSheetProps {
     pickedStopCoords?: [number, number] | null;
     onAddStopSubmit?: (coords: [number, number], label: string) => void;
     onClose: () => void;
+    drivers?: any[];
+    onAssignDriver?: (vehicleId: string | number, driver: any) => void;
 }
 
 export function VehicleDetailSheet({
@@ -53,6 +56,8 @@ export function VehicleDetailSheet({
     onStartPickingStop,
     pickedStopCoords,
     onAddStopSubmit,
+    drivers = [],
+    onAssignDriver,
     onClose,
 }: VehicleDetailSheetProps) {
     const [address, setAddress] = useState<string | null>(null);
@@ -222,6 +227,75 @@ export function VehicleDetailSheet({
                             </div>
                         </div>
                         <Progress value={energyLevel} className={cn("h-1.5 bg-muted/50 rounded-full", isElectric ? "[&>div]:bg-blue-500" : "[&>div]:bg-orange-500")} />
+                    </div>
+                </div>
+
+                {/* Driver Section */}
+                <div className="space-y-1.5">
+                    <h3 className="text-[9px] font-black text-muted-foreground/40 flex items-center gap-1.5 uppercase tracking-widest pl-1">
+                        <Users className="h-3 w-3" /> Conductor Responsable
+                    </h3>
+                    <div className="bg-card border border-border/50 rounded-xl p-3 shadow-sm group hover:border-primary/20 transition-all">
+                        {vehicle?.driver ? (
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-primary/5 flex items-center justify-center overflow-hidden">
+                                    {vehicle.driver.imageUrl ? (
+                                        <img src={vehicle.driver.imageUrl} alt={vehicle.driver.name} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <Users className="h-5 w-5 text-primary/40" />
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-black truncate">{vehicle.driver.name}</p>
+                                        <Badge variant="outline" className="text-[8px] uppercase font-black px-1 h-3.5 border-primary/20 text-primary">
+                                            {vehicle.driver.licenseType || "Cat. B"}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                                            <span className="text-[9px] font-bold text-muted-foreground">{vehicle.driver.onTimeDeliveryRate}% puntual</span>
+                                        </div>
+                                        {vehicle.driver.speedingEvents && vehicle.driver.speedingEvents.length > 0 && (
+                                            <div className="flex items-center gap-1">
+                                                <AlertTriangle className="h-2.5 w-2.5 text-orange-500" />
+                                                <span className="text-[9px] font-bold text-orange-500">{vehicle.driver.speedingEvents.length} Excesos</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => onAssignDriver?.(vehicle.id, null)}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-4 gap-2">
+                                <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Sin conductor asignado</p>
+                                <div className="flex flex-wrap gap-1 justify-center max-h-24 overflow-y-auto px-1">
+                                    {drivers.filter((d: any) => d.isAvailable).length > 0 ? (
+                                        drivers.filter((d: any) => d.isAvailable).slice(0, 3).map((driver: any) => (
+                                            <Button
+                                                key={driver.id}
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-[9px] font-bold px-2 rounded-lg"
+                                                onClick={() => onAssignDriver?.(vehicle.id, driver)}
+                                            >
+                                                Asignar {driver.name.split(' ')[0]}
+                                            </Button>
+                                        ))
+                                    ) : (
+                                        <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest text-center">No hay conductores libres</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

@@ -5,6 +5,10 @@ export interface IGisRepository {
     getLatestSnapshot(): Promise<GisDashboardData | null>;
     saveSnapshot(data: any): Promise<string>;
     getZones(lat: number, lon: number, radiusMs: number): Promise<Zone[]>;
+    getDrivers(): Promise<any[]>;
+    addDriver(data: any): Promise<any>;
+    updateDriver(id: string, data: any): Promise<any>;
+    logSpeeding(driverId: string, event: any): Promise<void>;
 }
 
 export class PrismaGisRepository implements IGisRepository {
@@ -93,6 +97,46 @@ export class PrismaGisRepository implements IGisRepository {
             description: rz.metadata || "",
             requiredTags: rz.type === "PEDESTRIAN" ? [] : ["eco", "zero"]
         }));
+    }
+
+    async getDrivers(): Promise<any[]> {
+        return this.prisma.driver.findMany({
+            include: { speedingEvents: true },
+            orderBy: { name: "asc" }
+        });
+    }
+
+    async addDriver(data: any): Promise<any> {
+        return this.prisma.driver.create({
+            data: {
+                name: data.name,
+                licenseType: data.licenseType,
+                licenseNumber: data.licenseNumber,
+                imageUrl: data.imageUrl,
+                isAvailable: true,
+                onTimeDeliveryRate: 100
+            }
+        });
+    }
+
+    async updateDriver(id: string, data: any): Promise<any> {
+        return this.prisma.driver.update({
+            where: { id },
+            data
+        });
+    }
+
+    async logSpeeding(driverId: string, event: any): Promise<void> {
+        await this.prisma.speedingEvent.create({
+            data: {
+                driverId,
+                speed: event.speed,
+                limit: event.limit,
+                latitude: event.latitude,
+                longitude: event.longitude,
+                timestamp: new Date()
+            }
+        });
     }
 }
 

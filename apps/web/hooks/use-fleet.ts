@@ -203,6 +203,17 @@ export function useFleet(
     );
   }, []);
 
+  /**
+   * Assign a driver to a vehicle
+   */
+  const assignDriverToVehicle = useCallback((vehicleId: string | number, driver: any) => {
+    setFleetVehicles((prev) =>
+      prev.map((v) =>
+        v.id === vehicleId ? { ...v, driver: driver } : v
+      )
+    );
+  }, []);
+
   // Return state and functions that other components can use
   return {
     // State
@@ -216,6 +227,7 @@ export function useFleet(
 
     // Manipulation functions
     clearFleet,
+    fetchDrivers: fetchVehicles, // Matching the requested naming in plan if needed
     fetchVehicles,
     addVehicleAt,
     addJobAt,
@@ -225,5 +237,6 @@ export function useFleet(
     updateVehiclePosition,
     updateVehicleMetrics,
     updateVehicleType,
+    assignDriverToVehicle,
   };
 }

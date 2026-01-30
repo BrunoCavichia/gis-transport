@@ -38,10 +38,10 @@ SidebarLogo.displayName = "SidebarLogo";
 
 // --- NavigationButton ---
 interface NavigationButtonProps {
-  tabId: "fleet" | "layers" | "dashboard";
-  activeTab: "fleet" | "layers" | "dashboard" | "settings";
+  tabId: "fleet" | "layers" | "dashboard" | "drivers" | "settings";
+  activeTab: "fleet" | "layers" | "dashboard" | "drivers" | "settings";
   isExpanded: boolean;
-  onClick: (tab: "fleet" | "layers" | "dashboard" | "settings") => void;
+  onClick: (tab: "fleet" | "layers" | "dashboard" | "drivers" | "settings") => void;
   label: string;
   icon: React.ElementType;
 }

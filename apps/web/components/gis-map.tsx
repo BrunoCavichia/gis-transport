@@ -19,6 +19,7 @@ import { RouteErrorAlert } from "@/components/route-error-alert";
 import { MAP_CENTER } from "@/lib/config";
 import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
+import { useDrivers } from "@/hooks/use-drivers";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
@@ -75,7 +76,26 @@ export function GISMap() {
     updateVehiclePosition,
     updateVehicleMetrics,
     updateVehicleType,
+    assignDriverToVehicle,
   } = useFleet();
+
+  const { drivers, updateDriver } = useDrivers();
+
+  const handleAssignDriver = useCallback(async (vehicleId: string | number, driver: any) => {
+    // 1. Update backend (if driver is being assigned, mark as unavailable)
+    if (driver) {
+      await updateDriver(driver.id, { isAvailable: false, currentVehicleId: String(vehicleId) });
+    } else {
+      // If unassigning, find the driver currently on this vehicle and mark as available
+      const currentDriver = drivers.find(d => d.currentVehicleId === String(vehicleId));
+      if (currentDriver) {
+        await updateDriver(currentDriver.id, { isAvailable: true, currentVehicleId: undefined });
+      }
+    }
+
+    // 2. Update frontend fleet state
+    assignDriverToVehicle(vehicleId, driver);
+  }, [assignDriverToVehicle, updateDriver, drivers]);
 
   // Refs for stable map click handler
   const interactionModeRef = useRef(interactionMode);
@@ -399,6 +419,8 @@ export function GISMap() {
         onStartPickingStop={handleStartPickingStop}
         pickedStopCoords={pickedStopCoords}
         onAddStopSubmit={handleAddStopSubmit}
+        drivers={drivers}
+        onAssignDriver={handleAssignDriver}
       />
       <div className="relative flex-1">
         <MapContainer

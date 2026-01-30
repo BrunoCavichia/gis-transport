@@ -69,10 +69,27 @@ export type MovementState = z.infer<typeof MovementStateSchema>;
 export const VehicleStatusSchema = z.enum(["active", "idle", "maintenance", "offline"]);
 export type VehicleStatus = z.infer<typeof VehicleStatusSchema>;
 
+export const SpeedingEventSchema = z.object({
+    id: z.string(),
+    timestamp: z.number(),
+    speed: z.number(),
+    limit: z.number(),
+    latitude: z.number(),
+    longitude: z.number(),
+    driverId: z.string(),
+});
+export type SpeedingEvent = z.infer<typeof SpeedingEventSchema>;
+
 export const DriverSchema = z.object({
     id: z.string(),
     name: z.string(),
+    licenseType: z.string().optional(),
     licenseNumber: z.string().optional(),
+    onTimeDeliveryRate: z.number().min(0).max(100).default(100),
+    isAvailable: z.boolean().default(true),
+    imageUrl: z.string().optional(),
+    currentVehicleId: z.union([z.string(), z.number()]).optional(),
+    speedingEvents: z.array(SpeedingEventSchema).optional(),
 });
 export type Driver = z.infer<typeof DriverSchema>;
 

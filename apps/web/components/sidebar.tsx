@@ -15,11 +15,17 @@ import {
   Warehouse,
   Route,
   LayoutDashboard,
+  Users,
+  RefreshCw,
+  Clock,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { LayerVisibility, VehicleType, CustomPOI, FleetJob, FleetVehicle } from "@gis/shared";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
+import { DriversTab } from "./drivers-tab";
 import {
   SidebarLogo,
   NavigationButton,
@@ -77,9 +83,11 @@ interface SidebarProps {
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
+  drivers?: any[];
+  onAssignDriver?: (vehicleId: string | number, driver: any) => void;
 }
 
-type SidebarTab = "fleet" | "layers" | "dashboard" | "settings";
+type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";
 
 interface NavigationRailProps {
   activeTab: SidebarTab;
@@ -114,6 +122,15 @@ const NavigationRail = memo(
         onClick={onSetTab}
         label="Capas y POIs"
         icon={Layers}
+      />
+
+      <NavigationButton
+        tabId="drivers"
+        activeTab={activeTab}
+        isExpanded={isExpanded}
+        onClick={onSetTab}
+        label="Conductores"
+        icon={Users}
       />
 
       <NavigationButton
@@ -157,6 +174,8 @@ interface FleetTabProps {
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
+  drivers?: any[];
+  onAssignDriver?: (vehicleId: string | number, driver: any) => void;
 }
 
 const FleetTab = memo(
@@ -184,6 +203,8 @@ const FleetTab = memo(
     onStartPickingStop,
     pickedStopCoords,
     onAddStopSubmit,
+    drivers,
+    onAssignDriver,
   }: FleetTabProps) => (
     <div className="flex flex-col h-auto min-h-0 min-w-0">
       <div className="p-5 border-b border-border/10">
@@ -468,6 +489,8 @@ export const Sidebar = memo(function Sidebar({
   onStartPickingStop,
   pickedStopCoords,
   onAddStopSubmit,
+  drivers,
+  onAssignDriver,
 }: SidebarProps) {
   // Local state for sidebar visibility
   const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
@@ -560,6 +583,8 @@ export const Sidebar = memo(function Sidebar({
             onStartPickingStop={onStartPickingStop}
             pickedStopCoords={pickedStopCoords}
             onAddStopSubmit={onAddStopSubmit}
+            drivers={drivers}
+            onAssignDriver={onAssignDriver}
           />
         )}
         {activeTab === "layers" && (
@@ -571,6 +596,9 @@ export const Sidebar = memo(function Sidebar({
             removeCustomPOI={removeCustomPOI}
             clearAllCustomPOIs={clearAllCustomPOIs}
           />
+        )}
+        {activeTab === "drivers" && (
+          <DriversTab />
         )}
         {activeTab === "dashboard" && (
           <ScrollArea className="flex-1 h-auto min-h-0 min-w-0">

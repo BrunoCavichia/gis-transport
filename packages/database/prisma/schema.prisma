@@ -21,7 +21,7 @@ model OptimizationSnapshot {
   weatherData     String // JSON content of WeatherSummary
   
   status String // "optimized", "failed", etc.
-
+  
   // Link to relational analytics data (Optional 1:1 relation)
   runDetails OptimizationRun?
 }
@@ -76,4 +76,34 @@ model GeoZone {
   updatedAt DateTime @updatedAt
 
   @@index([minLat, maxLat, minLon, maxLon])
+}
+
+model Driver {
+  id                 String          @id @default(uuid())
+  name               String
+  licenseType        String?
+  licenseNumber      String?
+  onTimeDeliveryRate Float           @default(100)
+  isAvailable        Boolean         @default(true)
+  imageUrl           String?
+  currentVehicleId   String?         // ID of the vehicle currently assigned
+  
+  speedingEvents     SpeedingEvent[]
+  
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model SpeedingEvent {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  speed     Float
+  limit     Float
+  latitude  Float
+  longitude Float
+  
+  driverId  String
+  driver    Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
 }

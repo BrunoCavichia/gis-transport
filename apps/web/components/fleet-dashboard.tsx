@@ -30,6 +30,8 @@ interface FleetDashboardProps {
     onStartPickingStop?: () => void;
     pickedStopCoords?: [number, number] | null;
     onAddStopSubmit?: (coords: [number, number], label: string) => void;
+    drivers?: any[];
+    onAssignDriver?: (vehicleId: string | number, driver: any) => void;
 }
 
 function getMovementLabel(state: MovementState): { label: string; color: string } {
