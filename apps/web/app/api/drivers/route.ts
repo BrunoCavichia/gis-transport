@@ -2,26 +2,45 @@ import { NextRequest, NextResponse } from "next/server";
 import { repository } from "@/lib/db";
 
 export async function GET() {
-    try {
-        const drivers = await repository.getDrivers();
-        return NextResponse.json({ success: true, data: drivers });
-    } catch (error: any) {
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        );
-    }
+  try {
+    const drivers = await repository.getDrivers();
+    return NextResponse.json({ success: true, data: drivers });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
-        const driver = await repository.addDriver(body);
-        return NextResponse.json({ success: true, data: driver });
-    } catch (error: any) {
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        );
+  try {
+    const body = await req.json();
+
+    // Special action to clear all driver assignments
+    if (body.action === "clear-assignments") {
+      const drivers = await repository.getDrivers();
+      const updates = drivers.map((driver) =>
+        repository.updateDriver(driver.id, {
+          isAvailable: true,
+          currentVehicleId: null,
+        }),
+      );
+      await Promise.all(updates);
+      return NextResponse.json({
+        success: true,
+        message: "All driver assignments cleared",
+        data: await repository.getDrivers(),
+      });
     }
+
+    // Regular driver creation
+    const driver = await repository.addDriver(body);
+    return NextResponse.json({ success: true, data: driver });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
+  }
 }

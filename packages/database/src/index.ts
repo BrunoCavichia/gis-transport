@@ -9,6 +9,7 @@ export interface IGisRepository {
     addDriver(data: any): Promise<any>;
     updateDriver(id: string, data: any): Promise<any>;
     logSpeeding(driverId: string, event: any): Promise<void>;
+    clearAllDrivers(): Promise<void>;
 }
 
 export class PrismaGisRepository implements IGisRepository {
@@ -137,6 +138,13 @@ export class PrismaGisRepository implements IGisRepository {
                 timestamp: new Date()
             }
         });
+    }
+
+    async clearAllDrivers(): Promise<void> {
+        // Delete all speeding events first (due to foreign key constraint)
+        await this.prisma.speedingEvent.deleteMany({});
+        // Then delete all drivers
+        await this.prisma.driver.deleteMany({});
     }
 }
 

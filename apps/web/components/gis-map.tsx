@@ -20,6 +20,7 @@ import { MAP_CENTER } from "@/lib/config";
 import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 import { useDrivers } from "@/hooks/use-drivers";
+import { DriverDetailsSheet } from "@/components/driver-details-sheet";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
@@ -44,7 +45,8 @@ export function GISMap() {
   );
   const [fleetMode, setFleetMode] = useState(false);
   const [showCustomPOIs, setShowCustomPOIs] = useState(true);
-  const [interactionMode, setInteractionMode] = useState<LocalInteractionMode>(null);
+  const [interactionMode, setInteractionMode] =
+    useState<LocalInteractionMode>(null);
 
   const [pickedPOICoords, setPickedPOICoords] = useState<
     [number, number] | null
@@ -59,6 +61,8 @@ export function GISMap() {
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [isAddStopOpen, setIsAddStopOpen] = useState(false);
   const [activeZones, setActiveZones] = useState<Zone[]>([]);
+  const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
+  const [isDriverDetailsOpen, setIsDriverDetailsOpen] = useState(false);
 
   const {
     fleetVehicles,
@@ -79,23 +83,53 @@ export function GISMap() {
     assignDriverToVehicle,
   } = useFleet();
 
-  const { drivers, updateDriver } = useDrivers();
+  const {
+    drivers,
+    isLoading: isLoadingDrivers,
+    updateDriver,
+    fetchDrivers,
+    addDriver,
+  } = useDrivers();
 
-  const handleAssignDriver = useCallback(async (vehicleId: string | number, driver: any) => {
-    // 1. Update backend (if driver is being assigned, mark as unavailable)
-    if (driver) {
-      await updateDriver(driver.id, { isAvailable: false, currentVehicleId: String(vehicleId) });
-    } else {
-      // If unassigning, find the driver currently on this vehicle and mark as available
-      const currentDriver = drivers.find(d => d.currentVehicleId === String(vehicleId));
-      if (currentDriver) {
-        await updateDriver(currentDriver.id, { isAvailable: true, currentVehicleId: undefined });
-      }
+  // Fetch drivers SOLO UNA VEZ al mount
+  const hasFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchDrivers();
     }
+  }, []); // VACÍO - solo corre UNA VEZ
 
-    // 2. Update frontend fleet state
-    assignDriverToVehicle(vehicleId, driver);
-  }, [assignDriverToVehicle, updateDriver, drivers]);
+  const handleAssignDriver = useCallback(
+    async (vehicleId: string | number, newDriver: any) => {
+      try {
+        // 1. First, unassign the old driver if one exists
+        const oldDriver = drivers.find(
+          (d) => d.currentVehicleId === String(vehicleId),
+        );
+        if (oldDriver) {
+          await updateDriver(oldDriver.id, {
+            isAvailable: true,
+            currentVehicleId: null,
+          });
+        }
+
+        // 2. Then assign the new driver if provided
+        if (newDriver) {
+          await updateDriver(newDriver.id, {
+            isAvailable: false,
+            currentVehicleId: String(vehicleId),
+          });
+        }
+
+        // 3. Update frontend fleet state
+        assignDriverToVehicle(vehicleId, newDriver);
+      } catch (error) {
+        console.error("Error assigning driver:", error);
+      }
+    },
+    [assignDriverToVehicle, updateDriver, drivers],
+  );
 
   // Refs for stable map click handler
   const interactionModeRef = useRef(interactionMode);
@@ -165,15 +199,27 @@ export function GISMap() {
     updateVehiclePosition: handleUpdateVehiclePosition,
     updateVehicleMetrics: handleUpdateVehicleMetrics,
   });
+  const clearAll = useCallback(async () => {
+    // Clear driver assignments in the database
+    try {
+      await fetch("/api/drivers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear-assignments" }),
+      });
+    } catch (err) {
+      console.error("Failed to clear driver assignments:", err);
+    }
 
-  const clearAll = useCallback(() => {
+    // Clear fleet and routes from local state
     clearFleet();
     clearRoute();
+    setSelectedVehicleId(null);
     setInteractionMode(null);
     setPickedPOICoords(null);
     setPickedJobCoords(null);
     setSelectedVehicle(VEHICLE_TYPES[0]);
-  }, [clearFleet, clearRoute]);
+  }, [clearFleet, clearRoute, setSelectedVehicleId]);
 
   const toggleLayer = useCallback((layer: keyof LayerVisibility) => {
     setLayers((prev) => {
@@ -351,6 +397,9 @@ export function GISMap() {
     (coords: [number, number], label: string) => {
       if (selectedVehicleId) {
         addStopToVehicle(selectedVehicleId, coords, label);
+        // Recalculate route after adding stop
+        // If tracking is active, the useEffect in use-live-tracking will auto-update with new routes
+        // The setTimeout allows state updates to complete before routing
         setTimeout(() => startRouting(), 500);
       }
       setIsAddStopOpen(false);
@@ -360,16 +409,17 @@ export function GISMap() {
   );
 
   // Memoize computed addMode to prevent object recreation
-  const computedAddMode = interactionMode === "add-vehicle"
-    ? "vehicle"
-    : interactionMode === "add-job"
-      ? "job"
-      : null;
+  const computedAddMode =
+    interactionMode === "add-vehicle"
+      ? "vehicle"
+      : interactionMode === "add-job"
+        ? "job"
+        : null;
 
   // Memoize customPOIs list to send to MapContainer (only non-empty if showCustomPOIs)
   const displayedCustomPOIs = useMemo(
     () => (showCustomPOIs ? customPOIs : []),
-    [showCustomPOIs, customPOIs]
+    [showCustomPOIs, customPOIs],
   );
 
   // Memoize hasRoute to avoid object recreation
@@ -421,6 +471,13 @@ export function GISMap() {
         onAddStopSubmit={handleAddStopSubmit}
         drivers={drivers}
         onAssignDriver={handleAssignDriver}
+        isLoadingDrivers={isLoadingDrivers}
+        fetchDriversFromParent={fetchDrivers}
+        addDriverFromParent={addDriver}
+        onDriverSelect={(driver) => {
+          setSelectedDriver(driver);
+          setIsDriverDetailsOpen(true);
+        }}
       />
       <div className="relative flex-1">
         <MapContainer
@@ -476,6 +533,13 @@ export function GISMap() {
             setRouteErrors([]);
             setRouteNotices([]);
           }}
+        />
+
+        <DriverDetailsSheet
+          driver={selectedDriver}
+          isOpen={isDriverDetailsOpen}
+          onOpenChange={setIsDriverDetailsOpen}
+          onClose={() => setIsDriverDetailsOpen(false)}
         />
       </div>
     </div>

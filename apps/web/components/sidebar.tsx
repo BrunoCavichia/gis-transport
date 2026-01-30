@@ -23,7 +23,13 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { LayerVisibility, VehicleType, CustomPOI, FleetJob, FleetVehicle } from "@gis/shared";
+import type {
+  LayerVisibility,
+  VehicleType,
+  CustomPOI,
+  FleetJob,
+  FleetVehicle,
+} from "@gis/shared";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
 import { DriversTab } from "./drivers-tab";
 import {
@@ -35,7 +41,7 @@ import {
   FleetFooterButtons,
 } from "@/components/sidebar-components";
 
-const STABLE_NOOP = () => { };
+const STABLE_NOOP = () => {};
 const STABLE_PROMISE_NOOP = () => Promise.resolve();
 
 import { FleetDashboard } from "@/components/fleet-dashboard";
@@ -54,7 +60,11 @@ interface SidebarProps {
   setSelectedVehicleId: (id: string | number | null) => void;
   addVehicle: () => void;
   addJob: () => void;
-  addStopToVehicle?: (vehicleId: string | number, position: [number, number], label?: string) => void;
+  addStopToVehicle?: (
+    vehicleId: string | number,
+    position: [number, number],
+    label?: string,
+  ) => void;
   addJobDirectly?: (coords: [number, number], label: string) => void;
   removeVehicle: (vehicleId: string | number) => void;
   removeJob: (jobId: string | number) => void;
@@ -85,6 +95,10 @@ interface SidebarProps {
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
   drivers?: any[];
   onAssignDriver?: (vehicleId: string | number, driver: any) => void;
+  isLoadingDrivers?: boolean;
+  fetchDriversFromParent?: () => Promise<void>;
+  addDriverFromParent?: (data: Partial<any>) => Promise<any>;
+  onDriverSelect?: (driver: any) => void;
 }
 
 type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";
@@ -456,184 +470,214 @@ const LayersTab = memo(
 );
 LayersTab.displayName = "LayersTab";
 
-export const Sidebar = memo(function Sidebar({
-  layers,
-  toggleLayer,
-  fleetMode,
-  setFleetMode,
-  clearFleet,
-  fleetVehicles,
-  fleetJobs,
-  selectedVehicleId,
-  setSelectedVehicleId,
-  addVehicle,
-  addStopToVehicle,
-  removeVehicle,
-  removeJob,
-  addMode,
-  cancelAddMode,
-  startRouting,
-  isCalculatingRoute = false,
-  customPOIs = [],
-  removeCustomPOI,
-  clearAllCustomPOIs,
-  setIsAddCustomPOIOpen,
-  isLoadingVehicles = false,
-  fetchVehicles,
-  setIsAddJobOpen,
-  isTracking = false,
-  toggleTracking,
-  hasRoute = false,
-  isAddStopOpen,
-  setIsAddStopOpen,
-  onStartPickingStop,
-  pickedStopCoords,
-  onAddStopSubmit,
-  drivers,
-  onAssignDriver,
-}: SidebarProps) {
-  // Local state for sidebar visibility
-  const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
-  const [isExpanded, setIsExpanded] = useState(true);
+export const Sidebar = memo(
+  function Sidebar({
+    layers,
+    toggleLayer,
+    fleetMode,
+    setFleetMode,
+    clearFleet,
+    fleetVehicles,
+    fleetJobs,
+    selectedVehicleId,
+    setSelectedVehicleId,
+    addVehicle,
+    addStopToVehicle,
+    removeVehicle,
+    removeJob,
+    addMode,
+    cancelAddMode,
+    startRouting,
+    isCalculatingRoute = false,
+    customPOIs = [],
+    removeCustomPOI,
+    clearAllCustomPOIs,
+    setIsAddCustomPOIOpen,
+    isLoadingVehicles = false,
+    fetchVehicles,
+    setIsAddJobOpen,
+    isTracking = false,
+    toggleTracking,
+    hasRoute = false,
+    isAddStopOpen,
+    setIsAddStopOpen,
+    onStartPickingStop,
+    pickedStopCoords,
+    onAddStopSubmit,
+    drivers,
+    onAssignDriver,
+    isLoadingDrivers: _isLoadingDrivers,
+    fetchDriversFromParent,
+    addDriverFromParent,
+    onDriverSelect,
+  }: SidebarProps) {
+    // Use prop drivers from parent (gis-map) directly
+    const finalDrivers = drivers ?? [];
+    const finalIsLoadingDrivers = _isLoadingDrivers ?? false;
+    const finalFetchDrivers =
+      fetchDriversFromParent ?? (() => Promise.resolve());
+    const finalAddDriver =
+      addDriverFromParent ?? (() => Promise.resolve({} as any));
 
-  // Helper to sync tab change with fleet mode
-  const setActiveTab = useCallback(
-    (tab: SidebarTab) => {
-      setActiveTabState(tab);
-      if (!isExpanded) setIsExpanded(true);
+    // Local state for sidebar visibility
+    const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
+    const [isExpanded, setIsExpanded] = useState(true);
 
-      // Implicitly handle fleet mode
-      if (tab === "fleet") {
+    // Drivers are already fetched in gis-map on mount (independent of fleet)
+    // No need to fetch them here based on tab changes
+
+    // Helper to sync tab change with fleet mode
+    const setActiveTab = useCallback(
+      (tab: SidebarTab) => {
+        setActiveTabState(tab);
+        if (!isExpanded) setIsExpanded(true);
+
+        // Implicitly handle fleet mode
+        if (tab === "fleet") {
+          setFleetMode(true);
+        }
+      },
+      [isExpanded, setFleetMode],
+    );
+
+    // Sync initial fleet mode
+    useEffect(() => {
+      if (activeTab === "fleet" && !fleetMode) {
         setFleetMode(true);
       }
-    },
-    [isExpanded, setFleetMode],
-  );
+    }, [activeTab, fleetMode, setFleetMode]);
 
-  // Sync initial fleet mode
-  useEffect(() => {
-    if (activeTab === "fleet" && !fleetMode) {
-      setFleetMode(true);
-    }
-  }, [activeTab, fleetMode, setFleetMode]);
+    const handleToggleExpand = useCallback(
+      () => setIsExpanded((prev) => !prev),
+      [],
+    );
 
-  const handleToggleExpand = useCallback(
-    () => setIsExpanded((prev) => !prev),
-    [],
-  );
+    const handleShowAddJob = useCallback(() => {
+      setIsAddJobOpen?.(true);
+    }, [setIsAddJobOpen]);
 
-  const handleShowAddJob = useCallback(() => {
-    setIsAddJobOpen?.(true);
-  }, [setIsAddJobOpen]);
+    const handleShowAddPOI = useCallback(() => {
+      setIsAddCustomPOIOpen?.(true);
+    }, [setIsAddCustomPOIOpen]);
 
-  const handleShowAddPOI = useCallback(() => {
-    setIsAddCustomPOIOpen?.(true);
-  }, [setIsAddCustomPOIOpen]);
+    // Memoize computed values to prevent unnecessary updates
+    const fleetTabHasData = useMemo(
+      () => fleetVehicles.length > 0 || fleetJobs.length > 0,
+      [fleetVehicles.length, fleetJobs.length],
+    );
 
-  // Memoize computed values to prevent unnecessary updates
-  const fleetTabHasData = useMemo(
-    () => fleetVehicles.length > 0 || fleetJobs.length > 0,
-    [fleetVehicles.length, fleetJobs.length]
-  );
+    return (
+      <div className="fixed left-4 top-4 z-[1000] flex pointer-events-none max-h-[calc(100vh-2rem)]">
+        <NavigationRail
+          activeTab={activeTab}
+          isExpanded={isExpanded}
+          onSetTab={setActiveTab}
+          onToggleExpand={handleToggleExpand}
+        />
 
-  return (
-    <div className="fixed left-4 top-4 z-[1000] flex pointer-events-none max-h-[calc(100vh-2rem)]">
-      <NavigationRail
-        activeTab={activeTab}
-        isExpanded={isExpanded}
-        onSetTab={setActiveTab}
-        onToggleExpand={handleToggleExpand}
-      />
-
-      <div
-        className={cn(
-          "ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto h-auto max-h-full",
-          isExpanded
-            ? cn(
-              "opacity-100 translate-x-0",
-              activeTab === "dashboard"
-                ? selectedVehicleId !== null ? "w-[32rem]" : (fleetVehicles.length > 3 ? "w-[28rem]" : "w-80")
-                : "w-80"
-            )
-            : "w-0 opacity-0 -translate-x-10",
-        )}
-      >
-        {activeTab === "fleet" && (
-          <FleetTab
-            isLoadingVehicles={isLoadingVehicles}
-            fetchVehicles={fetchVehicles ?? STABLE_PROMISE_NOOP}
-            clearFleet={clearFleet}
-            fleetVehicles={fleetVehicles}
-            fleetJobs={fleetJobs}
-            addMode={addMode}
-            addVehicle={addVehicle}
-            onAddJobClick={handleShowAddJob}
-            cancelAddMode={cancelAddMode}
-            selectedVehicleId={selectedVehicleId}
-            setSelectedVehicleId={setSelectedVehicleId}
-            removeVehicle={removeVehicle}
-            removeJob={removeJob}
-            startRouting={startRouting}
-            isCalculatingRoute={isCalculatingRoute}
-            isTracking={isTracking ?? false}
-            toggleTracking={toggleTracking ?? STABLE_NOOP}
-            hasRoute={hasRoute ?? false}
-            isAddStopOpen={isAddStopOpen}
-            setIsAddStopOpen={setIsAddStopOpen}
-            onStartPickingStop={onStartPickingStop}
-            pickedStopCoords={pickedStopCoords}
-            onAddStopSubmit={onAddStopSubmit}
-            drivers={drivers}
-            onAssignDriver={onAssignDriver}
-          />
-        )}
-        {activeTab === "layers" && (
-          <LayersTab
-            layers={layers}
-            toggleLayer={toggleLayer}
-            customPOIs={customPOIs}
-            onAddPOIClick={handleShowAddPOI}
-            removeCustomPOI={removeCustomPOI}
-            clearAllCustomPOIs={clearAllCustomPOIs}
-          />
-        )}
-        {activeTab === "drivers" && (
-          <DriversTab />
-        )}
-        {activeTab === "dashboard" && (
-          <ScrollArea className="flex-1 h-auto min-h-0 min-w-0">
-            <FleetDashboard
-              vehicles={fleetVehicles}
-              jobs={fleetJobs}
-              isTracking={isTracking}
-              addStopToVehicle={addStopToVehicle}
+        <div
+          className={cn(
+            "ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto h-auto max-h-full",
+            isExpanded
+              ? cn(
+                  "opacity-100 translate-x-0",
+                  activeTab === "dashboard"
+                    ? selectedVehicleId !== null
+                      ? "w-[32rem]"
+                      : fleetVehicles.length > 3
+                        ? "w-[28rem]"
+                        : "w-80"
+                    : "w-80",
+                )
+              : "w-0 opacity-0 -translate-x-10",
+          )}
+        >
+          {activeTab === "fleet" && (
+            <FleetTab
+              isLoadingVehicles={isLoadingVehicles}
+              fetchVehicles={fetchVehicles ?? STABLE_PROMISE_NOOP}
+              clearFleet={clearFleet}
+              fleetVehicles={fleetVehicles}
+              fleetJobs={fleetJobs}
+              addMode={addMode}
+              addVehicle={addVehicle}
+              onAddJobClick={handleShowAddJob}
+              cancelAddMode={cancelAddMode}
+              selectedVehicleId={selectedVehicleId}
+              setSelectedVehicleId={setSelectedVehicleId}
+              removeVehicle={removeVehicle}
+              removeJob={removeJob}
               startRouting={startRouting}
+              isCalculatingRoute={isCalculatingRoute}
+              isTracking={isTracking ?? false}
+              toggleTracking={toggleTracking ?? STABLE_NOOP}
+              hasRoute={hasRoute ?? false}
               isAddStopOpen={isAddStopOpen}
               setIsAddStopOpen={setIsAddStopOpen}
               onStartPickingStop={onStartPickingStop}
               pickedStopCoords={pickedStopCoords}
               onAddStopSubmit={onAddStopSubmit}
+              drivers={drivers}
+              onAssignDriver={onAssignDriver}
             />
-          </ScrollArea>
-        )}
+          )}
+          {activeTab === "layers" && (
+            <LayersTab
+              layers={layers}
+              toggleLayer={toggleLayer}
+              customPOIs={customPOIs}
+              onAddPOIClick={handleShowAddPOI}
+              removeCustomPOI={removeCustomPOI}
+              clearAllCustomPOIs={clearAllCustomPOIs}
+            />
+          )}
+          {activeTab === "drivers" && (
+            <DriversTab
+              drivers={finalDrivers}
+              isLoading={finalIsLoadingDrivers}
+              fetchDrivers={finalFetchDrivers}
+              addDriver={finalAddDriver}
+              onDriverSelect={onDriverSelect}
+            />
+          )}
+          {activeTab === "dashboard" && (
+            <ScrollArea className="flex-1 h-auto min-h-0 min-w-0">
+              <FleetDashboard
+                vehicles={fleetVehicles}
+                jobs={fleetJobs}
+                isTracking={isTracking}
+                addStopToVehicle={addStopToVehicle}
+                startRouting={startRouting}
+                isAddStopOpen={isAddStopOpen}
+                setIsAddStopOpen={setIsAddStopOpen}
+                onStartPickingStop={onStartPickingStop}
+                pickedStopCoords={pickedStopCoords}
+                onAddStopSubmit={onAddStopSubmit}
+                drivers={finalDrivers}
+                onAssignDriver={onAssignDriver}
+              />
+            </ScrollArea>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}, (prev: SidebarProps, next: SidebarProps) => {
-  // Custom comparator: only re-render if key props change
-  return (
-    prev.layers === next.layers &&
-    prev.fleetMode === next.fleetMode &&
-    prev.fleetVehicles === next.fleetVehicles &&
-    prev.fleetJobs === next.fleetJobs &&
-    prev.selectedVehicleId === next.selectedVehicleId &&
-    prev.addMode === next.addMode &&
-    prev.isCalculatingRoute === next.isCalculatingRoute &&
-    prev.isTracking === next.isTracking &&
-    prev.hasRoute === next.hasRoute &&
-    prev.customPOIs === next.customPOIs &&
-    prev.isLoadingVehicles === next.isLoadingVehicles &&
-    prev.isAddStopOpen === next.isAddStopOpen &&
-    prev.pickedStopCoords === next.pickedStopCoords
-  );
-});
+    );
+  },
+  (prev: SidebarProps, next: SidebarProps) => {
+    // Custom comparator: only re-render if key props change
+    return (
+      prev.layers === next.layers &&
+      prev.fleetMode === next.fleetMode &&
+      prev.fleetVehicles === next.fleetVehicles &&
+      prev.fleetJobs === next.fleetJobs &&
+      prev.selectedVehicleId === next.selectedVehicleId &&
+      prev.addMode === next.addMode &&
+      prev.isCalculatingRoute === next.isCalculatingRoute &&
+      prev.isTracking === next.isTracking &&
+      prev.hasRoute === next.hasRoute &&
+      prev.customPOIs === next.customPOIs &&
+      prev.isLoadingVehicles === next.isLoadingVehicles &&
+      prev.isAddStopOpen === next.isAddStopOpen &&
+      prev.pickedStopCoords === next.pickedStopCoords
+    );
+  },
+);
