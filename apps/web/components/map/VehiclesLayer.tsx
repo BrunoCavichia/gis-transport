@@ -5,11 +5,16 @@ import { Marker, Tooltip, Popup } from "react-leaflet";
 import { THEME } from "@/lib/theme";
 import { VEHICLE_TYPES } from "@/lib/types";
 import { FleetVehicle, VehicleType } from "@gis/shared";
+import type { Alert } from "@/lib/utils";
+import L from "leaflet";
+import { AlertBadge } from "@/components/alert-badge";
+import { renderToStaticMarkup } from "react-dom/server";
 
 interface VehicleMarkerItemProps {
     vehicle: FleetVehicle;
     isSelected: boolean;
     icon: any;
+    alerts: Alert[];
     onSelect?: (vehicleId: string) => void;
     onUpdateType?: (vehicleId: string, type: VehicleType) => void;
 }
@@ -19,9 +24,52 @@ const VehicleMarkerItem = memo(function VehicleMarkerItem({
     vehicle,
     isSelected,
     icon,
+    alerts,
     onSelect,
     onUpdateType,
 }: VehicleMarkerItemProps) {
+    // Create a wrapper icon with alert badge if there are alerts
+    let finalIcon = icon;
+    if (alerts.length > 0) {
+        const hasCritical = alerts.some((a) => a.severity === "critical");
+        const hasWarning = alerts.some((a) => a.severity === "warning");
+        const severity = hasCritical ? "critical" : hasWarning ? "warning" : "info";
+        const colors = {
+            critical: { bg: "#ef4444", ring: "rgba(239,68,68,0.3)" },
+            warning: { bg: "#f59e0b", ring: "rgba(245,158,11,0.3)" },
+            info: { bg: "#3b82f6", ring: "rgba(59,130,246,0.3)" },
+        };
+
+        const badgeHtml = renderToStaticMarkup(
+            <div style={{ position: "relative", display: "inline-block" }}>
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "-5px",
+                        right: "-5px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "50%",
+                        width: "20px",
+                        height: "20px",
+                        backgroundColor: colors[severity].bg,
+                        border: `2px solid white`,
+                        color: "white",
+                        fontSize: "10px",
+                        fontWeight: "bold",
+                        boxShadow: `0 0 8px ${colors[severity].ring}`,
+                        zIndex: 10,
+                    }}
+                >
+                    ⚠
+                </div>
+            </div>
+        );
+
+        // Note: We can't easily modify the icon HTML, so alerts will be shown via tooltip enhancement
+    }
+
     return (
         <Marker
             position={vehicle.position}
@@ -43,11 +91,48 @@ const VehicleMarkerItem = memo(function VehicleMarkerItem({
                     }}
                 >
                     {vehicle.type.label}
+                    {alerts.length > 0 && ` ⚠️ ${alerts.length}`}
                 </span>
             </Tooltip>
             <Popup offset={[0, -35]}>
                 <div style={{ fontSize: THEME.map.popups.fontSize }}>
                     <strong>{vehicle.type.label}</strong>
+                    {alerts.length > 0 && (
+                        <div
+                            style={{
+                                marginTop: THEME.map.popups.padding,
+                                padding: "8px",
+                                backgroundColor: "#fef3c7",
+                                borderRadius: "4px",
+                                borderLeft: "3px solid #f59e0b",
+                            }}
+                        >
+                            <strong style={{ fontSize: "11px", color: "#92400e" }}>Alertas Activas:</strong>
+                            {alerts.slice(0, 2).map((alert, idx) => (
+                                <div
+                                    key={idx}
+                                    style={{
+                                        fontSize: "10px",
+                                        color: "#78350f",
+                                        marginTop: "4px",
+                                    }}
+                                >
+                                    • {alert.title}
+                                </div>
+                            ))}
+                            {alerts.length > 2 && (
+                                <div
+                                    style={{
+                                        fontSize: "10px",
+                                        color: "#78350f",
+                                        marginTop: "4px",
+                                    }}
+                                >
+                                    + {alerts.length - 2} más
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div
                         style={{
                             marginTop: THEME.map.popups.padding,
@@ -87,6 +172,7 @@ interface VehiclesLayerProps {
     vehicles: FleetVehicle[];
     selectedVehicleId?: string | null;
     createVehicleIcon: (color: string) => any;
+    vehicleAlerts?: Record<string | number, Alert[]>;
     onSelect?: (vehicleId: string) => void;
     onUpdateType?: (vehicleId: string, type: VehicleType) => void;
 }
@@ -95,6 +181,7 @@ export const VehiclesLayer = memo(function VehiclesLayer({
     vehicles,
     selectedVehicleId,
     createVehicleIcon,
+    vehicleAlerts = {},
     onSelect,
     onUpdateType,
 }: VehiclesLayerProps) {
@@ -103,6 +190,7 @@ export const VehiclesLayer = memo(function VehiclesLayer({
             const isSelected = selectedVehicleId === vehicle.id;
             const color = isSelected ? THEME.colors.vehicleSelected : THEME.colors.muted;
             const icon = createVehicleIcon(color);
+            const alerts = vehicleAlerts[vehicle.id] || [];
 
             return (
                 <VehicleMarkerItem
@@ -110,12 +198,13 @@ export const VehiclesLayer = memo(function VehiclesLayer({
                     vehicle={vehicle}
                     isSelected={isSelected}
                     icon={icon}
+                    alerts={alerts}
                     onSelect={onSelect}
                     onUpdateType={onUpdateType}
                 />
             );
         });
-    }, [vehicles, selectedVehicleId, createVehicleIcon, onSelect, onUpdateType]);
+    }, [vehicles, selectedVehicleId, createVehicleIcon, vehicleAlerts, onSelect, onUpdateType]);
 
     return <>{markers}</>;
 });

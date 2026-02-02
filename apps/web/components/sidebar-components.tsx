@@ -44,6 +44,7 @@ interface NavigationButtonProps {
   onClick: (tab: "fleet" | "layers" | "dashboard" | "drivers" | "settings") => void;
   label: string;
   icon: React.ElementType;
+  alertCount?: number;
 }
 
 export const NavigationButton = memo(
@@ -54,6 +55,7 @@ export const NavigationButton = memo(
     onClick,
     label,
     icon: Icon,
+    alertCount = 0,
   }: NavigationButtonProps) => {
     const IconEl = React.useMemo(() => <Icon className="h-5 w-5" />, [Icon]);
     return (
@@ -75,10 +77,18 @@ export const NavigationButton = memo(
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
               </span>
             )}
+            {alertCount > 0 && tabId === "dashboard" && (
+              <span className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 bg-red-600 rounded-full text-white text-xs font-bold shadow-lg ring-2 ring-background animate-pulse">
+                {alertCount > 9 ? "9+" : alertCount}
+              </span>
+            )}
           </button>
         </TooltipTrigger>
         <TooltipContent side="right" className="font-bold ml-2">
           {label}
+          {alertCount > 0 && tabId === "dashboard" && (
+            <span className="ml-1 text-red-400">({alertCount} alertas)</span>
+          )}
         </TooltipContent>
       </Tooltip>
     );
@@ -87,7 +97,8 @@ export const NavigationButton = memo(
     return (
       prev.activeTab === next.activeTab &&
       prev.isExpanded === next.isExpanded &&
-      prev.tabId === next.tabId
+      prev.tabId === next.tabId &&
+      prev.alertCount === next.alertCount
     );
   },
 );

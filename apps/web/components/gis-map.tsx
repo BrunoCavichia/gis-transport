@@ -11,7 +11,8 @@ import type {
 } from "@gis/shared";
 import { InteractionMode as LocalInteractionMode } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
-import { isDriverTrulyAvailable } from "@/lib/utils";
+import { isDriverTrulyAvailable, generateVehicleAlerts } from "@/lib/utils";
+import type { Alert } from "@/lib/utils";
 import { useFleet } from "@/hooks/use-fleet";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
 import { useRouting } from "@/hooks/use-routing";
@@ -280,6 +281,20 @@ export function GISMap() {
     updateVehiclePosition: handleUpdateVehiclePosition,
     updateVehicleMetrics: handleUpdateVehicleMetrics,
   });
+
+  // Generate alerts for all vehicles based on their metrics
+  const vehicleAlerts = useMemo(() => {
+    const alerts: Record<string | number, Alert[]> = {};
+    fleetVehicles.forEach((vehicle) => {
+      alerts[vehicle.id] = generateVehicleAlerts(
+        vehicle.id,
+        vehicle.metrics || null,
+        vehicle.metrics?.maxSpeed
+      );
+    });
+    return alerts;
+  }, [fleetVehicles]);
+
   const clearAll = useCallback(async () => {
     // Clear driver assignments in the database
     try {
@@ -521,6 +536,7 @@ export function GISMap() {
         fleetJobs={fleetJobs}
         selectedVehicleId={selectedVehicleId}
         setSelectedVehicleId={handleSetSelectedVehicleId}
+        vehicleAlerts={vehicleAlerts}
         addVehicle={handleAddVehicle}
         addJob={handleAddJob}
         addStopToVehicle={addStopToVehicle}
@@ -577,6 +593,7 @@ export function GISMap() {
           fleetVehicles={fleetVehicles}
           fleetJobs={fleetJobs}
           selectedVehicleId={selectedVehicleId}
+          vehicleAlerts={vehicleAlerts}
           onMapClick={handleMapClick}
           pickedPOICoords={pickedPOICoords}
           pickedJobCoords={pickedJobCoords}

@@ -5,11 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Car, Package, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VehicleType, FleetJob, FleetVehicle } from "@gis/shared";
+import type { Alert } from "@/lib/utils";
+import { AlertBadge } from "./alert-badge";
 
 interface VehicleItemProps {
     id: string | number;
     type: VehicleType;
     isSelected: boolean;
+    alerts?: Alert[];
     onSelect: (id: string | number) => void;
     onRemove: (id: string | number) => void;
 }
@@ -19,6 +22,7 @@ export const VehicleItem = memo(
         id,
         type,
         isSelected,
+        alerts = [],
         onSelect,
         onRemove,
     }: VehicleItemProps) {
@@ -26,7 +30,7 @@ export const VehicleItem = memo(
             <div
                 onClick={() => onSelect(id)}
                 className={cn(
-                    "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group",
+                    "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group",
                     isSelected
                         ? "bg-primary/5 border-primary/50 shadow-sm"
                         : "bg-card border-transparent hover:bg-accent/50",
@@ -35,11 +39,14 @@ export const VehicleItem = memo(
                 <div className="flex items-center gap-3">
                     <div
                         className={cn(
-                            "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
+                            "relative h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
                             isSelected ? "bg-primary text-white" : "bg-muted",
                         )}
                     >
                         <Car className="h-4 w-4" />
+                        {alerts.length > 0 && (
+                            <AlertBadge alerts={alerts} className="h-6 w-6 text-[9px]" />
+                        )}
                     </div>
                     <div>
                         <p className="text-xs font-bold">{type.label}</p>
@@ -67,6 +74,7 @@ export const VehicleItem = memo(
             prev.id === next.id &&
             prev.type === next.type &&
             prev.isSelected === next.isSelected &&
+            prev.alerts === next.alerts &&
             prev.onSelect === next.onSelect &&
             prev.onRemove === next.onRemove
         );
@@ -147,6 +155,7 @@ export const JobsList = memo(
 interface VehiclesListProps {
     vehicles: FleetVehicle[];
     selectedVehicleId: string | number | null;
+    vehicleAlerts?: Record<string | number, Alert[]>;
     onSelect: (id: string | number | null) => void;
     onRemove: (id: string | number) => void;
 }
@@ -155,6 +164,7 @@ export const VehiclesList = memo(
     function VehiclesList({
         vehicles,
         selectedVehicleId,
+        vehicleAlerts = {},
         onSelect,
         onRemove,
     }: VehiclesListProps) {
@@ -166,6 +176,7 @@ export const VehiclesList = memo(
                         id={v.id}
                         type={v.type}
                         isSelected={selectedVehicleId === v.id}
+                        alerts={vehicleAlerts[v.id] || []}
                         onSelect={onSelect}
                         onRemove={onRemove}
                     />
@@ -177,6 +188,7 @@ export const VehiclesList = memo(
         return (
             prev.vehicles === next.vehicles &&
             prev.selectedVehicleId === next.selectedVehicleId &&
+            prev.vehicleAlerts === next.vehicleAlerts &&
             prev.onSelect === next.onSelect &&
             prev.onRemove === next.onRemove
         );

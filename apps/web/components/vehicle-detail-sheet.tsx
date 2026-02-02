@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { FleetVehicle, VehicleMetrics, FleetJob } from "@gis/shared";
+import type { Alert } from "@/lib/utils";
 import { GeocodingService } from "@/lib/services/geocoding-service";
 import { AddStopDialog } from "./add-stop-dialog";
 
@@ -33,6 +34,7 @@ interface VehicleDetailSheetProps {
     vehicle: FleetVehicle | null;
     metrics: VehicleMetrics | null;
     jobs?: FleetJob[];
+    alerts?: Alert[];
     addStopToVehicle?: (vehicleId: string | number, position: [number, number], label?: string) => void;
     startRouting?: () => void;
     isAddStopOpen?: boolean;
@@ -49,6 +51,7 @@ export function VehicleDetailSheet({
     vehicle,
     metrics,
     jobs = [],
+    alerts = [],
     addStopToVehicle,
     startRouting,
     isAddStopOpen = false,
@@ -105,9 +108,15 @@ export function VehicleDetailSheet({
 
     const speed = metrics?.speed || 0;
     const maxSpeed = metrics?.maxSpeed;
-    const isOverSpeeding = maxSpeed ? speed > maxSpeed : false;
     const energyLevel = (isElectric ? metrics?.batteryLevel : metrics?.fuelLevel) ?? 100;
     const movement = metrics?.movementState || "stopped";
+    
+    // Check if vehicle is speeding
+    const isOverSpeeding = maxSpeed ? speed > maxSpeed : false;
+    
+    // Check if there are any critical alerts
+    const hasCriticalAlerts = alerts.some(a => a.severity === 'critical');
+    const hasAnyAlerts = alerts.length > 0;
 
     return (
         <div className="flex flex-col h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-hidden animate-in slide-in-from-right-4 duration-300 font-sans text-xs">
@@ -141,15 +150,19 @@ export function VehicleDetailSheet({
             {/* Scrollable Body - High Density */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
-                {/* Unified Monitor Block (Speed + Location + Energy) */}
+                {/* Unified Monitor Block (Speed + Location) */}
                 <div className="space-y-1.5">
                     <h3 className="text-[9px] font-black text-muted-foreground/40 flex items-center gap-1.5 uppercase tracking-widest pl-1">
                         <ShieldCheck className="h-3 w-3" /> Monitor de Seguridad
                     </h3>
 
                     <div className={cn(
-                        "relative border rounded-xl p-4 shadow-sm min-h-[160px] flex flex-col justify-between overflow-hidden transition-all duration-300",
-                        isOverSpeeding ? "bg-red-50/40 border-red-200/60 ring-1 ring-red-500/5" : "bg-card border-border/50"
+                        "relative border rounded-xl p-4 shadow-sm min-h-[140px] flex flex-col justify-between overflow-hidden transition-all duration-300",
+                        hasCriticalAlerts 
+                            ? "bg-red-50/50 border-red-200/50" 
+                            : hasAnyAlerts
+                            ? "bg-amber-50/30 border-amber-200/40"
+                            : "bg-card border-border/50"
                     )}>
                         <div className="flex justify-between items-start relative z-10 gap-4">
                             <div className="space-y-3 flex-1 min-w-0">
@@ -158,7 +171,7 @@ export function VehicleDetailSheet({
                                     <div className="text-[8px] font-black text-muted-foreground/50 uppercase tracking-widest leading-none">Velocidad Actual</div>
                                     <div className={cn(
                                         "text-3xl font-black tracking-tighter leading-none",
-                                        isOverSpeeding ? "text-red-600" : "text-foreground"
+                                        "text-foreground"
                                     )}>
                                         {speed}
                                         <span className="text-[10px] font-bold text-muted-foreground/40 ml-1 uppercase">km/h</span>
@@ -180,30 +193,26 @@ export function VehicleDetailSheet({
                             {/* Speed Limit Sign */}
                             <div className="flex flex-col items-end shrink-0">
                                 <div className="text-[8px] font-black text-muted-foreground/50 uppercase tracking-widest leading-none mb-1">Límite</div>
-                                <div className="relative inline-flex items-center justify-center h-10 w-10 rounded-full border-[3px] border-red-600 bg-white shadow-sm">
+                                <div className={cn(
+                                    "relative inline-flex items-center justify-center h-10 w-10 rounded-full border-[3px] bg-white shadow-sm",
+                                    isOverSpeeding ? "border-red-600" : "border-blue-600"
+                                )}>
                                     <span className="text-base font-black text-zinc-900 leading-none">{maxSpeed || "--"}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Status/Alert Section - Fixed position at bottom */}
+                        {/* Status Section - Fixed position at bottom */}
                         <div className="mt-3 relative z-10">
-                            {isOverSpeeding ? (
-                                <div className="flex items-center gap-2 bg-red-600 text-white px-2.5 py-1.5 rounded-lg animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-md">
-                                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                                    <span className="text-[9px] font-black uppercase tracking-wider">Límite de vía excedido</span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2 bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/20">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">Velocidad dentro de rango legal</span>
-                                </div>
-                            )}
+                            <div className="flex items-center gap-2 bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/20">
+                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
+                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">Sistema de alerta activo</span>
+                            </div>
                         </div>
 
                         <Zap className={cn(
-                            "absolute -top-4 -right-4 h-20 w-20 opacity-[0.02] rotate-12 transition-colors",
-                            isOverSpeeding ? "text-red-500" : "text-primary"
+                            "absolute -top-4 -right-4 h-20 w-20 opacity-[0.02] rotate-12",
+                            "text-primary"
                         )} />
                     </div>
                 </div>

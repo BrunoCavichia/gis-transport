@@ -32,6 +32,7 @@ import type {
   FleetVehicle,
   FleetJob,
 } from "@gis/shared";
+import type { Alert } from "@/lib/utils";
 import L from "leaflet";
 import { createMapIcons } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
@@ -72,6 +73,7 @@ interface MapContainerProps {
   setMapCenter: (center: [number, number]) => void;
   selectedVehicle: VehicleType;
   customPOIs?: CustomPOI[];
+  vehicleAlerts?: Record<string | number, Alert[]>;
   onMapClick?: (coords: [number, number]) => void;
   fleetVehicles?: FleetVehicle[];
   fleetJobs?: FleetJob[];
@@ -99,6 +101,7 @@ export default memo(function MapContainer({
   setMapCenter,
   selectedVehicle,
   customPOIs,
+  vehicleAlerts = {},
   fleetVehicles,
   fleetJobs,
   selectedVehicleId,
@@ -226,6 +229,7 @@ export default memo(function MapContainer({
           vehicles={fleetVehicles || []}
           selectedVehicleId={selectedVehicleId}
           createVehicleIcon={vehicle}
+          vehicleAlerts={vehicleAlerts}
           onUpdateType={onVehicleTypeChange}
           onSelect={onVehicleSelect}
         />

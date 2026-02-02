@@ -1,9 +1,155 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { Driver } from "@gis/shared";
+import type { Driver, VehicleMetrics } from "@gis/shared";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+// ============================================
+// ALERT SYSTEM - Unified & Extensible
+// ============================================
+
+export type AlertCategory = 'vehicle' | 'weather' | 'route' | 'delivery';
+export type AlertSeverity = 'info' | 'warning' | 'critical';
+export type AlertType = 'speeding' | 'low_fuel' | 'low_battery' | 'maintenance' | 'off_route' | 'weather' | 'delay';
+
+export interface Alert {
+  id: string;
+  type: AlertType;
+  category: AlertCategory;
+  severity: AlertSeverity;
+  title: string;
+  message: string;
+  timestamp: number;
+  vehicleId?: string | number;
+  data?: Record<string, any>;
+}
+
+/**
+ * Generates vehicle operational alerts based on current telemetry metrics.
+ * Extensible system: add new alert types here as telemtry becomes available.
+ * 
+ * Current alerts:
+ * - Speeding: When speed exceeds road limit (critical if >20 km/h excess, warning otherwise)
+ * 
+ * Future alerts (placeholder):
+ * - Low Fuel: When fuel level drops below threshold
+ * - Low Battery: When EV battery level drops below threshold
+ * - Maintenance: When vehicle health is below threshold
+ */
+export function generateVehicleAlerts(
+  vehicleId: string | number,
+  metrics: VehicleMetrics | null,
+  maxSpeed?: number
+): Alert[] {
+  const alerts: Alert[] = [];
+
+  if (!metrics) return alerts;
+
+  const now = Date.now();
+  const speed = metrics.speed || 0;
+  
+  // Use provided maxSpeed, or default to 60 km/h if not available
+  const speedLimit = maxSpeed || 60;
+
+  // SPEEDING ALERT - Current implementation
+  if (speed > speedLimit) {
+    const excess = speed - speedLimit;
+    const isCritical = excess > 20;
+
+    alerts.push({
+      id: `speeding-${vehicleId}-${now}`,
+      type: 'speeding',
+      category: 'vehicle',
+      severity: isCritical ? 'critical' : 'warning',
+      title: 'Exceso de Velocidad',
+      message: `El vehículo supera el límite en ${Math.round(excess)} km/h (${speed} km/h vs ${speedLimit} km/h permitido)`,
+      timestamp: now,
+      vehicleId,
+      data: { currentSpeed: speed, speedLimit, excess },
+    });
+  }
+
+  // PLACEHOLDER: Low Fuel - Will be enabled with official telemtry
+  if (metrics.fuelLevel !== undefined && metrics.fuelLevel < 20) {
+    alerts.push({
+      id: `low-fuel-${vehicleId}-${now}`,
+      type: 'low_fuel',
+      category: 'vehicle',
+      severity: metrics.fuelLevel < 10 ? 'critical' : 'warning',
+      title: 'Combustible Bajo',
+      message: `Nivel de combustible: ${Math.round(metrics.fuelLevel)}%`,
+      timestamp: now,
+      vehicleId,
+      data: { fuelLevel: metrics.fuelLevel },
+    });
+  }
+
+  // PLACEHOLDER: Low Battery - Will be enabled with official telemtry
+  if (metrics.batteryLevel !== undefined && metrics.batteryLevel < 20) {
+    alerts.push({
+      id: `low-battery-${vehicleId}-${now}`,
+      type: 'low_battery',
+      category: 'vehicle',
+      severity: metrics.batteryLevel < 10 ? 'critical' : 'warning',
+      title: 'Batería Baja',
+      message: `Nivel de batería: ${Math.round(metrics.batteryLevel)}%`,
+      timestamp: now,
+      vehicleId,
+      data: { batteryLevel: metrics.batteryLevel },
+    });
+  }
+
+  // PLACEHOLDER: Low Health - Will be enabled with official telemtry
+  if (metrics.health < 50) {
+    alerts.push({
+      id: `low-health-${vehicleId}-${now}`,
+      type: 'maintenance',
+      category: 'vehicle',
+      severity: metrics.health < 30 ? 'critical' : 'warning',
+      title: 'Mantenimiento Necesario',
+      message: `Salud del vehículo: ${Math.round(metrics.health)}%`,
+      timestamp: now,
+      vehicleId,
+      data: { health: metrics.health },
+    });
+  }
+
+  return alerts;
+}
+
+/**
+ * Utility to determine alert styling based on severity and category
+ */
+export function getAlertStyles(severity: AlertSeverity, category: AlertCategory = 'vehicle') {
+  switch (severity) {
+    case 'critical':
+      return {
+        bg: 'bg-red-50/30',
+        border: 'border-red-100/50',
+        badge: 'bg-red-500/10 text-red-600',
+        icon: 'text-red-600',
+        banner: 'bg-red-600 text-white',
+      };
+    case 'warning':
+      return {
+        bg: 'bg-amber-50/30',
+        border: 'border-amber-100/50',
+        badge: 'bg-amber-500/10 text-amber-600',
+        icon: 'text-amber-600',
+        banner: 'bg-amber-500 text-white',
+      };
+    case 'info':
+    default:
+      return {
+        bg: 'bg-blue-50/30',
+        border: 'border-blue-100/50',
+        badge: 'bg-blue-500/10 text-blue-600',
+        icon: 'text-blue-600',
+        banner: 'bg-blue-500 text-white',
+      };
+  }
 }
 
 /**

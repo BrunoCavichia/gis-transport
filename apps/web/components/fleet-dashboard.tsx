@@ -11,9 +11,10 @@ import type {
   VehicleMetrics,
   FleetJob,
 } from "@gis/shared";
+import type { Alert } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { Activity, Battery, Fuel, TrendingUp, Truck } from "lucide-react";
+import { Activity, Battery, Fuel, TrendingUp, Truck, AlertTriangle } from "lucide-react";
 import { VehicleDetailSheet } from "./vehicle-detail-sheet";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 interface FleetDashboardProps {
   vehicles: FleetVehicle[];
   jobs?: FleetJob[];
+  vehicleAlerts?: Record<string | number, Alert[]>;
   isTracking?: boolean;
   addStopToVehicle?: (
     vehicleId: string | number,
@@ -42,6 +44,7 @@ interface FleetDashboardProps {
 export function FleetDashboard({
   vehicles,
   jobs = [],
+  vehicleAlerts = {},
   addStopToVehicle,
   startRouting,
   isAddStopOpen,
@@ -129,6 +132,7 @@ export function FleetDashboard({
           <VehicleDetailSheet
             vehicle={selectedVehicle}
             metrics={selectedVehicle.metrics ?? null}
+            alerts={vehicleAlerts[selectedVehicle.id] || []}
             jobs={jobs}
             addStopToVehicle={addStopToVehicle}
             startRouting={startRouting}
@@ -177,6 +181,7 @@ export function FleetDashboard({
 
           {/* Premium List Cards */}
           <div className="flex-1 overflow-y-auto min-h-0 p-3 pt-0 space-y-2.5">
+            {/* Vehicles List */}
             {vehicles.map((vehicle) => {
               const m = vehicle.metrics;
               const movement = m ? m.movementState : null;
@@ -202,6 +207,11 @@ export function FleetDashboard({
                         <span className="font-bold text-sm text-foreground truncate">
                           {vehicle.label}
                         </span>
+                        {vehicleAlerts[vehicle.id]?.length > 0 && (
+                          <span className="inline-flex items-center justify-center h-5 px-1.5 bg-red-600 text-white rounded-full text-[8px] font-bold shrink-0">
+                            !
+                          </span>
+                        )}
                         <span
                           className={cn(
                             "inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium border shadow-[0_1px_2px_rgba(0,0,0,0.05)]",

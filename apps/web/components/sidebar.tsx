@@ -30,6 +30,7 @@ import type {
   FleetJob,
   FleetVehicle,
 } from "@gis/shared";
+import type { Alert } from "@/lib/utils";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
 import { DriversTab } from "./drivers-tab";
 import {
@@ -59,6 +60,7 @@ interface SidebarProps {
   fleetJobs: FleetJob[];
   selectedVehicleId: string | number | null;
   setSelectedVehicleId: (id: string | number | null) => void;
+  vehicleAlerts?: Record<string | number, Alert[]>;
   addVehicle: () => void;
   addJob: () => void;
   addStopToVehicle?: (
@@ -108,6 +110,7 @@ interface NavigationRailProps {
   isExpanded: boolean;
   onSetTab: (tab: SidebarTab) => void;
   onToggleExpand: () => void;
+  totalAlerts: number;
 }
 
 const NavigationRail = memo(
@@ -116,6 +119,7 @@ const NavigationRail = memo(
     isExpanded,
     onSetTab,
     onToggleExpand,
+    totalAlerts,
   }: NavigationRailProps) => (
     <div className="w-16 h-full bg-background/95 backdrop-blur-md border border-white/20 rounded-3xl flex flex-col items-center py-6 gap-4 shadow-xl pointer-events-auto z-[1002] transition-all duration-300">
       <SidebarLogo />
@@ -154,6 +158,7 @@ const NavigationRail = memo(
         onClick={onSetTab}
         label="Dashboard"
         icon={LayoutDashboard}
+        alertCount={totalAlerts}
       />
 
       <div className="flex-1" />
@@ -170,6 +175,7 @@ interface FleetTabProps {
   clearFleet: () => void;
   fleetVehicles: FleetVehicle[];
   fleetJobs: FleetJob[];
+  vehicleAlerts?: Record<string | number, Alert[]>;
   addMode: "vehicle" | "job" | null;
   addVehicle: () => void;
   onAddJobClick: () => void;
@@ -199,6 +205,7 @@ const FleetTab = memo(
     clearFleet,
     fleetVehicles,
     fleetJobs,
+    vehicleAlerts = {},
     addMode,
     addVehicle,
     onAddJobClick,
@@ -295,6 +302,7 @@ const FleetTab = memo(
               <VehiclesList
                 vehicles={fleetVehicles}
                 selectedVehicleId={selectedVehicleId}
+                vehicleAlerts={vehicleAlerts}
                 onSelect={setSelectedVehicleId}
                 onRemove={removeVehicle}
               />
@@ -483,6 +491,7 @@ export const Sidebar = memo(
     fleetJobs,
     selectedVehicleId,
     setSelectedVehicleId,
+    vehicleAlerts = {},
     addVehicle,
     addStopToVehicle,
     removeVehicle,
@@ -567,6 +576,16 @@ export const Sidebar = memo(
       [fleetVehicles.length, fleetJobs.length],
     );
 
+    // Calculate total number of alerts across all vehicles
+    const totalAlerts = useMemo(() => {
+      if (!vehicleAlerts) return 0;
+      let count = 0;
+      Object.values(vehicleAlerts).forEach((alerts) => {
+        count += alerts.length;
+      });
+      return count;
+    }, [vehicleAlerts]);
+
     return (
       <div className="fixed left-4 top-4 z-[1000] flex pointer-events-none max-h-[calc(100vh-2rem)]">
         <NavigationRail
@@ -574,6 +593,7 @@ export const Sidebar = memo(
           isExpanded={isExpanded}
           onSetTab={setActiveTab}
           onToggleExpand={handleToggleExpand}
+          totalAlerts={totalAlerts}
         />
 
         <div
@@ -620,6 +640,7 @@ export const Sidebar = memo(
               onAddStopSubmit={onAddStopSubmit}
               drivers={drivers}
               onAssignDriver={onAssignDriver}
+              vehicleAlerts={vehicleAlerts}
             />
           )}
           {activeTab === "layers" && (
@@ -653,6 +674,7 @@ export const Sidebar = memo(
               <FleetDashboard
                 vehicles={fleetVehicles}
                 jobs={fleetJobs}
+                vehicleAlerts={vehicleAlerts}
                 isTracking={isTracking}
                 addStopToVehicle={addStopToVehicle}
                 startRouting={startRouting}
@@ -678,6 +700,7 @@ export const Sidebar = memo(
       prev.fleetVehicles === next.fleetVehicles &&
       prev.fleetJobs === next.fleetJobs &&
       prev.selectedVehicleId === next.selectedVehicleId &&
+      prev.vehicleAlerts === next.vehicleAlerts &&
       prev.addMode === next.addMode &&
       prev.isCalculatingRoute === next.isCalculatingRoute &&
       prev.isTracking === next.isTracking &&
