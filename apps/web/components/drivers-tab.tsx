@@ -89,7 +89,7 @@ export function DriversTab({
                   )}
                 />
 
-                <div className="flex items-start gap-4">
+                <div className="flex gap-3 items-start">
                   <div className="h-12 w-12 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center overflow-hidden shrink-0">
                     {driver.imageUrl ? (
                       <img
@@ -103,50 +103,45 @@ export function DriversTab({
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="text-sm font-black truncate">
-                        {driver.name}
-                      </h3>
-                      <Badge
-                        variant={getDriverIsAvailable(driver) ? "outline" : "secondary"}
-                        className="text-[9px] uppercase font-black px-1.5 h-4 border-emerald-500/20 text-emerald-600 bg-emerald-500/5"
-                      >
-                        {getDriverIsAvailable(driver) ? "Disponible" : "Conductor Asignado"}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5">
-                        <ShieldCheck className="h-3 w-3 text-primary/60" />
-                        <span className="text-[10px] font-bold text-muted-foreground">
-                          {driver.licenseType || "Cat. B"}
-                        </span>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <h3 className="text-sm font-black truncate">
+                          {driver.name}
+                        </h3>
+                        <Badge
+                          variant={getDriverIsAvailable(driver) ? "outline" : "secondary"}
+                          className="text-[9px] uppercase font-black px-1.5 h-4 border-emerald-500/20 text-emerald-600 bg-emerald-500/5 shrink-0"
+                        >
+                          {getDriverIsAvailable(driver) ? "Disponible" : "Asignado"}
+                        </Badge>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3 w-3 text-primary/60" />
-                        <span className="text-[10px] font-bold text-muted-foreground">
-                          {getDriverOnTimeRate(driver)}% On-Time
-                        </span>
+
+                      <div className="flex flex-wrap items-center gap-3 text-[10px]">
+                        <div className="flex items-center gap-1.5">
+                          <ShieldCheck className="h-3 w-3 text-primary/60 shrink-0" />
+                          <span className="font-bold text-muted-foreground">
+                            {driver.licenseType || "Cat. B"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 text-primary/60 shrink-0" />
+                          <span className="font-bold text-muted-foreground">
+                            {getDriverOnTimeRate(driver)}% Puntual
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {getDriverCurrentVehicle(driver) && (
-                  <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Car className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[10px] font-black uppercase text-muted-foreground">
+                  <div className="mt-3 pt-3 border-t border-border/50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Car className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="text-[10px] font-black uppercase text-muted-foreground truncate">
                         {getDriverCurrentVehicle(driver)?.registration || "N/A"}
                       </span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 text-[9px] font-black uppercase tracking-widest text-primary px-2"
-                    >
-                      Detallado
-                    </Button>
                   </div>
                 )}
 
