@@ -33,12 +33,27 @@ export function useDrivers() {
 
   const addDriver = useCallback(async (driverData: Partial<Driver>) => {
     try {
+      // Filter out fields that are no longer stored directly on Driver
+      // (isAvailable, onTimeDeliveryRate, currentVehicleId are now derived)
+      const { name, licenseType, licenseNumber, imageUrl } = driverData;
+      
+      // Only include fields that have values
+      const payload: any = { name };
+      if (licenseType) payload.licenseType = licenseType;
+      if (licenseNumber) payload.licenseNumber = licenseNumber;
+      if (imageUrl) payload.imageUrl = imageUrl;
+
       const res = await fetch("/api/drivers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(driverData),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to add driver");
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.error || "Failed to add driver");
+      }
+      
       const data = await res.json();
       if (data.success) {
         setDrivers((prev) => [...prev, data.data]);
@@ -54,12 +69,32 @@ export function useDrivers() {
   const updateDriver = useCallback(
     async (id: string, updateData: Partial<Driver>) => {
       try {
+        // Filter out fields that are derived or handled via VehicleAssignment
+        const { name, licenseType, licenseNumber, imageUrl } = updateData;
+        const payload: any = {};
+        
+        if (name !== undefined) payload.name = name;
+        if (licenseType !== undefined) payload.licenseType = licenseType;
+        if (licenseNumber !== undefined) payload.licenseNumber = licenseNumber;
+        if (imageUrl !== undefined) payload.imageUrl = imageUrl;
+        
+        // Handle assignment changes via isAvailable/currentVehicleId
+        if (updateData.isAvailable !== undefined) {
+          payload.isAvailable = updateData.isAvailable;
+        }
+        if (updateData.currentVehicleId !== undefined) {
+          payload.currentVehicleId = updateData.currentVehicleId;
+        }
+
         const res = await fetch(`/api/drivers/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
+          body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error("Failed to update driver");
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData?.error || "Failed to update driver");
+        }
         const data = await res.json();
         if (data.success) {
           setDrivers((prev) => prev.map((d) => (d.id === id ? data.data : d)));

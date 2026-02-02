@@ -35,6 +35,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Regular driver creation
+    // BACKEND VALIDATION: New drivers must start with no vehicle assignment
+    if (body.currentVehicleId && body.currentVehicleId !== null) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "New drivers cannot be created with an existing vehicle assignment. Drivers start available with no assignment." 
+        },
+        { status: 400 },
+      );
+    }
+
     const driver = await repository.addDriver(body);
     return NextResponse.json({ success: true, data: driver });
   } catch (error: any) {

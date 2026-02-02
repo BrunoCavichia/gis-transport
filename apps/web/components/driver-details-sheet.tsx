@@ -3,7 +3,14 @@
 import { Driver } from "@gis/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, ShieldCheck, Clock, Car, AlertTriangle, ArrowLeft } from "lucide-react";
+import {
+  Users,
+  ShieldCheck,
+  Clock,
+  Car,
+  AlertTriangle,
+  ArrowLeft,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -81,14 +88,18 @@ export function DriverDetailsSheet({
             </h3>
             <div className="bg-card border border-border/50 rounded-xl p-4 space-y-3 shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium">Categoría</span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  Categoría
+                </span>
                 <span className="text-sm font-bold bg-muted/50 px-2 py-0.5 rounded-md border border-border/50">
                   {driver.licenseType || "Cat. B"}
                 </span>
               </div>
               {driver.licenseNumber && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Número</span>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Número
+                  </span>
                   <span className="text-xs font-mono font-bold tracking-wider">
                     {driver.licenseNumber}
                   </span>
@@ -111,10 +122,16 @@ export function DriverDetailsSheet({
                       Puntualidad
                     </span>
                   </div>
-                  <span className={cn(
-                    "text-sm font-black",
-                    driver.onTimeDeliveryRate >= 90 ? "text-emerald-600" : driver.onTimeDeliveryRate >= 75 ? "text-orange-500" : "text-red-500"
-                  )}>
+                  <span
+                    className={cn(
+                      "text-sm font-black",
+                      driver.onTimeDeliveryRate >= 90
+                        ? "text-emerald-600"
+                        : driver.onTimeDeliveryRate >= 75
+                          ? "text-orange-500"
+                          : "text-red-500",
+                    )}
+                  >
                     {driver.onTimeDeliveryRate}%
                   </span>
                 </div>
@@ -147,7 +164,9 @@ export function DriverDetailsSheet({
                     <Car className="h-4 w-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase">Vehículo</p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase">
+                      Vehículo
+                    </p>
                     <span className="text-sm font-black text-foreground">
                       {driver.currentVehicleId}
                     </span>
@@ -176,7 +195,9 @@ export function DriverDetailsSheet({
                       Excesos de velocidad detectados
                     </p>
                     <p className="text-[10px] text-red-600/80 dark:text-red-400/70 leading-relaxed">
-                      Este conductor ha registrado <strong>{speedicngCount}</strong> eventos de exceso de velocidad en el último periodo.
+                      Este conductor ha registrado{" "}
+                      <strong>{speedicngCount}</strong> eventos de exceso de
+                      velocidad en el último periodo.
                     </p>
                   </div>
                 </div>

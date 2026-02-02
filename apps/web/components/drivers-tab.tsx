@@ -13,7 +13,7 @@ import {
   RefreshCw,
   Car,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getDriverIsAvailable, getDriverOnTimeRate, getDriverCurrentVehicle } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { Driver } from "@gis/shared";
 
@@ -108,10 +108,10 @@ export function DriversTab({
                         {driver.name}
                       </h3>
                       <Badge
-                        variant={driver.isAvailable ? "outline" : "secondary"}
+                        variant={getDriverIsAvailable(driver) ? "outline" : "secondary"}
                         className="text-[9px] uppercase font-black px-1.5 h-4 border-emerald-500/20 text-emerald-600 bg-emerald-500/5"
                       >
-                        {driver.isAvailable ? "Disponible" : "Conductor Asignado"}
+                        {getDriverIsAvailable(driver) ? "Disponible" : "Conductor Asignado"}
                       </Badge>
                     </div>
 
@@ -125,19 +125,19 @@ export function DriversTab({
                       <div className="flex items-center gap-1.5">
                         <Clock className="h-3 w-3 text-primary/60" />
                         <span className="text-[10px] font-bold text-muted-foreground">
-                          {driver.onTimeDeliveryRate}% On-Time
+                          {getDriverOnTimeRate(driver)}% On-Time
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {driver.currentVehicleId && (
+                {getDriverCurrentVehicle(driver) && (
                   <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Car className="h-3 w-3 text-muted-foreground" />
                       <span className="text-[10px] font-black uppercase text-muted-foreground">
-                        {driver.currentVehicleId}
+                        {getDriverCurrentVehicle(driver)?.registration || "N/A"}
                       </span>
                     </div>
                     <Button

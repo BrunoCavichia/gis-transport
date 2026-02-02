@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, isDriverTrulyAvailable } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
@@ -278,21 +278,29 @@ export function VehicleDetailSheet({
                             <div className="flex flex-col items-center justify-center py-4 gap-2">
                                 <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Sin conductor asignado</p>
                                 <div className="flex flex-wrap gap-1 justify-center max-h-24 overflow-y-auto px-1">
-                                    {drivers.filter((d: any) => d.isAvailable).length > 0 ? (
-                                        drivers.filter((d: any) => d.isAvailable).map((driver: any) => (
-                                            <Button
-                                                key={driver.id}
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 text-[9px] font-bold px-2 rounded-lg"
-                                                onClick={() => onAssignDriver?.(vehicle.id, driver)}
-                                            >
-                                                Asignar {driver.name.split(' ')[0]}
-                                            </Button>
-                                        ))
-                                    ) : (
-                                        <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest text-center">No hay conductores libres</p>
-                                    )}
+                                    {(() => {
+                                        // Validation: Filter drivers that are TRULY available
+                                        // using the dedicated validation utility
+                                        const trulyAvailableDrivers = drivers.filter(
+                                            (d: any) => isDriverTrulyAvailable(d)
+                                        );
+                                        
+                                        return trulyAvailableDrivers.length > 0 ? (
+                                            trulyAvailableDrivers.map((driver: any) => (
+                                                <Button
+                                                    key={driver.id}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-[9px] font-bold px-2 rounded-lg"
+                                                    onClick={() => onAssignDriver?.(vehicle.id, driver)}
+                                                >
+                                                    Asignar {driver.name.split(' ')[0]}
+                                                </Button>
+                                            ))
+                                        ) : (
+                                            <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest text-center">No hay conductores libres</p>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}

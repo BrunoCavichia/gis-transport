@@ -1,1 +1,1 @@
-export { prisma, repository } from "@gis/database";
+export { prisma, repository, assignmentRepository } from "@gis/database";

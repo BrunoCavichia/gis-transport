@@ -11,6 +11,7 @@ import type {
 } from "@gis/shared";
 import { InteractionMode as LocalInteractionMode } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
+import { isDriverTrulyAvailable } from "@/lib/utils";
 import { useFleet } from "@/hooks/use-fleet";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
 import { useRouting } from "@/hooks/use-routing";
@@ -27,7 +28,6 @@ const MapContainer = dynamic(() => import("@/components/map-container"), {
 });
 
 const DEFAULT_CENTER: [number, number] = MAP_CENTER;
-
 export function GISMap() {
   const [layers, setLayers] = useState<LayerVisibility>({
     gasStations: false,
@@ -106,6 +106,28 @@ export function GISMap() {
       try {
         console.log("Assigning driver:", newDriver?.name, "to vehicle:", vehicleId);
 
+        // VALIDATION: Check if the vehicle still exists
+        const vehicleExists = fleetVehicles.some((v) => String(v.id) === String(vehicleId));
+        if (!vehicleExists) {
+          console.error("Cannot assign driver: vehicle no longer exists");
+          await fetchDrivers(); // Refresh to get latest state
+          return;
+        }
+
+        // VALIDATION: If assigning a new driver, verify they are actually available
+        if (newDriver) {
+          if (!isDriverTrulyAvailable(newDriver)) {
+            console.error("Cannot assign driver: driver is not available or already assigned to another vehicle", {
+              driverId: newDriver.id,
+              driverName: newDriver.name,
+              isAvailable: newDriver.isAvailable,
+              currentVehicleId: newDriver.currentVehicleId,
+            });
+            await fetchDrivers(); // Refresh to get latest state
+            return;
+          }
+        }
+
         // Optimistic update: Update frontend fleet state immediately
         assignDriverToVehicle(vehicleId, newDriver);
 
@@ -147,7 +169,7 @@ export function GISMap() {
         // Ideally we should revert the optimistic update here
       }
     },
-    [assignDriverToVehicle, updateDriver, drivers, optimisticUpdateDriver, fetchDrivers],
+    [assignDriverToVehicle, updateDriver, drivers, optimisticUpdateDriver, fetchDrivers, fleetVehicles],
   );
 
   // Reconciliation: Auto-release drivers assigned to non-existent vehicles
