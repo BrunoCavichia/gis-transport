@@ -41,7 +41,9 @@ interface NavigationButtonProps {
   tabId: "fleet" | "layers" | "dashboard" | "drivers" | "settings";
   activeTab: "fleet" | "layers" | "dashboard" | "drivers" | "settings";
   isExpanded: boolean;
-  onClick: (tab: "fleet" | "layers" | "dashboard" | "drivers" | "settings") => void;
+  onClick: (
+    tab: "fleet" | "layers" | "dashboard" | "drivers" | "settings",
+  ) => void;
   label: string;
   icon: React.ElementType;
   alertCount?: number;
@@ -58,32 +60,34 @@ export const NavigationButton = memo(
     alertCount = 0,
   }: NavigationButtonProps) => {
     const IconEl = React.useMemo(() => <Icon className="h-5 w-5" />, [Icon]);
+    const button = (
+      <button
+        onClick={() => onClick(tabId)}
+        className={cn(
+          "h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 relative group",
+          activeTab === tabId && isExpanded
+            ? "bg-primary text-white shadow-lg shadow-primary/30 scale-105"
+            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+        )}
+      >
+        {IconEl}
+
+        {alertCount > 0 && tabId === "dashboard" && (
+          <span className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 bg-red-600 rounded-full text-white text-xs font-bold shadow-lg ring-2 ring-background animate-pulse">
+            {alertCount > 9 ? "9+" : alertCount}
+          </span>
+        )}
+      </button>
+    );
+
+    // Solo mostrar tooltip cuando sidebar está colapsado
+    if (isExpanded) {
+      return button;
+    }
+
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => onClick(tabId)}
-            className={cn(
-              "h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 relative group",
-              activeTab === tabId && isExpanded
-                ? "bg-primary text-white shadow-lg shadow-primary/30 scale-105"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-            )}
-          >
-            {IconEl}
-            {activeTab === tabId && isExpanded && tabId === "fleet" && (
-              <span className="absolute -right-1 top-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
-              </span>
-            )}
-            {alertCount > 0 && tabId === "dashboard" && (
-              <span className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 bg-red-600 rounded-full text-white text-xs font-bold shadow-lg ring-2 ring-background animate-pulse">
-                {alertCount > 9 ? "9+" : alertCount}
-              </span>
-            )}
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
         <TooltipContent side="right" className="font-bold ml-2">
           {label}
           {alertCount > 0 && tabId === "dashboard" && (
