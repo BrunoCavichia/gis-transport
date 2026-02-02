@@ -17,6 +17,7 @@ import { useFleet } from "@/hooks/use-fleet";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
 import { useRouting } from "@/hooks/use-routing";
 import { useLiveTracking } from "@/hooks/use-live-tracking";
+import { useAlertLogs } from "@/hooks/use-alert-logs";
 import { RouteErrorAlert } from "@/components/route-error-alert";
 import { MAP_CENTER } from "@/lib/config";
 import { AddJobDialog } from "@/components/add-job-dialog";
@@ -64,6 +65,8 @@ export function GISMap() {
   const [activeZones, setActiveZones] = useState<Zone[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
   const [isDriverDetailsOpen, setIsDriverDetailsOpen] = useState(false);
+
+  const { addAlertLog } = useAlertLogs();
 
   const {
     fleetVehicles,
@@ -294,6 +297,15 @@ export function GISMap() {
     });
     return alerts;
   }, [fleetVehicles]);
+
+  // Save new alerts to logs
+  useEffect(() => {
+    Object.values(vehicleAlerts).forEach((alerts) => {
+      alerts.forEach((alert) => {
+        addAlertLog(alert);
+      });
+    });
+  }, [vehicleAlerts, addAlertLog]);
 
   const clearAll = useCallback(async () => {
     // Clear driver assignments in the database

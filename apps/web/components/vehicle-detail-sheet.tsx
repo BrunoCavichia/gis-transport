@@ -23,12 +23,14 @@ import {
     Circle,
     Route,
     Package,
+    Trash2,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { FleetVehicle, VehicleMetrics, FleetJob } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 import { GeocodingService } from "@/lib/services/geocoding-service";
 import { AddStopDialog } from "./add-stop-dialog";
+import { useAlertLogs } from "@/hooks/use-alert-logs";
 
 interface VehicleDetailSheetProps {
     vehicle: FleetVehicle | null;
@@ -66,6 +68,7 @@ export function VehicleDetailSheet({
     const [address, setAddress] = useState<string | null>(null);
     const [isLoadingAddress, setIsLoadingAddress] = useState(false);
     const geocodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const { getVehicleLogs, clearVehicleLogs } = useAlertLogs();
 
     // Filter jobs assigned to this vehicle
     const assignedJobs = useMemo(() => {
@@ -117,6 +120,12 @@ export function VehicleDetailSheet({
     // Check if there are any critical alerts
     const hasCriticalAlerts = alerts.some(a => a.severity === 'critical');
     const hasAnyAlerts = alerts.length > 0;
+
+    // Get alert logs for this vehicle
+    const vehicleLogs = useMemo(
+        () => getVehicleLogs(vehicle.id),
+        [vehicle.id, getVehicleLogs]
+    );
 
     return (
         <div className="flex flex-col h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-hidden animate-in slide-in-from-right-4 duration-300 font-sans text-xs">
@@ -386,6 +395,78 @@ export function VehicleDetailSheet({
                             </div>
                         )}
                     </div>
+                </div>
+
+                <div className="h-2" />
+
+                {/* Alert Logs Section */}
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                            <Clock className="h-3 w-3" /> Historial de Alertas
+                        </h3>
+                        {vehicleLogs.length > 0 && (
+                            <button
+                                onClick={() => clearVehicleLogs(vehicle.id)}
+                                className="text-[8px] text-muted-foreground/50 hover:text-destructive transition-colors flex items-center gap-0.5"
+                                title="Limpiar historial"
+                            >
+                                <Trash2 className="h-3 w-3" />
+                            </button>
+                        )}
+                    </div>
+                    
+                    {vehicleLogs.length === 0 ? (
+                        <div className="text-center py-4 border-2 border-dashed border-border/30 rounded-xl">
+                            <CheckCircle2 className="h-6 w-6 text-emerald-500/30 mx-auto mb-1" />
+                            <p className="text-[9px] text-muted-foreground/60 font-medium">Sin alertas registradas</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                            {vehicleLogs.map((log, idx) => (
+                                <div
+                                    key={log.id + idx}
+                                    className={cn(
+                                        "p-2.5 rounded-lg border transition-all",
+                                        log.severity === "critical"
+                                            ? "bg-red-50/30 border-red-200/40"
+                                            : log.severity === "warning"
+                                            ? "bg-amber-50/30 border-amber-200/40"
+                                            : "bg-blue-50/20 border-blue-200/30"
+                                    )}
+                                >
+                                    <div className="flex items-start gap-2">
+                                        <div className={cn(
+                                            "h-2 w-2 rounded-full mt-1.5 shrink-0",
+                                            log.severity === "critical"
+                                                ? "bg-red-600"
+                                                : log.severity === "warning"
+                                                ? "bg-amber-600"
+                                                : "bg-blue-600"
+                                        )} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[9px] font-bold text-foreground leading-tight">
+                                                {log.alertTitle}
+                                            </p>
+                                            <p className="text-[8px] text-muted-foreground/70 mt-0.5 leading-tight line-clamp-2">
+                                                {log.message}
+                                            </p>
+                                            <time className="text-[7px] text-muted-foreground/50 mt-1 flex items-center gap-0.5">
+                                                <Clock className="h-2.5 w-2.5" />
+                                                {new Date(log.timestamp).toLocaleString("es-ES", {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                    second: "2-digit",
+                                                    month: "short",
+                                                    day: "numeric",
+                                                })}
+                                            </time>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="h-2" />
