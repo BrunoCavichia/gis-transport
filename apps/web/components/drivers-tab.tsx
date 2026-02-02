@@ -13,7 +13,12 @@ import {
   RefreshCw,
   Car,
 } from "lucide-react";
-import { cn, getDriverIsAvailable, getDriverOnTimeRate, getDriverCurrentVehicle } from "@/lib/utils";
+import {
+  cn,
+  getDriverIsAvailable,
+  getDriverOnTimeRate,
+  getDriverCurrentVehicle,
+} from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { Driver } from "@gis/shared";
 
@@ -166,10 +171,16 @@ export function DriversTab({
                           {driver.name}
                         </h3>
                         <Badge
-                          variant={getDriverIsAvailable(driver) ? "outline" : "secondary"}
+                          variant={
+                            getDriverIsAvailable(driver)
+                              ? "outline"
+                              : "secondary"
+                          }
                           className="text-[9px] uppercase font-black px-1.5 h-4 border-emerald-500/20 text-emerald-600 bg-emerald-500/5 shrink-0"
                         >
-                          {getDriverIsAvailable(driver) ? "Disponible" : "Asignado"}
+                          {getDriverIsAvailable(driver)
+                            ? "Disponible"
+                            : "Asignado"}
                         </Badge>
                       </div>
 

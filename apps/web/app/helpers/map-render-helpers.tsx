@@ -3,7 +3,15 @@ import { POI_CONFIG } from "@/lib/config";
 import { Marker, Tooltip, Popup, CircleMarker } from "react-leaflet";
 import { Icon, DivIcon } from "leaflet";
 import { VEHICLE_TYPES } from "@/lib/types";
-import { POI, FleetVehicle, FleetJob, CustomPOI, VehicleType } from "@gis/shared";
+import {
+  POI,
+  FleetVehicle,
+  FleetJob,
+  CustomPOI,
+  VehicleType,
+} from "@gis/shared";
+import { createMapIcon } from "@/lib/map-icons";
+import { Package } from "lucide-react";
 
 interface RenderPOIsProps {
   stations: POI[];
@@ -21,6 +29,8 @@ interface RenderVehiclesProps {
 interface RenderJobsProps {
   jobs: FleetJob[];
   icon: Icon | DivIcon;
+  routeData?: any;
+  vehicles?: FleetVehicle[];
 }
 
 interface RenderCustomPOIsProps {
@@ -28,10 +38,7 @@ interface RenderCustomPOIsProps {
   icon: Icon | DivIcon;
 }
 
-export function renderPOIs({
-  stations,
-  isEV = false,
-}: RenderPOIsProps) {
+export function renderPOIs({ stations, isEV = false }: RenderPOIsProps) {
   const type = isEV ? "ev" : "gas";
   const color = POI_CONFIG[type].color;
 
@@ -51,7 +58,6 @@ export function renderPOIs({
         }}
         interactive={true}
       >
-
         <Tooltip direction="top" offset={[0, -5]} opacity={0.8}>
           <span style={{ fontSize: 10 }}>{station.name}</span>
         </Tooltip>
@@ -111,7 +117,14 @@ export function renderVehicleMarkers({
             >
               Assign Label:
             </div>
-            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 4,
+              }}
+            >
               {VEHICLE_TYPES.map((type) => (
                 <button
                   key={type.id}
@@ -121,7 +134,8 @@ export function renderVehicleMarkers({
                     fontSize: "10px",
                     borderRadius: "4px",
                     border: `1px solid ${vehicle.type.id === type.id ? THEME.colors.info : "#e2e8f0"}`,
-                    backgroundColor: vehicle.type.id === type.id ? THEME.colors.info : "white",
+                    backgroundColor:
+                      vehicle.type.id === type.id ? THEME.colors.info : "white",
                     color: vehicle.type.id === type.id ? "white" : "#1e293b",
                     cursor: "pointer",
                     transition: "all 0.2s",
@@ -138,13 +152,49 @@ export function renderVehicleMarkers({
   });
 }
 
-export function renderJobMarkers({ jobs, icon }: RenderJobsProps) {
-  const activeIcon = icon;
+export function renderJobMarkers({
+  jobs,
+  icon,
+  routeData,
+  vehicles = [],
+}: RenderJobsProps) {
+  // Build a map of job ID -> vehicle info for quick lookup
+  const jobToVehicleMap: Record<
+    string | number,
+    { vehicleId: string | number; color: string; label: string }
+  > = {};
+  if (routeData?.vehicleRoutes) {
+    routeData.vehicleRoutes.forEach((route: any) => {
+      const vehicle = vehicles.find(
+        (v) => String(v.id) === String(route.vehicleId),
+      );
+      const vehicleLabel = vehicle?.type.label || `Vehicle ${route.vehicleId}`;
+
+      // Use assignedJobIds if available, otherwise fall back to checking jobsAssigned count
+      if (route.assignedJobIds && Array.isArray(route.assignedJobIds)) {
+        route.assignedJobIds.forEach((jobId: any) => {
+          jobToVehicleMap[jobId] = {
+            vehicleId: route.vehicleId,
+            color: route.color,
+            label: vehicleLabel,
+          };
+        });
+      }
+    });
+  }
 
   return (jobs || []).map((job) => {
     const pos = job.position;
+    const assignedTo = jobToVehicleMap[job.id];
+    const routeColor = assignedTo?.color || THEME.colors.accent;
+
+    // Use dynamic icon color based on assigned vehicle
+    const iconToUse = assignedTo
+      ? createMapIcon(Package, routeColor, 26, 15, { opacity: 1 })
+      : icon;
+
     return (
-      <Marker key={`job-${job.id}`} position={pos} icon={activeIcon}>
+      <Marker key={`job-${job.id}`} position={pos} icon={iconToUse}>
         <Tooltip
           direction="top"
           offset={THEME.map.popups.jobTooltipOffset}
@@ -152,20 +202,73 @@ export function renderJobMarkers({ jobs, icon }: RenderJobsProps) {
         >
           <span style={{ fontSize: THEME.map.popups.fontSize }}>
             {job.label}
+            {assignedTo && (
+              <>
+                <br />
+                <span style={{ fontSize: "11px", opacity: 0.8 }}>
+                  → {assignedTo.label}
+                </span>
+              </>
+            )}
           </span>
         </Tooltip>
         <Popup closeButton={false} offset={[0, -25]}>
           <div style={{ fontSize: THEME.map.popups.fontSize }}>
-            <strong style={{ color: THEME.colors.accent }}>
-              {job.label}
-            </strong>
             <div
               style={{
-                marginTop: THEME.map.popups.marginTop,
-                fontSize: THEME.map.popups.subtitleFontSize,
-                color: THEME.colors.secondary,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "8px",
               }}
-            ></div>
+            >
+              <div
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "2px",
+                  backgroundColor: routeColor,
+                  boxShadow: `0 0 4px ${routeColor}80`,
+                }}
+              />
+              <strong style={{ color: routeColor }}>{job.label}</strong>
+            </div>
+            {assignedTo ? (
+              <div
+                style={{
+                  marginTop: THEME.map.popups.marginTop,
+                  fontSize: THEME.map.popups.subtitleFontSize,
+                  color: THEME.colors.secondary,
+                  padding: "6px 8px",
+                  backgroundColor: routeColor + "15",
+                  borderLeft: `3px solid ${routeColor}`,
+                  borderRadius: "2px",
+                }}
+              >
+                <strong style={{ color: routeColor }}>
+                  → {assignedTo.label}
+                </strong>
+                <div
+                  style={{ fontSize: "10px", marginTop: "2px", opacity: 0.7 }}
+                >
+                  Vehicle ID: {assignedTo.vehicleId}
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  marginTop: THEME.map.popups.marginTop,
+                  fontSize: THEME.map.popups.subtitleFontSize,
+                  color: "#f59e0b",
+                  padding: "6px 8px",
+                  backgroundColor: "#fef3c715",
+                  borderLeft: "3px solid #f59e0b",
+                  borderRadius: "2px",
+                }}
+              >
+                ⚠️ Unassigned
+              </div>
+            )}
           </div>
         </Popup>
       </Marker>
@@ -173,10 +276,7 @@ export function renderJobMarkers({ jobs, icon }: RenderJobsProps) {
   });
 }
 
-export function renderCustomPOIs({
-  customPOIs,
-  icon,
-}: RenderCustomPOIsProps) {
+export function renderCustomPOIs({ customPOIs, icon }: RenderCustomPOIsProps) {
   const activeIcon = icon;
 
   return (customPOIs || []).map((poi) => {

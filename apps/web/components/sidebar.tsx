@@ -43,7 +43,7 @@ import {
 } from "@/components/sidebar-components";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 
-const STABLE_NOOP = () => { };
+const STABLE_NOOP = () => {};
 const STABLE_PROMISE_NOOP = () => Promise.resolve();
 
 import { FleetDashboard } from "@/components/fleet-dashboard";
@@ -521,11 +521,12 @@ export const Sidebar = memo(
     fetchDrivers,
     addDriver,
   }: SidebarProps) {
-
     // Local state for sidebar visibility
     const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
     const [isExpanded, setIsExpanded] = useState(true);
-    const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+    const [selectedDriverId, setSelectedDriverId] = useState<string | null>(
+      null,
+    );
 
     // Derived state for selected driver (ensures data is always fresh)
     const selectedDriver = useMemo(
@@ -601,15 +602,15 @@ export const Sidebar = memo(
             "ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto h-auto max-h-full",
             isExpanded
               ? cn(
-                "opacity-100 translate-x-0",
-                activeTab === "dashboard"
-                  ? selectedVehicleId !== null
-                    ? "w-[32rem]"
-                    : fleetVehicles.length > 3
-                      ? "w-[28rem]"
-                      : "w-80"
-                  : "w-80",
-              )
+                  "opacity-100 translate-x-0",
+                  activeTab === "dashboard"
+                    ? selectedVehicleId !== null
+                      ? "w-[32rem]"
+                      : fleetVehicles.length > 3
+                        ? "w-[28rem]"
+                        : "w-80"
+                    : "w-80",
+                )
               : "w-0 opacity-0 -translate-x-10",
           )}
         >
@@ -653,8 +654,8 @@ export const Sidebar = memo(
               clearAllCustomPOIs={clearAllCustomPOIs}
             />
           )}
-          {activeTab === "drivers" && (
-            selectedDriver ? (
+          {activeTab === "drivers" &&
+            (selectedDriver ? (
               <DriverDetailsSheet
                 driver={selectedDriver}
                 onClose={() => setSelectedDriverId(null)}
@@ -663,12 +664,11 @@ export const Sidebar = memo(
               <DriversTab
                 drivers={drivers || []}
                 isLoading={isLoadingDrivers || false}
-                fetchDrivers={fetchDrivers || (async () => { })}
+                fetchDrivers={fetchDrivers || (async () => {})}
                 addDriver={addDriver || (async () => undefined)}
                 onDriverSelect={(d) => setSelectedDriverId(d.id)}
               />
-            )
-          )}
+            ))}
           {activeTab === "dashboard" && (
             <ScrollArea className="flex-1 h-auto min-h-0 min-w-0">
               <FleetDashboard

@@ -1,6 +1,13 @@
 "use client";
 
-import { AlertTriangle, AlertCircle, Info, Wind, Cloud, CloudRain } from "lucide-react";
+import {
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  Wind,
+  Cloud,
+  CloudRain,
+} from "lucide-react";
 import type { Alert } from "@/lib/utils";
 import { getAlertStyles } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -27,7 +34,10 @@ function getAlertIcon(type: string) {
   }
 }
 
-export function VehicleAlertPanel({ alerts, weatherAlerts = [] }: VehicleAlertPanelProps) {
+export function VehicleAlertPanel({
+  alerts,
+  weatherAlerts = [],
+}: VehicleAlertPanelProps) {
   const allAlerts = [...alerts, ...weatherAlerts];
 
   // Group alerts by severity for visual hierarchy
@@ -49,7 +59,9 @@ export function VehicleAlertPanel({ alerts, weatherAlerts = [] }: VehicleAlertPa
             <div className="h-4 w-4 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-600">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </div>
-            <span className="text-xs font-bold text-emerald-700">Sin alertas activas - Sistema operativo</span>
+            <span className="text-xs font-bold text-emerald-700">
+              Sin alertas activas - Sistema operativo
+            </span>
           </div>
         ) : (
           displayAlerts.map((alert, idx) => {
@@ -61,7 +73,7 @@ export function VehicleAlertPanel({ alerts, weatherAlerts = [] }: VehicleAlertPa
                 className={cn(
                   "group relative flex items-start gap-3 p-3 rounded-lg border transition-all hover:translate-x-0.5",
                   styles.bg,
-                  styles.border
+                  styles.border,
                 )}
               >
                 <div className={cn("mt-0.5 shrink-0", styles.icon)}>
@@ -70,8 +82,15 @@ export function VehicleAlertPanel({ alerts, weatherAlerts = [] }: VehicleAlertPa
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs font-bold text-foreground">{alert.title}</span>
-                    <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", styles.badge)}>
+                    <span className="text-xs font-bold text-foreground">
+                      {alert.title}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[10px] font-medium px-2 py-0.5 rounded-full",
+                        styles.badge,
+                      )}
+                    >
                       {alert.type.replace(/_/g, " ")}
                     </span>
                   </div>
@@ -84,7 +103,8 @@ export function VehicleAlertPanel({ alerts, weatherAlerts = [] }: VehicleAlertPa
                         .slice(0, 2) // Show only first 2 data points
                         .map(([key, value]) => (
                           <div key={key}>
-                            {key.replace(/([A-Z])/g, " $1").toLowerCase()}: {String(value)}
+                            {key.replace(/([A-Z])/g, " $1").toLowerCase()}:{" "}
+                            {String(value)}
                           </div>
                         ))}
                     </div>

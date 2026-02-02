@@ -44,46 +44,43 @@ export function useAlertLogs() {
   }, [logs, isInitialized]);
 
   // Add new alert to logs
-  const addAlertLog = useCallback(
-    (alert: Alert) => {
-      const newLog: AlertLog = {
-        id: alert.id,
-        vehicleId: alert.vehicleId || "unknown",
-        alertType: alert.type,
-        alertTitle: alert.title,
-        severity: alert.severity,
-        timestamp: alert.timestamp,
-        message: alert.message,
-      };
+  const addAlertLog = useCallback((alert: Alert) => {
+    const newLog: AlertLog = {
+      id: alert.id,
+      vehicleId: alert.vehicleId || "unknown",
+      alertType: alert.type,
+      alertTitle: alert.title,
+      severity: alert.severity,
+      timestamp: alert.timestamp,
+      message: alert.message,
+    };
 
-      setLogs((prev) => {
-        // Avoid duplicates based on ID and timestamp
-        const isDuplicate = prev.some(
-          (log) => log.id === newLog.id && log.timestamp === newLog.timestamp
-        );
+    setLogs((prev) => {
+      // Avoid duplicates based on ID and timestamp
+      const isDuplicate = prev.some(
+        (log) => log.id === newLog.id && log.timestamp === newLog.timestamp,
+      );
 
-        if (isDuplicate) return prev;
+      if (isDuplicate) return prev;
 
-        // Keep only the latest MAX_LOGS entries
-        const updated = [newLog, ...prev].slice(0, MAX_LOGS);
-        return updated;
-      });
-    },
-    []
-  );
+      // Keep only the latest MAX_LOGS entries
+      const updated = [newLog, ...prev].slice(0, MAX_LOGS);
+      return updated;
+    });
+  }, []);
 
   // Get logs for a specific vehicle
   const getVehicleLogs = useCallback(
     (vehicleId: string | number) => {
       return logs.filter((log) => String(log.vehicleId) === String(vehicleId));
     },
-    [logs]
+    [logs],
   );
 
   // Clear logs for a specific vehicle
   const clearVehicleLogs = useCallback((vehicleId: string | number) => {
     setLogs((prev) =>
-      prev.filter((log) => String(log.vehicleId) !== String(vehicleId))
+      prev.filter((log) => String(log.vehicleId) !== String(vehicleId)),
     );
   }, []);
 

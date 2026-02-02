@@ -10,9 +10,16 @@ export function cn(...inputs: ClassValue[]) {
 // ALERT SYSTEM - Unified & Extensible
 // ============================================
 
-export type AlertCategory = 'vehicle' | 'weather' | 'route' | 'delivery';
-export type AlertSeverity = 'info' | 'warning' | 'critical';
-export type AlertType = 'speeding' | 'low_fuel' | 'low_battery' | 'maintenance' | 'off_route' | 'weather' | 'delay';
+export type AlertCategory = "vehicle" | "weather" | "route" | "delivery";
+export type AlertSeverity = "info" | "warning" | "critical";
+export type AlertType =
+  | "speeding"
+  | "low_fuel"
+  | "low_battery"
+  | "maintenance"
+  | "off_route"
+  | "weather"
+  | "delay";
 
 export interface Alert {
   id: string;
@@ -29,10 +36,10 @@ export interface Alert {
 /**
  * Generates vehicle operational alerts based on current telemetry metrics.
  * Extensible system: add new alert types here as telemtry becomes available.
- * 
+ *
  * Current alerts:
  * - Speeding: When speed exceeds road limit (critical if >20 km/h excess, warning otherwise)
- * 
+ *
  * Future alerts (placeholder):
  * - Low Fuel: When fuel level drops below threshold
  * - Low Battery: When EV battery level drops below threshold
@@ -41,7 +48,7 @@ export interface Alert {
 export function generateVehicleAlerts(
   vehicleId: string | number,
   metrics: VehicleMetrics | null,
-  maxSpeed?: number
+  maxSpeed?: number,
 ): Alert[] {
   const alerts: Alert[] = [];
 
@@ -49,7 +56,7 @@ export function generateVehicleAlerts(
 
   const now = Date.now();
   const speed = metrics.speed || 0;
-  
+
   // Use provided maxSpeed, or default to 60 km/h if not available
   const speedLimit = maxSpeed || 60;
 
@@ -60,10 +67,10 @@ export function generateVehicleAlerts(
 
     alerts.push({
       id: `speeding-${vehicleId}-${now}`,
-      type: 'speeding',
-      category: 'vehicle',
-      severity: isCritical ? 'critical' : 'warning',
-      title: 'Exceso de Velocidad',
+      type: "speeding",
+      category: "vehicle",
+      severity: isCritical ? "critical" : "warning",
+      title: "Exceso de Velocidad",
       message: `El vehículo supera el límite en ${Math.round(excess)} km/h (${speed} km/h vs ${speedLimit} km/h permitido)`,
       timestamp: now,
       vehicleId,
@@ -75,10 +82,10 @@ export function generateVehicleAlerts(
   if (metrics.fuelLevel !== undefined && metrics.fuelLevel < 20) {
     alerts.push({
       id: `low-fuel-${vehicleId}-${now}`,
-      type: 'low_fuel',
-      category: 'vehicle',
-      severity: metrics.fuelLevel < 10 ? 'critical' : 'warning',
-      title: 'Combustible Bajo',
+      type: "low_fuel",
+      category: "vehicle",
+      severity: metrics.fuelLevel < 10 ? "critical" : "warning",
+      title: "Combustible Bajo",
       message: `Nivel de combustible: ${Math.round(metrics.fuelLevel)}%`,
       timestamp: now,
       vehicleId,
@@ -90,10 +97,10 @@ export function generateVehicleAlerts(
   if (metrics.batteryLevel !== undefined && metrics.batteryLevel < 20) {
     alerts.push({
       id: `low-battery-${vehicleId}-${now}`,
-      type: 'low_battery',
-      category: 'vehicle',
-      severity: metrics.batteryLevel < 10 ? 'critical' : 'warning',
-      title: 'Batería Baja',
+      type: "low_battery",
+      category: "vehicle",
+      severity: metrics.batteryLevel < 10 ? "critical" : "warning",
+      title: "Batería Baja",
       message: `Nivel de batería: ${Math.round(metrics.batteryLevel)}%`,
       timestamp: now,
       vehicleId,
@@ -105,10 +112,10 @@ export function generateVehicleAlerts(
   if (metrics.health < 50) {
     alerts.push({
       id: `low-health-${vehicleId}-${now}`,
-      type: 'maintenance',
-      category: 'vehicle',
-      severity: metrics.health < 30 ? 'critical' : 'warning',
-      title: 'Mantenimiento Necesario',
+      type: "maintenance",
+      category: "vehicle",
+      severity: metrics.health < 30 ? "critical" : "warning",
+      title: "Mantenimiento Necesario",
       message: `Salud del vehículo: ${Math.round(metrics.health)}%`,
       timestamp: now,
       vehicleId,
@@ -122,32 +129,35 @@ export function generateVehicleAlerts(
 /**
  * Utility to determine alert styling based on severity and category
  */
-export function getAlertStyles(severity: AlertSeverity, category: AlertCategory = 'vehicle') {
+export function getAlertStyles(
+  severity: AlertSeverity,
+  category: AlertCategory = "vehicle",
+) {
   switch (severity) {
-    case 'critical':
+    case "critical":
       return {
-        bg: 'bg-red-50/30',
-        border: 'border-red-100/50',
-        badge: 'bg-red-500/10 text-red-600',
-        icon: 'text-red-600',
-        banner: 'bg-red-600 text-white',
+        bg: "bg-red-50/30",
+        border: "border-red-100/50",
+        badge: "bg-red-500/10 text-red-600",
+        icon: "text-red-600",
+        banner: "bg-red-600 text-white",
       };
-    case 'warning':
+    case "warning":
       return {
-        bg: 'bg-amber-50/30',
-        border: 'border-amber-100/50',
-        badge: 'bg-amber-500/10 text-amber-600',
-        icon: 'text-amber-600',
-        banner: 'bg-amber-500 text-white',
+        bg: "bg-amber-50/30",
+        border: "border-amber-100/50",
+        badge: "bg-amber-500/10 text-amber-600",
+        icon: "text-amber-600",
+        banner: "bg-amber-500 text-white",
       };
-    case 'info':
+    case "info":
     default:
       return {
-        bg: 'bg-blue-50/30',
-        border: 'border-blue-100/50',
-        badge: 'bg-blue-500/10 text-blue-600',
-        icon: 'text-blue-600',
-        banner: 'bg-blue-500 text-white',
+        bg: "bg-blue-50/30",
+        border: "border-blue-100/50",
+        badge: "bg-blue-500/10 text-blue-600",
+        icon: "text-blue-600",
+        banner: "bg-blue-500 text-white",
       };
   }
 }
@@ -157,7 +167,7 @@ export function getAlertStyles(severity: AlertSeverity, category: AlertCategory 
  * A driver is considered available if:
  * 1. isAvailable is explicitly true
  * 2. currentVehicleId is null or undefined (no orphaned assignments)
- * 
+ *
  * This prevents assigning drivers who are marked as available but have
  * stale vehicle assignments from deleted or changed vehicles.
  */
@@ -189,11 +199,13 @@ export function getDriverOnTimeRate(driver: Driver): number {
  * Note: In this system, we use currentVehicleId but don't have full vehicle objects here.
  * This returns a minimal vehicle reference based on available data.
  */
-export function getDriverCurrentVehicle(driver: Driver): { registration: string } | undefined {
+export function getDriverCurrentVehicle(
+  driver: Driver,
+): { registration: string } | undefined {
   if (!driver.currentVehicleId) {
     return undefined;
   }
-  
+
   // Return a minimal vehicle reference with the ID as registration
   // In a full implementation, this would fetch the actual vehicle from a vehicle repository
   return {

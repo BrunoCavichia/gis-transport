@@ -108,10 +108,17 @@ export function GISMap() {
   const handleAssignDriver = useCallback(
     async (vehicleId: string | number, newDriver: any) => {
       try {
-        console.log("Assigning driver:", newDriver?.name, "to vehicle:", vehicleId);
+        console.log(
+          "Assigning driver:",
+          newDriver?.name,
+          "to vehicle:",
+          vehicleId,
+        );
 
         // VALIDATION: Check if the vehicle still exists
-        const vehicleExists = fleetVehicles.some((v) => String(v.id) === String(vehicleId));
+        const vehicleExists = fleetVehicles.some(
+          (v) => String(v.id) === String(vehicleId),
+        );
         if (!vehicleExists) {
           console.error("Cannot assign driver: vehicle no longer exists");
           await fetchDrivers(); // Refresh to get latest state
@@ -121,12 +128,15 @@ export function GISMap() {
         // VALIDATION: If assigning a new driver, verify they are actually available
         if (newDriver) {
           if (!isDriverTrulyAvailable(newDriver)) {
-            console.error("Cannot assign driver: driver is not available or already assigned to another vehicle", {
-              driverId: newDriver.id,
-              driverName: newDriver.name,
-              isAvailable: newDriver.isAvailable,
-              currentVehicleId: newDriver.currentVehicleId,
-            });
+            console.error(
+              "Cannot assign driver: driver is not available or already assigned to another vehicle",
+              {
+                driverId: newDriver.id,
+                driverName: newDriver.name,
+                isAvailable: newDriver.isAvailable,
+                currentVehicleId: newDriver.currentVehicleId,
+              },
+            );
             await fetchDrivers(); // Refresh to get latest state
             return;
           }
@@ -158,7 +168,6 @@ export function GISMap() {
             currentVehicleId: String(vehicleId),
           });
 
-
           await updateDriver(newDriver.id, {
             isAvailable: false,
             currentVehicleId: String(vehicleId),
@@ -167,13 +176,19 @@ export function GISMap() {
 
         // Final sync with server to ensure data consistency
         await fetchDrivers();
-
       } catch (error) {
         console.error("Error assigning driver:", error);
         // Ideally we should revert the optimistic update here
       }
     },
-    [assignDriverToVehicle, updateDriver, drivers, optimisticUpdateDriver, fetchDrivers, fleetVehicles],
+    [
+      assignDriverToVehicle,
+      updateDriver,
+      drivers,
+      optimisticUpdateDriver,
+      fetchDrivers,
+      fleetVehicles,
+    ],
   );
 
   // Reconciliation: Auto-release drivers assigned to non-existent vehicles
@@ -188,25 +203,30 @@ export function GISMap() {
       (d) =>
         !d.isAvailable && // Currently marked as busy
         d.currentVehicleId && // Has a vehicle assignment
-        !validVehicleIds.has(String(d.currentVehicleId)) // But vehicle doesn't exist in current fleet
+        !validVehicleIds.has(String(d.currentVehicleId)), // But vehicle doesn't exist in current fleet
     );
 
     if (orphanedDrivers.length > 0) {
-      console.warn("Reconciliation: Releasing orphaned drivers:", orphanedDrivers.map(d => d.name));
+      console.warn(
+        "Reconciliation: Releasing orphaned drivers:",
+        orphanedDrivers.map((d) => d.name),
+      );
 
       orphanedDrivers.forEach((driver) => {
         // 1. Optimistic local update
         optimisticUpdateDriver(driver.id, {
           isAvailable: true,
           // Cast null to any because strict type might be string|undefined, but we need null for storage
-          currentVehicleId: null as any
+          currentVehicleId: null as any,
         });
 
         // 2. Persistent server update
         updateDriver(driver.id, {
           isAvailable: true,
-          currentVehicleId: null as any // Send explicit null to backend to clear field
-        }).catch(err => console.error("Failed to reconcile driver:", driver.id, err));
+          currentVehicleId: null as any, // Send explicit null to backend to clear field
+        }).catch((err) =>
+          console.error("Failed to reconcile driver:", driver.id, err),
+        );
       });
     }
   }, [
@@ -215,7 +235,7 @@ export function GISMap() {
     isLoadingVehicles,
     isLoadingDrivers,
     optimisticUpdateDriver,
-    updateDriver
+    updateDriver,
   ]);
   const interactionModeRef = useRef(interactionMode);
   const selectedVehicleRef = useRef(selectedVehicle);
@@ -292,7 +312,7 @@ export function GISMap() {
       alerts[vehicle.id] = generateVehicleAlerts(
         vehicle.id,
         vehicle.metrics || null,
-        vehicle.metrics?.maxSpeed
+        vehicle.metrics?.maxSpeed,
       );
     });
     return alerts;

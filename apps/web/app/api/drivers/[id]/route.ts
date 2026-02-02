@@ -40,11 +40,14 @@ export async function PATCH(
     if (body.currentVehicleId && body.currentVehicleId !== null) {
       // In a real scenario, you would check against an actual vehicles repository
       // For now, we'll validate the format at minimum
-      if (typeof body.currentVehicleId !== "string" && typeof body.currentVehicleId !== "number") {
+      if (
+        typeof body.currentVehicleId !== "string" &&
+        typeof body.currentVehicleId !== "number"
+      ) {
         return NextResponse.json(
-          { 
-            success: false, 
-            error: "Invalid vehicle ID format. Must be string or number." 
+          {
+            success: false,
+            error: "Invalid vehicle ID format. Must be string or number.",
           },
           { status: 400 },
         );
@@ -53,9 +56,10 @@ export async function PATCH(
       // Validate that if marking as unavailable, a vehicle is actually assigned
       if (body.isAvailable === false && !body.currentVehicleId) {
         return NextResponse.json(
-          { 
-            success: false, 
-            error: "Cannot mark driver as unavailable without assigning to a vehicle." 
+          {
+            success: false,
+            error:
+              "Cannot mark driver as unavailable without assigning to a vehicle.",
           },
           { status: 400 },
         );
@@ -65,9 +69,10 @@ export async function PATCH(
     // BACKEND VALIDATION: If marking as available, must clear vehicle assignment
     if (body.isAvailable === true && body.currentVehicleId) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "Cannot mark driver as available while assigned to a vehicle. Clear the assignment first." 
+        {
+          success: false,
+          error:
+            "Cannot mark driver as available while assigned to a vehicle. Clear the assignment first.",
         },
         { status: 400 },
       );

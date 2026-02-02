@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
     // BACKEND VALIDATION: New drivers must start with no vehicle assignment
     if (body.currentVehicleId && body.currentVehicleId !== null) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: "New drivers cannot be created with an existing vehicle assignment. Drivers start available with no assignment." 
+        {
+          success: false,
+          error:
+            "New drivers cannot be created with an existing vehicle assignment. Drivers start available with no assignment.",
         },
         { status: 400 },
       );

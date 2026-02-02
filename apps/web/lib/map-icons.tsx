@@ -33,10 +33,10 @@ const createMapIcon = (
     rotate?: number;
     extraHtml?: string;
     opacity?: number;
-  } = {}
+  } = {},
 ) => {
   // Generate a unique cache key
-  const iconName = IconComponent.displayName || IconComponent.name || 'icon';
+  const iconName = IconComponent.displayName || IconComponent.name || "icon";
   const cacheKey = `${iconName}-${color}-${size}-${iconSize}-${JSON.stringify(options)}`;
 
   if (iconCache[cacheKey]) {
@@ -48,8 +48,8 @@ const createMapIcon = (
   const alphaValue =
     options.opacity !== undefined
       ? Math.floor(options.opacity * 255)
-        .toString(16)
-        .padStart(2, "0")
+          .toString(16)
+          .padStart(2, "0")
       : "e6";
 
   const html = renderToStaticMarkup(
@@ -141,7 +141,7 @@ const createMapIcon = (
           to { opacity: 0; transform: scale(0.8) translateY(5px); }
         }
       `}</style>
-    </div>
+    </div>,
   );
 
   const icon = L.divIcon({
@@ -177,6 +177,8 @@ function createMapIcons() {
     job: createMapIcon(Package, THEME.colors.accent, 26, 15, {
       opacity: 1,
     }),
+    jobWithColor: (color: string) =>
+      createMapIcon(Package, color, 26, 15, { opacity: 1 }),
     customPOI: createMapIcon(Store, THEME.colors.customPOI, 28, 16, {
       isRounded: true,
       rotate: 45,
@@ -212,8 +214,7 @@ function createMapIcons() {
               height: "100%",
               border: "2px solid #ef4444",
               borderRadius: "50%",
-              animation:
-                "ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite",
+              animation: "ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite",
             }}
           />
           <div
@@ -237,21 +238,18 @@ function createMapIcons() {
             75%,100% { transform: scale(2); opacity: 0; }
           }
         `}</style>
-        </div>
+        </div>,
       ),
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     }),
   };
-
 }
-
-
 
 export const createRouteLabelIcon = (
   distance: string,
   duration: string,
-  color: string
+  color: string,
 ) => {
   const html = renderToStaticMarkup(
     <div
@@ -278,9 +276,7 @@ export const createRouteLabelIcon = (
           >
             {duration}
           </span>
-          <span className="text-[8px] font-bold text-zinc-500">
-            {distance}
-          </span>
+          <span className="text-[8px] font-bold text-zinc-500">{distance}</span>
         </div>
       </div>
 
@@ -294,7 +290,7 @@ export const createRouteLabelIcon = (
           marginTop: "-1px",
         }}
       />
-    </div>
+    </div>,
   );
 
   return L.divIcon({
@@ -305,4 +301,4 @@ export const createRouteLabelIcon = (
   });
 };
 
-export { createMapIcons };
+export { createMapIcons, createMapIcon };

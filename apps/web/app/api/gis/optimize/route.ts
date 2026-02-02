@@ -27,9 +27,9 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: { code: "BAD_REQUEST", message: "Missing vehicles or jobs" }
+          error: { code: "BAD_REQUEST", message: "Missing vehicles or jobs" },
         } as IGisResponse,
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     // 2. Build context for persistence
     const context: GisDashboardData = {
       meta: {
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
       },
       fleet: {
         totalVehicles: vehicles.length,
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
             ...acc,
             [v.type.id]: (acc[v.type.id] || 0) + 1,
           }),
-          {}
+          {},
         ),
         vehicles: vehicles.map((v: FleetVehicle) => ({
           id: v.id,
@@ -68,20 +68,20 @@ export async function POST(req: Request) {
         totalJobs: jobs.length,
         assignedJobs: vehicleRoutes.reduce(
           (acc: number, r: VehicleRoute) => acc + (r.jobsAssigned || 0),
-          0
+          0,
         ),
         unassignedJobs:
           jobs.length -
           vehicleRoutes.reduce(
             (acc: number, r: VehicleRoute) => acc + (r.jobsAssigned || 0),
-            0
+            0,
           ),
         routes: vehicleRoutes.map((r: VehicleRoute) => ({
           vehicleId: r.vehicleId,
           jobsAssigned: r.jobsAssigned,
           distanceFormatted: `${(r.distance / 1000).toFixed(1)} km`,
           durationFormatted: `${Math.floor(r.duration / 3600)}h ${Math.floor(
-            (r.duration % 3600) / 60
+            (r.duration % 3600) / 60,
           )}m`,
           startPoint: r.coordinates[0],
           endPoint: r.coordinates[r.coordinates.length - 1],
@@ -89,13 +89,13 @@ export async function POST(req: Request) {
         totals: {
           distanceFormatted: `${(routeData.distance / 1000).toFixed(1)} km`,
           durationFormatted: `${Math.floor(
-            routeData.duration / 3600
+            routeData.duration / 3600,
           )}h ${Math.floor((routeData.duration % 3600) / 60)}m`,
         },
       },
       weather: {
         overallRisk: weatherRoutes.some(
-          (r: RouteWeather) => r.riskLevel === "HIGH"
+          (r: RouteWeather) => r.riskLevel === "HIGH",
         )
           ? "HIGH"
           : weatherRoutes.some((r: RouteWeather) => r.riskLevel === "MEDIUM")
@@ -103,11 +103,11 @@ export async function POST(req: Request) {
             : "LOW",
         alertCount: weatherRoutes.reduce(
           (acc: number, r: RouteWeather) => acc + (r.alerts?.length || 0),
-          0
+          0,
         ),
         alertsByType: {},
         affectedRoutes: weatherRoutes.filter(
-          (r: RouteWeather) => r.alerts?.length > 0
+          (r: RouteWeather) => r.alerts?.length > 0,
         ).length,
         alerts: weatherRoutes.flatMap((r: RouteWeather) =>
           r.alerts.map((a: WeatherAlert) => ({
@@ -117,19 +117,19 @@ export async function POST(req: Request) {
             location: [a.lat, a.lon] as [number, number],
             message: a.message,
             timeWindow: a.timeWindow || new Date().toISOString(),
-          }))
+          })),
         ),
       },
     };
 
     // 3. Persist background snapshot
     GisDataService.saveSnapshot(context).catch((err: unknown) =>
-      console.error("Failed to save background snapshot in orchestrator", err)
+      console.error("Failed to save background snapshot in orchestrator", err),
     );
 
     return NextResponse.json({
       success: true,
-      data: routeData
+      data: routeData,
     } as IGisResponse<RouteData>);
   } catch (error) {
     console.error("Orchestrator error:", error);
@@ -138,10 +138,10 @@ export async function POST(req: Request) {
         success: false,
         error: {
           code: "INTERNAL_ERROR",
-          message: (error as Error).message
-        }
+          message: (error as Error).message,
+        },
       } as IGisResponse,
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

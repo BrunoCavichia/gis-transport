@@ -30,7 +30,7 @@ export function AlertBadge({ alerts, className }: AlertBadgeProps) {
           : hasWarning
             ? "bg-amber-600 ring-amber-600/40"
             : "bg-blue-600 ring-blue-600/40",
-        className
+        className,
       )}
       style={{
         minWidth: "24px",

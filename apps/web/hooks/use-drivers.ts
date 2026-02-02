@@ -15,9 +15,9 @@ export function useDrivers() {
       const res = await fetch("/api/drivers", {
         cache: "no-store",
         headers: {
-          "Pragma": "no-cache",
-          "Cache-Control": "no-cache, no-store, must-revalidate"
-        }
+          Pragma: "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
       });
       if (!res.ok) throw new Error("Failed to fetch drivers");
       const data = await res.json();
@@ -36,7 +36,7 @@ export function useDrivers() {
       // Filter out fields that are no longer stored directly on Driver
       // (isAvailable, onTimeDeliveryRate, currentVehicleId are now derived)
       const { name, licenseType, licenseNumber, imageUrl } = driverData;
-      
+
       // Only include fields that have values
       const payload: any = { name };
       if (licenseType) payload.licenseType = licenseType;
@@ -48,12 +48,12 @@ export function useDrivers() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData?.error || "Failed to add driver");
       }
-      
+
       const data = await res.json();
       if (data.success) {
         setDrivers((prev) => [...prev, data.data]);
@@ -72,12 +72,12 @@ export function useDrivers() {
         // Filter out fields that are derived or handled via VehicleAssignment
         const { name, licenseType, licenseNumber, imageUrl } = updateData;
         const payload: any = {};
-        
+
         if (name !== undefined) payload.name = name;
         if (licenseType !== undefined) payload.licenseType = licenseType;
         if (licenseNumber !== undefined) payload.licenseNumber = licenseNumber;
         if (imageUrl !== undefined) payload.imageUrl = imageUrl;
-        
+
         // Handle assignment changes via isAvailable/currentVehicleId
         if (updateData.isAvailable !== undefined) {
           payload.isAvailable = updateData.isAvailable;
@@ -109,11 +109,22 @@ export function useDrivers() {
     [],
   );
 
-  const optimisticUpdateDriver = useCallback((id: string, updates: Partial<Driver>) => {
-    setDrivers((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, ...updates } : d)),
-    );
-  }, []);
+  const optimisticUpdateDriver = useCallback(
+    (id: string, updates: Partial<Driver>) => {
+      setDrivers((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...updates } : d)),
+      );
+    },
+    [],
+  );
 
-  return { drivers, isLoading, error, fetchDrivers, addDriver, updateDriver, optimisticUpdateDriver };
+  return {
+    drivers,
+    isLoading,
+    error,
+    fetchDrivers,
+    addDriver,
+    updateDriver,
+    optimisticUpdateDriver,
+  };
 }

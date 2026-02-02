@@ -1,6 +1,11 @@
 // lib/hooks/use-fleet.ts
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { VehicleType, FleetJob, FleetVehicle, VehicleMetrics } from "@gis/shared";
+import type {
+  VehicleType,
+  FleetJob,
+  FleetVehicle,
+  VehicleMetrics,
+} from "@gis/shared";
 
 const EMPTY_VEHICLES: FleetVehicle[] = [];
 const EMPTY_JOBS: FleetJob[] = [];
@@ -13,20 +18,22 @@ const EMPTY_JOBS: FleetJob[] = [];
  */
 export function useFleet(
   initialVehicles: FleetVehicle[] = EMPTY_VEHICLES,
-  initialJobs: FleetJob[] = EMPTY_JOBS
+  initialJobs: FleetJob[] = EMPTY_JOBS,
 ) {
   // Hook states
   const [fleetVehicles, setFleetVehicles] =
     useState<FleetVehicle[]>(initialVehicles);
   const [fleetJobs, setFleetJobs] = useState<FleetJob[]>(initialJobs);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
-    null
+    null,
   );
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
 
   // Ref to stabilize fetchVehicles callback
   const initialVehiclesRef = useRef(initialVehicles);
-  useEffect(() => { initialVehiclesRef.current = initialVehicles; }, [initialVehicles]);
+  useEffect(() => {
+    initialVehiclesRef.current = initialVehicles;
+  }, [initialVehicles]);
 
   // Function to clear all fleet data
   const clearFleet = useCallback(() => {
@@ -96,7 +103,6 @@ export function useFleet(
     }
   }, []); // Empty deps = stable reference
 
-
   const generateId = (prefix = "id"): string => {
     if (typeof globalThis.crypto?.randomUUID === "function") {
       return `${prefix}-${globalThis.crypto.randomUUID()}`;
@@ -120,7 +126,7 @@ export function useFleet(
         return next;
       });
     },
-    [fleetVehicles.length]
+    [fleetVehicles.length],
   );
 
   // Function to add a job at specific coordinates
@@ -129,29 +135,41 @@ export function useFleet(
     setFleetJobs((prev) => {
       const next: FleetJob[] = [
         ...prev,
-        { id, position, label: label || `Job ${prev.length + 1}`, status: "pending" },
+        {
+          id,
+          position,
+          label: label || `Job ${prev.length + 1}`,
+          status: "pending",
+        },
       ];
       return next;
     });
   }, []);
 
   // Function to add a stop (pinned job) to a specific vehicle
-  const addStopToVehicle = useCallback((vehicleId: string | number, position: [number, number], label?: string) => {
-    const id = generateId("stop");
-    setFleetJobs((prev) => {
-      const next: FleetJob[] = [
-        ...prev,
-        {
-          id,
-          position,
-          label: label || `Stop for ${vehicleId}`,
-          assignedVehicleId: vehicleId,
-          status: "pending"
-        },
-      ];
-      return next;
-    });
-  }, []);
+  const addStopToVehicle = useCallback(
+    (
+      vehicleId: string | number,
+      position: [number, number],
+      label?: string,
+    ) => {
+      const id = generateId("stop");
+      setFleetJobs((prev) => {
+        const next: FleetJob[] = [
+          ...prev,
+          {
+            id,
+            position,
+            label: label || `Stop for ${vehicleId}`,
+            assignedVehicleId: vehicleId,
+            status: "pending",
+          },
+        ];
+        return next;
+      });
+    },
+    [],
+  );
 
   // Function to remove a vehicle by ID
   const removeVehicle = useCallback((vehicleId: string | number) => {
@@ -159,7 +177,11 @@ export function useFleet(
       const remaining = prev.filter((v) => v.id !== vehicleId);
       // If the selected vehicle is removed, select the first available one
       setSelectedVehicleId((curr) =>
-        curr === vehicleId ? (remaining[0]?.id ? String(remaining[0].id) : null) : curr
+        curr === vehicleId
+          ? remaining[0]?.id
+            ? String(remaining[0].id)
+            : null
+          : curr,
       );
       return remaining;
     });
@@ -173,46 +195,52 @@ export function useFleet(
   /**
    * Update a vehicle's position (used for live GPS tracking)
    */
-  const updateVehiclePosition = useCallback((vehicleId: string | number, newPosition: [number, number]) => {
-    setFleetVehicles((prev) =>
-      prev.map((v) =>
-        v.id === vehicleId ? { ...v, position: newPosition } : v
-      )
-    );
-  }, []);
+  const updateVehiclePosition = useCallback(
+    (vehicleId: string | number, newPosition: [number, number]) => {
+      setFleetVehicles((prev) =>
+        prev.map((v) =>
+          v.id === vehicleId ? { ...v, position: newPosition } : v,
+        ),
+      );
+    },
+    [],
+  );
 
   /**
    * Update a vehicle's telemetry metrics
    */
-  const updateVehicleMetrics = useCallback((vehicleId: string | number, metrics: VehicleMetrics) => {
-    setFleetVehicles((prev) =>
-      prev.map((v) =>
-        v.id === vehicleId ? { ...v, metrics } : v
-      )
-    );
-  }, []);
+  const updateVehicleMetrics = useCallback(
+    (vehicleId: string | number, metrics: VehicleMetrics) => {
+      setFleetVehicles((prev) =>
+        prev.map((v) => (v.id === vehicleId ? { ...v, metrics } : v)),
+      );
+    },
+    [],
+  );
 
   /**
    * Update a vehicle's type (label/tag)
    */
-  const updateVehicleType = useCallback((vehicleId: string | number, newType: VehicleType) => {
-    setFleetVehicles((prev) =>
-      prev.map((v) =>
-        v.id === vehicleId ? { ...v, type: newType } : v
-      )
-    );
-  }, []);
+  const updateVehicleType = useCallback(
+    (vehicleId: string | number, newType: VehicleType) => {
+      setFleetVehicles((prev) =>
+        prev.map((v) => (v.id === vehicleId ? { ...v, type: newType } : v)),
+      );
+    },
+    [],
+  );
 
   /**
    * Assign a driver to a vehicle
    */
-  const assignDriverToVehicle = useCallback((vehicleId: string | number, driver: any) => {
-    setFleetVehicles((prev) =>
-      prev.map((v) =>
-        v.id === vehicleId ? { ...v, driver: driver } : v
-      )
-    );
-  }, []);
+  const assignDriverToVehicle = useCallback(
+    (vehicleId: string | number, driver: any) => {
+      setFleetVehicles((prev) =>
+        prev.map((v) => (v.id === vehicleId ? { ...v, driver: driver } : v)),
+      );
+    },
+    [],
+  );
 
   // Return state and functions that other components can use
   return {

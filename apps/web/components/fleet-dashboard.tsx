@@ -14,7 +14,14 @@ import type {
 import type { Alert } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { Activity, Battery, Fuel, TrendingUp, Truck, AlertTriangle } from "lucide-react";
+import {
+  Activity,
+  Battery,
+  Fuel,
+  TrendingUp,
+  Truck,
+  AlertTriangle,
+} from "lucide-react";
 import { VehicleDetailSheet } from "./vehicle-detail-sheet";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -38,8 +45,6 @@ interface FleetDashboardProps {
   drivers?: any[];
   onAssignDriver?: (vehicleId: string | number, driver: any) => void;
 }
-
-
 
 export function FleetDashboard({
   vehicles,
@@ -96,15 +101,15 @@ export function FleetDashboard({
       activeVehicles: activeCount,
       avgFuel: fuelVehicles.length
         ? Math.round(
-          fuelVehicles.reduce((sum, m) => sum + (m.fuelLevel || 0), 0) /
-          fuelVehicles.length,
-        )
+            fuelVehicles.reduce((sum, m) => sum + (m.fuelLevel || 0), 0) /
+              fuelVehicles.length,
+          )
         : null,
       avgBattery: batteryVehicles.length
         ? Math.round(
-          batteryVehicles.reduce((sum, m) => sum + (m.batteryLevel || 0), 0) /
-          batteryVehicles.length,
-        )
+            batteryVehicles.reduce((sum, m) => sum + (m.batteryLevel || 0), 0) /
+              batteryVehicles.length,
+          )
         : null,
       totalDistance: Math.round(
         metricsArray.reduce((sum, m) => sum + m.distanceTotal, 0),
