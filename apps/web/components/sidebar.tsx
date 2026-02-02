@@ -191,8 +191,8 @@ interface FleetTabProps {
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
-  drivers?: any[];
-  onAssignDriver?: (vehicleId: string | number, driver: any) => void;
+  drivers?: Driver[];
+  onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
 }
 
 const FleetTab = memo(
@@ -216,13 +216,6 @@ const FleetTab = memo(
     isTracking,
     toggleTracking,
     hasRoute,
-    isAddStopOpen,
-    setIsAddStopOpen,
-    onStartPickingStop,
-    pickedStopCoords,
-    onAddStopSubmit,
-    drivers,
-    onAssignDriver,
   }: FleetTabProps) => (
     <div className="flex flex-col h-auto min-h-0 min-w-0">
       <div className="p-5 border-b border-border/10">

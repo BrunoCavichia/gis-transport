@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 interface VehicleAlertPanelProps {
   alerts: Alert[];
-  weatherAlerts?: any[];
+  weatherAlerts?: Alert[];
 }
 
 function getAlertIcon(type: string) {

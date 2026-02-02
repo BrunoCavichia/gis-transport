@@ -5,6 +5,7 @@ import type {
   FleetJob,
   FleetVehicle,
   VehicleMetrics,
+  Driver,
 } from "@gis/shared";
 
 const EMPTY_VEHICLES: FleetVehicle[] = [];
@@ -234,7 +235,7 @@ export function useFleet(
    * Assign a driver to a vehicle
    */
   const assignDriverToVehicle = useCallback(
-    (vehicleId: string | number, driver: any) => {
+    (vehicleId: string | number, driver: Driver) => {
       setFleetVehicles((prev) =>
         prev.map((v) => (v.id === vehicleId ? { ...v, driver: driver } : v)),
       );

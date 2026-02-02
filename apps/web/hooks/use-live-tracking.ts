@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { RouteData } from "@/lib/types";
+import type { RouteData, VehicleRoute, VehicleRoute } from "@/lib/types";
+import { VehicleMetrics } from "@gis/shared";
 
 interface UseLiveTrackingProps {
   routeData: RouteData | null;
   selectedVehicleId: string | number | null;
   updateVehiclePosition: (vehicleId: string, coords: [number, number]) => void;
-  updateVehicleMetrics: (vehicleId: string, metrics: any) => void;
+  updateVehicleMetrics: (vehicleId: string, metrics: VehicleMetrics) => void;
 }
 
 export function useLiveTracking({
@@ -71,7 +72,7 @@ export function useLiveTracking({
 
         if (data.metrics) {
           Object.entries(data.metrics).forEach(([vid, metrics]) => {
-            updateMet(vid, metrics);
+            updateMet(vid, metrics as VehicleMetrics);
           });
         }
       }
@@ -100,7 +101,7 @@ export function useLiveTracking({
   useEffect(() => {
     if (isTracking && routeData?.vehicleRoutes) {
       const activeRoutes: Record<string, [number, number][]> = {};
-      routeData.vehicleRoutes.forEach((route: any) => {
+      routeData.vehicleRoutes.forEach((route: VehicleRoute) => {
         if (route.vehicleId && route.coordinates) {
           activeRoutes[route.vehicleId] = route.coordinates;
         }
@@ -131,7 +132,7 @@ export function useLiveTracking({
       // Start tracking - pass route data to the API for simulation
       if (routes?.vehicleRoutes) {
         const activeRoutes: Record<string, [number, number][]> = {};
-        routes.vehicleRoutes.forEach((route: any) => {
+        routes.vehicleRoutes.forEach((route: VehicleRoute) => {
           if (route.vehicleId && route.coordinates) {
             activeRoutes[route.vehicleId] = route.coordinates;
           }

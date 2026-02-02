@@ -38,7 +38,7 @@ export function useDrivers() {
       const { name, licenseType, licenseNumber, imageUrl } = driverData;
 
       // Only include fields that have values
-      const payload: any = { name };
+      const payload: Partial<Driver> = { name };
       if (licenseType) payload.licenseType = licenseType;
       if (licenseNumber) payload.licenseNumber = licenseNumber;
       if (imageUrl) payload.imageUrl = imageUrl;
@@ -71,7 +71,7 @@ export function useDrivers() {
       try {
         // Filter out fields that are derived or handled via VehicleAssignment
         const { name, licenseType, licenseNumber, imageUrl } = updateData;
-        const payload: any = {};
+        const payload: Partial<Driver> = {};
 
         if (name !== undefined) payload.name = name;
         if (licenseType !== undefined) payload.licenseType = licenseType;
