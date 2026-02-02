@@ -279,7 +279,7 @@ export function VehicleDetailSheet({
                                 <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Sin conductor asignado</p>
                                 <div className="flex flex-wrap gap-1 justify-center max-h-24 overflow-y-auto px-1">
                                     {drivers.filter((d: any) => d.isAvailable).length > 0 ? (
-                                        drivers.filter((d: any) => d.isAvailable).slice(0, 3).map((driver: any) => (
+                                        drivers.filter((d: any) => d.isAvailable).map((driver: any) => (
                                             <Button
                                                 key={driver.id}
                                                 variant="outline"

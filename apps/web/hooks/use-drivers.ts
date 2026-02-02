@@ -12,7 +12,13 @@ export function useDrivers() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/drivers");
+      const res = await fetch("/api/drivers", {
+        cache: "no-store",
+        headers: {
+          "Pragma": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate"
+        }
+      });
       if (!res.ok) throw new Error("Failed to fetch drivers");
       const data = await res.json();
       setDrivers(data.success ? data.data || [] : []);
@@ -68,5 +74,11 @@ export function useDrivers() {
     [],
   );
 
-  return { drivers, isLoading, error, fetchDrivers, addDriver, updateDriver };
+  const optimisticUpdateDriver = useCallback((id: string, updates: Partial<Driver>) => {
+    setDrivers((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...updates } : d)),
+    );
+  }, []);
+
+  return { drivers, isLoading, error, fetchDrivers, addDriver, updateDriver, optimisticUpdateDriver };
 }

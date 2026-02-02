@@ -40,8 +40,9 @@ import {
   FleetActionButtons,
   FleetFooterButtons,
 } from "@/components/sidebar-components";
+import { DriverDetailsSheet } from "./driver-details-sheet";
 
-const STABLE_NOOP = () => {};
+const STABLE_NOOP = () => { };
 const STABLE_PROMISE_NOOP = () => Promise.resolve();
 
 import { FleetDashboard } from "@/components/fleet-dashboard";
@@ -96,9 +97,8 @@ interface SidebarProps {
   drivers?: any[];
   onAssignDriver?: (vehicleId: string | number, driver: any) => void;
   isLoadingDrivers?: boolean;
-  fetchDriversFromParent?: () => Promise<void>;
-  addDriverFromParent?: (data: Partial<any>) => Promise<any>;
-  onDriverSelect?: (driver: any) => void;
+  fetchDrivers?: () => Promise<void>;
+  addDriver?: (data: Partial<any>) => Promise<any>;
 }
 
 type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";
@@ -337,7 +337,9 @@ const FleetTab = memo(
       prev.selectedVehicleId === next.selectedVehicleId &&
       prev.isCalculatingRoute === next.isCalculatingRoute &&
       prev.isTracking === next.isTracking &&
-      prev.hasRoute === next.hasRoute
+      prev.hasRoute === next.hasRoute &&
+      prev.drivers === next.drivers &&
+      prev.onAssignDriver === next.onAssignDriver
     );
   },
 );
@@ -504,24 +506,23 @@ export const Sidebar = memo(
     onStartPickingStop,
     pickedStopCoords,
     onAddStopSubmit,
-    drivers,
+    drivers = [],
     onAssignDriver,
-    isLoadingDrivers: _isLoadingDrivers,
-    fetchDriversFromParent,
-    addDriverFromParent,
-    onDriverSelect,
+    isLoadingDrivers = false,
+    fetchDrivers,
+    addDriver,
   }: SidebarProps) {
-    // Use prop drivers from parent (gis-map) directly
-    const finalDrivers = drivers ?? [];
-    const finalIsLoadingDrivers = _isLoadingDrivers ?? false;
-    const finalFetchDrivers =
-      fetchDriversFromParent ?? (() => Promise.resolve());
-    const finalAddDriver =
-      addDriverFromParent ?? (() => Promise.resolve({} as any));
 
     // Local state for sidebar visibility
     const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
     const [isExpanded, setIsExpanded] = useState(true);
+    const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+
+    // Derived state for selected driver (ensures data is always fresh)
+    const selectedDriver = useMemo(
+      () => (drivers || []).find((d) => d.id === selectedDriverId) || null,
+      [drivers, selectedDriverId],
+    );
 
     // Drivers are already fetched in gis-map on mount (independent of fleet)
     // No need to fetch them here based on tab changes
@@ -580,15 +581,15 @@ export const Sidebar = memo(
             "ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto h-auto max-h-full",
             isExpanded
               ? cn(
-                  "opacity-100 translate-x-0",
-                  activeTab === "dashboard"
-                    ? selectedVehicleId !== null
-                      ? "w-[32rem]"
-                      : fleetVehicles.length > 3
-                        ? "w-[28rem]"
-                        : "w-80"
-                    : "w-80",
-                )
+                "opacity-100 translate-x-0",
+                activeTab === "dashboard"
+                  ? selectedVehicleId !== null
+                    ? "w-[32rem]"
+                    : fleetVehicles.length > 3
+                      ? "w-[28rem]"
+                      : "w-80"
+                  : "w-80",
+              )
               : "w-0 opacity-0 -translate-x-10",
           )}
         >
@@ -632,13 +633,20 @@ export const Sidebar = memo(
             />
           )}
           {activeTab === "drivers" && (
-            <DriversTab
-              drivers={finalDrivers}
-              isLoading={finalIsLoadingDrivers}
-              fetchDrivers={finalFetchDrivers}
-              addDriver={finalAddDriver}
-              onDriverSelect={onDriverSelect}
-            />
+            selectedDriver ? (
+              <DriverDetailsSheet
+                driver={selectedDriver}
+                onClose={() => setSelectedDriverId(null)}
+              />
+            ) : (
+              <DriversTab
+                drivers={drivers || []}
+                isLoading={isLoadingDrivers || false}
+                fetchDrivers={fetchDrivers || (async () => { })}
+                addDriver={addDriver || (async () => undefined)}
+                onDriverSelect={(d) => setSelectedDriverId(d.id)}
+              />
+            )
           )}
           {activeTab === "dashboard" && (
             <ScrollArea className="flex-1 h-auto min-h-0 min-w-0">
@@ -653,7 +661,7 @@ export const Sidebar = memo(
                 onStartPickingStop={onStartPickingStop}
                 pickedStopCoords={pickedStopCoords}
                 onAddStopSubmit={onAddStopSubmit}
-                drivers={finalDrivers}
+                drivers={drivers}
                 onAssignDriver={onAssignDriver}
               />
             </ScrollArea>
@@ -677,7 +685,10 @@ export const Sidebar = memo(
       prev.customPOIs === next.customPOIs &&
       prev.isLoadingVehicles === next.isLoadingVehicles &&
       prev.isAddStopOpen === next.isAddStopOpen &&
-      prev.pickedStopCoords === next.pickedStopCoords
+      prev.pickedStopCoords === next.pickedStopCoords &&
+      prev.drivers === next.drivers &&
+      prev.isLoadingDrivers === next.isLoadingDrivers &&
+      prev.onAssignDriver === next.onAssignDriver
     );
   },
 );

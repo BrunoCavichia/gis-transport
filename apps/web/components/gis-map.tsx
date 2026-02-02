@@ -89,6 +89,7 @@ export function GISMap() {
     updateDriver,
     fetchDrivers,
     addDriver,
+    optimisticUpdateDriver,
   } = useDrivers();
 
   // Fetch drivers SOLO UNA VEZ al mount
@@ -103,35 +104,93 @@ export function GISMap() {
   const handleAssignDriver = useCallback(
     async (vehicleId: string | number, newDriver: any) => {
       try {
+        console.log("Assigning driver:", newDriver?.name, "to vehicle:", vehicleId);
+
+        // Optimistic update: Update frontend fleet state immediately
+        assignDriverToVehicle(vehicleId, newDriver);
+
         // 1. First, unassign the old driver if one exists
         const oldDriver = drivers.find(
           (d) => d.currentVehicleId === String(vehicleId),
         );
         if (oldDriver) {
+          optimisticUpdateDriver(oldDriver.id, {
+            isAvailable: true,
+            currentVehicleId: undefined,
+          });
+
           await updateDriver(oldDriver.id, {
             isAvailable: true,
-            currentVehicleId: null,
+            currentVehicleId: undefined,
           });
         }
 
         // 2. Then assign the new driver if provided
         if (newDriver) {
+          optimisticUpdateDriver(newDriver.id, {
+            isAvailable: false,
+            currentVehicleId: String(vehicleId),
+          });
+
+
           await updateDriver(newDriver.id, {
             isAvailable: false,
             currentVehicleId: String(vehicleId),
           });
         }
 
-        // 3. Update frontend fleet state
-        assignDriverToVehicle(vehicleId, newDriver);
+        // Final sync with server to ensure data consistency
+        await fetchDrivers();
+
       } catch (error) {
         console.error("Error assigning driver:", error);
+        // Ideally we should revert the optimistic update here
       }
     },
-    [assignDriverToVehicle, updateDriver, drivers],
+    [assignDriverToVehicle, updateDriver, drivers, optimisticUpdateDriver, fetchDrivers],
   );
 
-  // Refs for stable map click handler
+  // Reconciliation: Auto-release drivers assigned to non-existent vehicles
+  useEffect(() => {
+    // Only run if data is loaded
+    if (isLoadingVehicles || isLoadingDrivers || !drivers.length) return;
+
+    // Create set of valid vehicle IDs for O(1) lookup
+    const validVehicleIds = new Set(fleetVehicles.map((v) => String(v.id)));
+
+    const orphanedDrivers = drivers.filter(
+      (d) =>
+        !d.isAvailable && // Currently marked as busy
+        d.currentVehicleId && // Has a vehicle assignment
+        !validVehicleIds.has(String(d.currentVehicleId)) // But vehicle doesn't exist in current fleet
+    );
+
+    if (orphanedDrivers.length > 0) {
+      console.warn("Reconciliation: Releasing orphaned drivers:", orphanedDrivers.map(d => d.name));
+
+      orphanedDrivers.forEach((driver) => {
+        // 1. Optimistic local update
+        optimisticUpdateDriver(driver.id, {
+          isAvailable: true,
+          // Cast null to any because strict type might be string|undefined, but we need null for storage
+          currentVehicleId: null as any
+        });
+
+        // 2. Persistent server update
+        updateDriver(driver.id, {
+          isAvailable: true,
+          currentVehicleId: null as any // Send explicit null to backend to clear field
+        }).catch(err => console.error("Failed to reconcile driver:", driver.id, err));
+      });
+    }
+  }, [
+    fleetVehicles,
+    drivers,
+    isLoadingVehicles,
+    isLoadingDrivers,
+    optimisticUpdateDriver,
+    updateDriver
+  ]);
   const interactionModeRef = useRef(interactionMode);
   const selectedVehicleRef = useRef(selectedVehicle);
   const addVehicleAtRef = useRef(addVehicleAt);
@@ -458,6 +517,11 @@ export function GISMap() {
         isAddCustomPOIOpen={isAddCustomPOIOpen}
         setIsAddCustomPOIOpen={setIsAddCustomPOIOpen}
         isAddJobOpen={isAddJobOpen}
+        drivers={drivers}
+        isLoadingDrivers={isLoadingDrivers}
+        fetchDrivers={fetchDrivers}
+        addDriver={addDriver}
+        onAssignDriver={handleAssignDriver}
         setIsAddJobOpen={setIsAddJobOpen}
         isLoadingVehicles={isLoadingVehicles}
         fetchVehicles={fetchVehicles}
@@ -469,15 +533,6 @@ export function GISMap() {
         onStartPickingStop={handleStartPickingStop}
         pickedStopCoords={pickedStopCoords}
         onAddStopSubmit={handleAddStopSubmit}
-        drivers={drivers}
-        onAssignDriver={handleAssignDriver}
-        isLoadingDrivers={isLoadingDrivers}
-        fetchDriversFromParent={fetchDrivers}
-        addDriverFromParent={addDriver}
-        onDriverSelect={(driver) => {
-          setSelectedDriver(driver);
-          setIsDriverDetailsOpen(true);
-        }}
       />
       <div className="relative flex-1">
         <MapContainer

@@ -111,7 +111,7 @@ export function DriversTab({
                         variant={driver.isAvailable ? "outline" : "secondary"}
                         className="text-[9px] uppercase font-black px-1.5 h-4 border-emerald-500/20 text-emerald-600 bg-emerald-500/5"
                       >
-                        {driver.isAvailable ? "Disponible" : "En Ruta"}
+                        {driver.isAvailable ? "Disponible" : "Conductor Asignado"}
                       </Badge>
                     </div>
 

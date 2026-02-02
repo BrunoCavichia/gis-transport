@@ -37,26 +37,11 @@ interface FleetDashboardProps {
   onAssignDriver?: (vehicleId: string | number, driver: any) => void;
 }
 
-function getMovementLabel(state: MovementState): {
-  label: string;
-  color: string;
-} {
-  switch (state) {
-    case "on_route":
-      return { label: "En Ruta", color: "bg-green-500" };
-    case "moving":
-      return { label: "En Movimiento", color: "bg-blue-500" };
-    case "stopped":
-      return { label: "Parado", color: "bg-gray-500" };
-    default:
-      return { label: "Desconocido", color: "bg-gray-400" };
-  }
-}
+
 
 export function FleetDashboard({
   vehicles,
   jobs = [],
-  isTracking,
   addStopToVehicle,
   startRouting,
   isAddStopOpen,
@@ -108,15 +93,15 @@ export function FleetDashboard({
       activeVehicles: activeCount,
       avgFuel: fuelVehicles.length
         ? Math.round(
-            fuelVehicles.reduce((sum, m) => sum + (m.fuelLevel || 0), 0) /
-              fuelVehicles.length,
-          )
+          fuelVehicles.reduce((sum, m) => sum + (m.fuelLevel || 0), 0) /
+          fuelVehicles.length,
+        )
         : null,
       avgBattery: batteryVehicles.length
         ? Math.round(
-            batteryVehicles.reduce((sum, m) => sum + (m.batteryLevel || 0), 0) /
-              batteryVehicles.length,
-          )
+          batteryVehicles.reduce((sum, m) => sum + (m.batteryLevel || 0), 0) /
+          batteryVehicles.length,
+        )
         : null,
       totalDistance: Math.round(
         metricsArray.reduce((sum, m) => sum + m.distanceTotal, 0),
@@ -175,9 +160,6 @@ export function FleetDashboard({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">
-                Energía de Flota
-              </div>
               <div className="flex items-center gap-3 mt-1 justify-end">
                 {kpis.avgBattery !== null && kpis.avgBattery > 0 && (
                   <div className="flex items-center gap-1 text-xs font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100/50">
