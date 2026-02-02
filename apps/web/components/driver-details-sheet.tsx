@@ -3,21 +3,13 @@
 import { Driver } from "@gis/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Users,
-  ShieldCheck,
-  Clock,
-  Car,
-  AlertTriangle,
-  ArrowLeft,
-} from "lucide-react";
+import { Users, Clock, Car, AlertTriangle, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DriverDetailsSheetProps {
   driver: Driver | null;
   onClose: () => void;
-  // Deprecated props kept for compatibility if needed, but ignored
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }

@@ -9,24 +9,25 @@ import {
   Battery,
   Users,
   X,
-  MapPin,
   Zap,
-  Gauge,
   Activity,
   ShieldCheck,
   ArrowLeft,
   AlertTriangle,
-  Info,
   Plus,
   Clock,
   CheckCircle2,
-  Circle,
   Route,
   Package,
   Trash2,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
-import type { FleetVehicle, VehicleMetrics, FleetJob } from "@gis/shared";
+import type {
+  FleetVehicle,
+  VehicleMetrics,
+  FleetJob,
+  Driver,
+} from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 import { GeocodingService } from "@/lib/services/geocoding-service";
 import { AddStopDialog } from "./add-stop-dialog";
@@ -49,8 +50,8 @@ interface VehicleDetailSheetProps {
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
   onClose: () => void;
-  drivers?: any[];
-  onAssignDriver?: (vehicleId: string | number, driver: any) => void;
+  drivers?: Driver[];
+  onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
 }
 
 export function VehicleDetailSheet({
@@ -389,12 +390,12 @@ export function VehicleDetailSheet({
                   {(() => {
                     // Validation: Filter drivers that are TRULY available
                     // using the dedicated validation utility
-                    const trulyAvailableDrivers = drivers.filter((d: any) =>
+                    const trulyAvailableDrivers = drivers.filter((d: Driver) =>
                       isDriverTrulyAvailable(d),
                     );
 
                     return trulyAvailableDrivers.length > 0 ? (
-                      trulyAvailableDrivers.map((driver: any) => (
+                      trulyAvailableDrivers.map((driver: Driver) => (
                         <Button
                           key={driver.id}
                           variant="outline"

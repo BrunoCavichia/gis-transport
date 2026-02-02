@@ -7,21 +7,13 @@
 import { useMemo } from "react";
 import type {
   FleetVehicle,
-  MovementState,
   VehicleMetrics,
   FleetJob,
+  Driver,
 } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import {
-  Activity,
-  Battery,
-  Fuel,
-  TrendingUp,
-  Truck,
-  AlertTriangle,
-} from "lucide-react";
+import { Activity, Battery, Fuel, Truck } from "lucide-react";
 import { VehicleDetailSheet } from "./vehicle-detail-sheet";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -42,8 +34,8 @@ interface FleetDashboardProps {
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
-  drivers?: any[];
-  onAssignDriver?: (vehicleId: string | number, driver: any) => void;
+  drivers?: Driver[];
+  onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
 }
 
 export function FleetDashboard({
@@ -78,7 +70,7 @@ export function FleetDashboard({
   const kpis = useMemo(() => {
     const metricsArray = vehicles
       .map((v) => v.metrics)
-      .filter((m): m is VehicleMetrics => !!m);
+      .filter((m): m is VehicleMetrics => Boolean(m));
 
     if (metricsArray.length === 0) {
       return {
@@ -155,7 +147,6 @@ export function FleetDashboard({
         </div>
       ) : (
         <div className="flex flex-col min-h-0">
-          {/* Boutique Header */}
           <div className="px-4 py-3 shrink-0 flex items-center justify-between border-b border-border/10 bg-background/50 backdrop-blur-sm">
             <div>
               <h2 className="text-sm font-bold text-foreground tracking-tight">

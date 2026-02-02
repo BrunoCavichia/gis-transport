@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { repository } from "@/lib/db";
+import { FetchError } from "@/lib/types";
 
 export async function GET() {
   try {
     const drivers = await repository.getDrivers();
     return NextResponse.json({ success: true, data: drivers });
-  } catch (error: any) {
+  } catch (err) {
+    const error = err as FetchError;
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },
@@ -49,7 +51,8 @@ export async function POST(req: NextRequest) {
 
     const driver = await repository.addDriver(body);
     return NextResponse.json({ success: true, data: driver });
-  } catch (error: any) {
+  } catch (err) {
+    const error = err as FetchError;
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },

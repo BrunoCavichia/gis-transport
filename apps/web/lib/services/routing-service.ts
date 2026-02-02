@@ -286,9 +286,7 @@ export class RoutingService {
         duration: Math.round(feat.properties.summary.duration),
         color,
         jobsAssigned: steps.filter((s) => s.type === "job").length,
-        assignedJobIds: steps.flatMap((s) =>
-          s.type === "job" && typeof s.id === "number" ? [s.id] : [],
-        ),
+        error: undefined,
       };
     } catch (e) {
       return this.createErrorRoute(
@@ -311,7 +309,6 @@ export class RoutingService {
       duration: 0,
       color,
       jobsAssigned: 0,
-      assignedJobIds: [],
       error,
     };
   }

@@ -16,10 +16,6 @@ import {
   Route,
   LayoutDashboard,
   Users,
-  RefreshCw,
-  Clock,
-  ShieldCheck,
-  AlertTriangle,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -29,6 +25,7 @@ import type {
   CustomPOI,
   FleetJob,
   FleetVehicle,
+  Driver,
 } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
@@ -96,11 +93,11 @@ interface SidebarProps {
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
-  drivers?: any[];
-  onAssignDriver?: (vehicleId: string | number, driver: any) => void;
+  drivers?: Driver[];
+  onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
   isLoadingDrivers?: boolean;
   fetchDrivers?: () => Promise<void>;
-  addDriver?: (data: Partial<any>) => Promise<any>;
+  addDriver?: (data: Partial<Driver>) => Promise<Driver>;
 }
 
 type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";

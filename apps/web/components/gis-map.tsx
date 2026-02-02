@@ -8,6 +8,8 @@ import type {
   VehicleType,
   WeatherData,
   Zone,
+  Driver,
+  VehicleMetrics,
 } from "@gis/shared";
 import { InteractionMode as LocalInteractionMode } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
@@ -63,7 +65,7 @@ export function GISMap() {
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [isAddStopOpen, setIsAddStopOpen] = useState(false);
   const [activeZones, setActiveZones] = useState<Zone[]>([]);
-  const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
+  const [selectedDriver, _setSelectedDriver] = useState<Driver | null>(null);
   const [isDriverDetailsOpen, setIsDriverDetailsOpen] = useState(false);
 
   const { addAlertLog } = useAlertLogs();
@@ -106,21 +108,12 @@ export function GISMap() {
   }, []); // VACÍO - solo corre UNA VEZ
 
   const handleAssignDriver = useCallback(
-    async (vehicleId: string | number, newDriver: any) => {
+    async (vehicleId: string | number, newDriver: Driver | null) => {
       try {
-        console.log(
-          "Assigning driver:",
-          newDriver?.name,
-          "to vehicle:",
-          vehicleId,
-        );
-
-        // VALIDATION: Check if the vehicle still exists
         const vehicleExists = fleetVehicles.some(
           (v) => String(v.id) === String(vehicleId),
         );
         if (!vehicleExists) {
-          console.error("Cannot assign driver: vehicle no longer exists");
           await fetchDrivers(); // Refresh to get latest state
           return;
         }
@@ -216,14 +209,14 @@ export function GISMap() {
         // 1. Optimistic local update
         optimisticUpdateDriver(driver.id, {
           isAvailable: true,
-          // Cast null to any because strict type might be string|undefined, but we need null for storage
-          currentVehicleId: null as any,
+
+          currentVehicleId: undefined,
         });
 
         // 2. Persistent server update
         updateDriver(driver.id, {
           isAvailable: true,
-          currentVehicleId: null as any, // Send explicit null to backend to clear field
+          currentVehicleId: undefined,
         }).catch((err) =>
           console.error("Failed to reconcile driver:", driver.id, err),
         );
@@ -256,14 +249,8 @@ export function GISMap() {
     addJobAtRef.current = addJobAt;
   }, [addJobAt]);
 
-  const {
-    customPOIs,
-    addCustomPOI,
-    removeCustomPOI,
-    updateCustomPOI,
-    clearAllCustomPOIs,
-    togglePOISelectionForFleet,
-  } = useCustomPOI();
+  const { customPOIs, addCustomPOI, removeCustomPOI, clearAllCustomPOIs } =
+    useCustomPOI();
 
   const {
     routeData,
@@ -293,7 +280,7 @@ export function GISMap() {
   );
 
   const handleUpdateVehicleMetrics = useCallback(
-    (vehicleId: string | number, metrics: any) =>
+    (vehicleId: string | number, metrics: VehicleMetrics) =>
       updateVehicleMetrics(String(vehicleId), metrics),
     [updateVehicleMetrics],
   );
@@ -420,14 +407,6 @@ export function GISMap() {
       addJobAt(coords, label);
     },
     [addJobAt],
-  );
-
-  const handleAddCustomPOI = useCallback(
-    (name: string, coords: [number, number], desc?: string) => {
-      setPickedPOICoords(null);
-      return addCustomPOI(name, coords, desc);
-    },
-    [addCustomPOI],
   );
 
   const handleStartPicking = useCallback(() => {

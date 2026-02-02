@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { repository } from "@/lib/db";
+import { FetchError } from "@/lib/types";
 
 export async function GET(
   req: NextRequest,
@@ -19,7 +20,8 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, data: driver });
-  } catch (error: any) {
+  } catch (err) {
+    const error = err as FetchError;
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },
@@ -80,7 +82,8 @@ export async function PATCH(
 
     const driver = await repository.updateDriver(id, body);
     return NextResponse.json({ success: true, data: driver });
-  } catch (error: any) {
+  } catch (err) {
+    const error = err as FetchError;
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },
