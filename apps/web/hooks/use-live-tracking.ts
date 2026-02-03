@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { RouteData, VehicleRoute, VehicleRoute } from "@/lib/types";
+import type { RouteData, VehicleRoute } from "@/lib/types";
 import { VehicleMetrics } from "@gis/shared";
 
 interface UseLiveTrackingProps {

@@ -136,7 +136,7 @@ export function GISMap() {
         }
 
         // Optimistic update: Update frontend fleet state immediately
-        assignDriverToVehicle(vehicleId, newDriver);
+        assignDriverToVehicle(vehicleId, newDriver as Driver);
 
         // 1. First, unassign the old driver if one exists
         const oldDriver = drivers.find(
