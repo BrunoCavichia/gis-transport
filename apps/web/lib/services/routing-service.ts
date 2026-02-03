@@ -94,6 +94,7 @@ export class RoutingService {
       snappedLocations,
       vehicleToProfile,
       vehicles,
+      jobs,
     );
 
     // 6. Weather Analysis
@@ -203,6 +204,7 @@ export class RoutingService {
     allLocations: LatLon[],
     vehicleToProfile: { name: string; avoidPolygons: LatLon[][] }[],
     originalVehicles: FleetVehicle[],
+    originalJobs: FleetJob[],
   ): Promise<VehicleRoute[]> {
     const results: VehicleRoute[] = [];
 
@@ -241,6 +243,8 @@ export class RoutingService {
           profile.avoidPolygons,
           color,
           route.steps,
+          originalJobs,
+          originalVehicles.length,
         ),
       );
     }
@@ -253,6 +257,8 @@ export class RoutingService {
     avoidPolygons: LatLon[][],
     color: string,
     steps: VroomStep[],
+    originalJobs: FleetJob[],
+    vehicleOffset: number,
   ): Promise<VehicleRoute> {
     const orsWaypoints = waypoints.map(([lat, lon]) => [lon, lat]);
     const avoid_polygons = this.formatAvoidPolygons(avoidPolygons);
@@ -286,6 +292,13 @@ export class RoutingService {
         duration: Math.round(feat.properties.summary.duration),
         color,
         jobsAssigned: steps.filter((s) => s.type === "job").length,
+        assignedJobIds: steps
+          .filter((s) => s.type === "job")
+          .map((s) => {
+            const jobIdx = (s.id as number) - vehicleOffset;
+            return originalJobs[jobIdx]?.id;
+          })
+          .filter((id): id is string | number => id !== undefined),
         error: undefined,
       };
     } catch (e) {
@@ -351,7 +364,7 @@ export class RoutingService {
 
         return Math.round(
           d * ROUTING_CONFIG.COST_PER_METER +
-            t * ROUTING_CONFIG.COST_PER_SECOND,
+          t * ROUTING_CONFIG.COST_PER_SECOND,
         );
       }),
     );
@@ -373,8 +386,8 @@ export class RoutingService {
       jobs: jobs.map((job, jidx) => {
         const vehicleIdx = job.assignedVehicleId
           ? vehicles.findIndex(
-              (v) => String(v.id) === String(job.assignedVehicleId),
-            )
+            (v) => String(v.id) === String(job.assignedVehicleId),
+          )
           : -1;
 
         return {

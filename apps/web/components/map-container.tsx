@@ -38,7 +38,6 @@ import { createMapIcons } from "@/lib/map-icons";
 import { Loader } from "@/components/loader";
 import { useLoadingLayers } from "@/hooks/use-loading-layers";
 import { usePOICache } from "@/hooks/use-poi-cache";
-import { WeatherPanel } from "./weather-panel";
 import { ZoneLayer, WeatherMarkersLayer } from "./map-layers";
 import {
   renderPOIs,
@@ -50,7 +49,7 @@ import {
 import { FitBounds } from "./map/FitBounds";
 import { MapCenterHandler } from "./map/MapCenterHandler";
 import { MapEventHandler } from "./map/MapEventHandler";
-import { RouteLayer, RouteLabelsLayer } from "./map/RouteLayer";
+import { RouteLayer } from "./map/RouteLayer";
 import { VehiclesLayer } from "./map/VehiclesLayer";
 import { useMapLOD } from "@/hooks/use-map-lod";
 
@@ -83,6 +82,7 @@ interface MapContainerProps {
   onZonesUpdate?: (zones: Zone[]) => void;
   isInteracting?: boolean;
   onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
+  onVehicleLabelUpdate?: (vehicleId: string, label: string) => void;
   onVehicleSelect?: (vehicleId: string) => void;
   toggleLayer?: (layer: keyof LayerVisibility) => void;
 }
@@ -112,7 +112,9 @@ export default memo(
     onZonesUpdate,
     isInteracting = false,
     onVehicleTypeChange,
+    onVehicleLabelUpdate,
     onVehicleSelect,
+    toggleLayer,
   }: MapContainerProps) {
     const [mounted, setMounted] = useState(false);
     const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
@@ -123,14 +125,9 @@ export default memo(
     const { loading, wrapAsync } = useLoadingLayers();
     const poiCache = usePOICache();
 
-    // Memoized boolean to avoid re-rendering on every zoom change
-    const shouldShowZoomLevelPOIs = useMemo(
-      () => zoom >= THEME.map.poi.lod.minZoomForDots,
-      [zoom],
-    );
 
     const mapIcons = useMemo(() => createMapIcons(), []);
-    const { job, customPOI, picking, vehicle, weather } = mapIcons;
+    const { job, customPOI, picking, vehicle, weather, gasStation, evStation } = mapIcons;
     const { snow, rain, ice, wind, fog } = weather;
 
     const canAccessZone = useCallback(
@@ -148,41 +145,44 @@ export default memo(
     );
 
     const renderedGasStations = useMemo(() => {
-      if (!layers.gasStations || !shouldShowZoomLevelPOIs) return null;
+      if (!layers.gasStations) return null;
       return renderPOIs({
         stations: dynamicGasStations,
         isEV: false,
+        zoom,
+        icon: gasStation,
       });
-    }, [
-      layers.gasStations,
-      dynamicGasStations,
-      isRouting,
-      shouldShowZoomLevelPOIs,
-    ]);
+    }, [layers.gasStations, dynamicGasStations, isRouting, zoom]);
 
     const renderedEVStations = useMemo(() => {
-      if (!layers.evStations || !shouldShowZoomLevelPOIs) return null;
+      if (!layers.evStations) return null;
       return renderPOIs({
         stations: dynamicEVStations,
         isEV: true,
+        zoom,
+        icon: evStation,
       });
-    }, [
-      layers.evStations,
-      dynamicEVStations,
-      isRouting,
-      shouldShowZoomLevelPOIs,
-    ]);
+    }, [layers.evStations, dynamicEVStations, isRouting, zoom]);
 
     const renderedCustomPOIs = useMemo(() => {
       return renderCustomPOIs({
         customPOIs: customPOIs || [],
         icon: customPOI,
+        zoom,
       });
-    }, [customPOIs, isRouting, customPOI]);
+    }, [customPOIs, isRouting, customPOI, zoom]);
 
     const renderedJobs = useMemo(() => {
-      return renderJobMarkers({ jobs: fleetJobs || [], icon: job });
-    }, [fleetJobs, isRouting, job]);
+      return renderJobMarkers({
+        jobs: fleetJobs || [],
+        icon: job,
+        routeData,
+        vehicles: fleetVehicles,
+        zoom,
+        selectedVehicleId,
+      });
+    }, [fleetJobs, isRouting, job, routeData, fleetVehicles, zoom, selectedVehicleId]);
+
 
     useEffect(() => setMounted(true), []);
 
@@ -237,8 +237,10 @@ export default memo(
 
           {layers.route && routeData?.vehicleRoutes?.length ? (
             <>
-              <RouteLayer vehicleRoutes={routeData.vehicleRoutes} />
-              <RouteLabelsLayer vehicleRoutes={routeData.vehicleRoutes} />
+              <RouteLayer
+                vehicleRoutes={routeData.vehicleRoutes}
+                selectedVehicleId={selectedVehicleId}
+              />
               <FitBounds routes={routeData.vehicleRoutes} />
             </>
           ) : null}
@@ -253,14 +255,13 @@ export default memo(
             createVehicleIcon={vehicle}
             vehicleAlerts={vehicleAlerts}
             onUpdateType={onVehicleTypeChange}
+            onUpdateLabel={onVehicleLabelUpdate}
             onSelect={onVehicleSelect}
+            zoom={zoom}
           />
 
           {renderedJobs}
 
-          {routeData?.weatherRoutes && (
-            <WeatherPanel routes={routeData.weatherRoutes} />
-          )}
           <WeatherMarkersLayer
             weatherRoutes={routeData?.weatherRoutes || []}
             icons={{ snow, rain, ice, wind, fog }}

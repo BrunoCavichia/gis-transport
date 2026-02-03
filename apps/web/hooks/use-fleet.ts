@@ -1,4 +1,4 @@
-// lib/hooks/use-fleet.ts
+// apps/web/hooks/use-fleet.ts
 import { useState, useCallback, useRef, useEffect } from "react";
 import type {
   VehicleType,
@@ -10,6 +10,16 @@ import type {
 
 const EMPTY_VEHICLES: FleetVehicle[] = [];
 const EMPTY_JOBS: FleetJob[] = [];
+
+const generateId = (prefix = "id"): string => {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `${prefix}-${globalThis.crypto.randomUUID()}`;
+  }
+
+  const time = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 10);
+  return `${prefix}-${time}-${random}`;
+};
 
 /**
  * Custom hook to manage fleet state and operations
@@ -104,15 +114,6 @@ export function useFleet(
     }
   }, []); // Empty deps = stable reference
 
-  const generateId = (prefix = "id"): string => {
-    if (typeof globalThis.crypto?.randomUUID === "function") {
-      return `${prefix}-${globalThis.crypto.randomUUID()}`;
-    }
-
-    const time = Date.now().toString(36);
-    const random = Math.random().toString(36).slice(2, 10);
-    return `${prefix}-${time}-${random}`;
-  };
 
   // Function to add a vehicle at specific coordinates
   const addVehicleAt = useCallback(
@@ -232,6 +233,18 @@ export function useFleet(
   );
 
   /**
+   * Update a vehicle's label (alias)
+   */
+  const updateVehicleLabel = useCallback(
+    (vehicleId: string | number, newLabel: string) => {
+      setFleetVehicles((prev) =>
+        prev.map((v) => (v.id === vehicleId ? { ...v, label: newLabel } : v)),
+      );
+    },
+    [],
+  );
+
+  /**
    * Assign a driver to a vehicle
    */
   const assignDriverToVehicle = useCallback(
@@ -256,7 +269,6 @@ export function useFleet(
 
     // Manipulation functions
     clearFleet,
-    fetchDrivers: fetchVehicles, // Matching the requested naming in plan if needed
     fetchVehicles,
     addVehicleAt,
     addJobAt,
@@ -266,6 +278,7 @@ export function useFleet(
     updateVehiclePosition,
     updateVehicleMetrics,
     updateVehicleType,
+    updateVehicleLabel,
     assignDriverToVehicle,
   };
 }

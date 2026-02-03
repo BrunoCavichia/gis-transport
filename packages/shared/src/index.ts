@@ -24,11 +24,21 @@ export const POISchema = z.object({
   operator: z.string().optional(),
   address: z.string().optional(),
   town: z.string().optional(),
+  postalCode: z.string().optional(),
   connectors: z.number().optional(),
   connectionTypes: z.array(z.string()).optional(),
   powerKW: z.number().optional(),
   status: z.string().optional(),
   isOperational: z.boolean().optional(),
+  prices: z
+    .object({
+      gasoline95: z.number().optional(),
+      gasoline98: z.number().optional(),
+      diesel: z.number().optional(),
+      dieselPremium: z.number().optional(),
+      updatedAt: z.string().optional(),
+    })
+    .optional(),
 });
 export type POI = z.infer<typeof POISchema>;
 
@@ -229,6 +239,7 @@ export const VehicleRouteSchema = z.object({
   duration: z.number(),
   color: z.string(),
   jobsAssigned: z.number(),
+  assignedJobIds: z.array(z.union([z.string(), z.number()])).optional(), // IDs of jobs assigned to this route
   error: z.string().optional(),
 });
 export type VehicleRoute = z.infer<typeof VehicleRouteSchema>;

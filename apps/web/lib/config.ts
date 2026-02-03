@@ -4,6 +4,7 @@
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
+export const GAS_STATIONS_API_URL = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/";
 // Local OpenRouteService (Docker) - Internal redirect via Gateway or direct
 export const ORS_URL = "http://localhost:8080/ors/v2";
 

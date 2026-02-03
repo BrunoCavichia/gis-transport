@@ -10,7 +10,8 @@ import {
   Circle,
   Droplets,
   Truck,
-  Car,
+  Fuel,
+  Zap,
 } from "lucide-react";
 import { THEME } from "./theme";
 
@@ -48,8 +49,8 @@ const createMapIcon = (
   const alphaValue =
     options.opacity !== undefined
       ? Math.floor(options.opacity * 255)
-          .toString(16)
-          .padStart(2, "0")
+        .toString(16)
+        .padStart(2, "0")
       : "e6";
 
   const html = renderToStaticMarkup(
@@ -77,7 +78,7 @@ const createMapIcon = (
           justifyContent: "center",
           border: "2px solid white",
           boxShadow: isSolid
-            ? "0 4px 10px rgba(0,0,0,0.4)"
+            ? "0 4px 12px rgba(0,0,0,0.5), 0 0 1px rgba(0,0,0,0.8)"
             : `0 4px 12px rgba(0,0,0,0.2), 0 0 8px ${baseColor}88`,
           transform: options.rotate
             ? `rotate(${options.rotate}deg)`
@@ -183,6 +184,8 @@ function createMapIcons() {
       isRounded: true,
       rotate: 45,
     }),
+    gasStation: createMapIcon(Fuel, "#f97316", 26, 14, { opacity: 1 }),
+    evStation: createMapIcon(Zap, "#22c55e", 26, 14, { opacity: 1 }),
 
     // Weather
     weather: {
@@ -246,59 +249,5 @@ function createMapIcons() {
   };
 }
 
-export const createRouteLabelIcon = (
-  distance: string,
-  duration: string,
-  color: string,
-) => {
-  const html = renderToStaticMarkup(
-    <div
-      style={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        transform: "translate(-50%, -100%)",
-        pointerEvents: "none",
-      }}
-    >
-      <div
-        className="bg-white border-black border px-1.5 py-0.5 shadow-[2px_2px_0_rgba(0,0,0,0.08)] flex items-center gap-1.5"
-        style={{ minWidth: "50px", whiteSpace: "nowrap" }}
-      >
-        <div style={{ color }}>
-          <Car className="w-4 h-4" />
-        </div>
-        <div className="flex flex-col leading-none">
-          <span
-            className="text-[10px] font-extrabold tracking-tighter"
-            style={{ color: "#f59e0b" }}
-          >
-            {duration}
-          </span>
-          <span className="text-[8px] font-bold text-zinc-500">{distance}</span>
-        </div>
-      </div>
-
-      <div
-        style={{
-          width: 0,
-          height: 0,
-          borderLeft: "5px solid transparent",
-          borderRight: "5px solid transparent",
-          borderTop: "6px solid black",
-          marginTop: "-1px",
-        }}
-      />
-    </div>,
-  );
-
-  return L.divIcon({
-    html,
-    className: "bg-transparent",
-    iconSize: [0, 0],
-    iconAnchor: [0, 0],
-  });
-};
 
 export { createMapIcons, createMapIcon };

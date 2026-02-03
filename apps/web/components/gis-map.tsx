@@ -86,6 +86,7 @@ export function GISMap() {
     updateVehiclePosition,
     updateVehicleMetrics,
     updateVehicleType,
+    updateVehicleLabel,
     assignDriverToVehicle,
   } = useFleet();
 
@@ -200,11 +201,6 @@ export function GISMap() {
     );
 
     if (orphanedDrivers.length > 0) {
-      console.warn(
-        "Reconciliation: Releasing orphaned drivers:",
-        orphanedDrivers.map((d) => d.name),
-      );
-
       orphanedDrivers.forEach((driver) => {
         // 1. Optimistic local update
         optimisticUpdateDriver(driver.id, {
@@ -296,14 +292,20 @@ export function GISMap() {
   const vehicleAlerts = useMemo(() => {
     const alerts: Record<string | number, Alert[]> = {};
     fleetVehicles.forEach((vehicle) => {
+      // Find weather route for this vehicle
+      const weatherRoute = routeData?.weatherRoutes?.find(
+        (wr) => String(wr.vehicle) === String(vehicle.id),
+      );
+
       alerts[vehicle.id] = generateVehicleAlerts(
         vehicle.id,
         vehicle.metrics || null,
         vehicle.metrics?.maxSpeed,
+        weatherRoute,
       );
     });
     return alerts;
-  }, [fleetVehicles]);
+  }, [fleetVehicles, routeData?.weatherRoutes]);
 
   // Save new alerts to logs
   useEffect(() => {
@@ -611,6 +613,7 @@ export function GISMap() {
           onZonesUpdate={setActiveZones}
           isInteracting={!!interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
+          onVehicleLabelUpdate={updateVehicleLabel}
           onVehicleSelect={setSelectedVehicleId}
         />
 

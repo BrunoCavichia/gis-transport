@@ -4,7 +4,7 @@ export const THEME = {
     danger: "#ef4444",
     warning: "#f59e0b",
     info: "#3b82f6",
-    muted: "#94a3b8",
+    muted: "#64748b", // Darker Slate for better unselected contrast
     accent: "#8b5cf6", // Purple for jobs
     vehicleSelected: "#ffa616ff",
     customPOI: "#06b6d4",
@@ -40,8 +40,24 @@ export const THEME = {
       minFetchRadius: 8, // Fetch larger 8km chunks to reduce request frequency
       refetchDistanceThreshold: 3500, // Only refetch if moved > 3.5km
       lod: {
-        minZoomForDots: 11, // Below 11: Nothing (don't show any POIs when too zoomed out)
-        minZoomForIcons: 15, // 16+: Show full icons with labels
+        poi: {
+          hidden: 10,
+          minimal: 11,
+          normal: 15,
+          detailed: 17,
+        },
+        vehicle: {
+          hidden: 0,
+          minimal: 8,
+          normal: 12,
+          detailed: 15,
+        },
+        job: {
+          hidden: 0,
+          minimal: 10,
+          normal: 13,
+          detailed: 16,
+        },
       },
     },
     polygons: {
@@ -80,6 +96,11 @@ export const THEME = {
       vehicleTooltipOffset: [0, -48] as [number, number],
       customPoiTooltipOffset: [0, -40] as [number, number],
       minimalZoomThreshold: 13, // Show full icons sooner
+    },
+    hierarchy: {
+      activeOpacity: 1,
+      dimmedOpacity: 1, // Full opacity to avoid "buggy" look
+      dimmedRouteOpacity: 0.9, // Slightly less for routes but still very clear
     },
   },
 } as const;

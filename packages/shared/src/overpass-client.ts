@@ -91,6 +91,8 @@ export class OverpassClient {
           address: element.tags?.["addr:street"]
             ? `${element.tags["addr:street"]}${element.tags["addr:housenumber"] ? " " + element.tags["addr:housenumber"] : ""}`
             : undefined,
+          town: element.tags?.["addr:city"] || element.tags?.["addr:town"],
+          postalCode: element.tags?.["addr:postcode"],
           connectors:
             type === "ev" ? Number(element.tags?.capacity || 1) : undefined,
         } as POI;

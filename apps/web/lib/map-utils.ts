@@ -61,3 +61,46 @@ export function calculateFetchRadius(viewportDistanceKm: number) {
     fetchRadiusKm = Math.ceil(fetchRadiusKm / 2) * 2;
     return fetchRadiusKm;
 }
+
+/**
+ * Calculates a small coordinate offset for polylines to prevent overlapping overlap.
+ * Shifting is done in a way that respects the zoom level (roughly 2px offset per step).
+ */
+export function getOffsetCoordinates(
+    coordinates: [number, number][],
+    offsetIndex: number, // 0, 1, 2...
+    zoom: number,
+): [number, number][] {
+    if (offsetIndex === 0 || !coordinates || coordinates.length < 2)
+        return coordinates;
+
+    // Roughly 0.00001 degrees is ~1 meter at the equator.
+    // We scale this based on zoom. At zoom 15, we want a few pixels.
+    const baseOffset = 0.000015;
+    const zoomFactor = Math.pow(2, 15 - zoom);
+    const shift = baseOffset * offsetIndex * zoomFactor;
+
+    // We apply a simple diagonal shift for simplicity. 
+    // In a more complex version, we would calculate the perpendicular vector of the segment.
+    return coordinates.map(([lat, lon]) => [lat + shift, lon + shift]);
+}
+
+export type MapLOD = "HIDDEN" | "MINIMAL" | "NORMAL" | "DETAILED";
+
+/**
+ * Global helper to determine Level of Detail based on zoom and thresholds.
+ */
+export function getLOD(
+    zoom: number,
+    thresholds: {
+        hidden: number;
+        minimal: number;
+        normal: number;
+        detailed: number;
+    },
+): MapLOD {
+    if (zoom >= thresholds.detailed) return "DETAILED";
+    if (zoom >= thresholds.normal) return "NORMAL";
+    if (zoom >= thresholds.minimal) return "MINIMAL";
+    return "HIDDEN";
+}

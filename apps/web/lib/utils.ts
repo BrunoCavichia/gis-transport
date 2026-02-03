@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { Driver, VehicleMetrics } from "@gis/shared";
+import type { Driver, VehicleMetrics, RouteWeather, WeatherAlert } from "@gis/shared";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -49,6 +49,7 @@ export function generateVehicleAlerts(
   vehicleId: string | number,
   metrics: VehicleMetrics | null,
   maxSpeed?: number,
+  weatherData?: RouteWeather,
 ): Alert[] {
   const alerts: Alert[] = [];
 
@@ -120,6 +121,28 @@ export function generateVehicleAlerts(
       timestamp: now,
       vehicleId,
       data: { health: metrics.health },
+    });
+  }
+
+  // WEATHER ALERTS - Merged from weather routes
+  if (weatherData && weatherData.alerts) {
+    weatherData.alerts.forEach((wa, index) => {
+      alerts.push({
+        id: `weather-${vehicleId}-${wa.event}-${index}`,
+        type: "weather",
+        category: "weather",
+        severity:
+          wa.severity === "HIGH"
+            ? "critical"
+            : wa.severity === "MEDIUM"
+              ? "warning"
+              : "info",
+        title: `Clima: ${wa.event}`,
+        message: wa.message,
+        timestamp: Date.parse(wa.timeWindow) || now,
+        vehicleId,
+        data: { wa },
+      });
     });
   }
 
