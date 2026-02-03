@@ -1,12 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { RouteData, VehicleRoute } from "@/lib/types";
-import { VehicleMetrics } from "@gis/shared";
+import { VehicleMetrics, FleetVehicle } from "@gis/shared";
 
 interface UseLiveTrackingProps {
   routeData: RouteData | null;
   selectedVehicleId: string | number | null;
   updateVehiclePosition: (vehicleId: string, coords: [number, number]) => void;
   updateVehicleMetrics: (vehicleId: string, metrics: VehicleMetrics) => void;
+  fleetVehicles: FleetVehicle[];
 }
 
 export function useLiveTracking({
@@ -14,6 +15,7 @@ export function useLiveTracking({
   selectedVehicleId,
   updateVehiclePosition,
   updateVehicleMetrics,
+  fleetVehicles,
 }: UseLiveTrackingProps) {
   const [isTracking, setIsTracking] = useState(false);
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -100,21 +102,24 @@ export function useLiveTracking({
   // When routeData changes while tracking is active, restart simulation with new routes
   useEffect(() => {
     if (isTracking && routeData?.vehicleRoutes) {
-      const activeRoutes: Record<string, [number, number][]> = {};
-      routeData.vehicleRoutes.forEach((route: VehicleRoute) => {
+      const simulationData: Record<string, any> = {};
+      routeData.vehicleRoutes.forEach((route: any) => {
         if (route.vehicleId && route.coordinates) {
-          activeRoutes[route.vehicleId] = route.coordinates;
+          const v = fleetVehicles.find(fv => String(fv.id) === String(route.vehicleId));
+          simulationData[route.vehicleId] = {
+            coordinates: route.coordinates,
+            typeId: v?.type.id || "eco"
+          };
         }
       });
 
-      // Update simulation with new routes
       fetch("/api/gps/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ routes: activeRoutes, action: "update" }),
+        body: JSON.stringify({ routes: simulationData, action: "update" }),
       }).catch((err) => console.error("Failed to update simulation:", err));
     }
-  }, [isTracking, routeData]);
+  }, [isTracking, routeData, fleetVehicles]);
 
   // STABLE callback - uses refs
   const toggleTracking = useCallback(() => {
@@ -131,18 +136,21 @@ export function useLiveTracking({
     } else {
       // Start tracking - pass route data to the API for simulation
       if (routes?.vehicleRoutes) {
-        const activeRoutes: Record<string, [number, number][]> = {};
-        routes.vehicleRoutes.forEach((route: VehicleRoute) => {
+        const simulationData: Record<string, any> = {};
+        routes.vehicleRoutes.forEach((route: any) => {
           if (route.vehicleId && route.coordinates) {
-            activeRoutes[route.vehicleId] = route.coordinates;
+            const v = fleetVehicles.find(fv => String(fv.id) === String(route.vehicleId));
+            simulationData[route.vehicleId] = {
+              coordinates: route.coordinates,
+              typeId: v?.type.id || "eco"
+            };
           }
         });
 
-        // Initialize simulation with routes
         fetch("/api/gps/simulate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ routes: activeRoutes, action: "start" }),
+          body: JSON.stringify({ routes: simulationData, action: "start" }),
         }).catch((err) => console.error("Failed to start simulation:", err));
       }
 
@@ -154,7 +162,7 @@ export function useLiveTracking({
       // Initial fetch
       fetchPositions();
     }
-  }, [fetchPositions]); // Empty deps = stable reference
+  }, [fetchPositions]);
 
   return {
     isTracking,

@@ -28,38 +28,43 @@ export const VehicleItem = memo(
       <div
         onClick={() => onSelect(id)}
         className={cn(
-          "relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group",
+          "relative flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group overflow-hidden",
           isSelected
-            ? "bg-primary/5 border-primary/50 shadow-sm"
-            : "bg-card border-transparent hover:bg-accent/50",
+            ? "bg-primary/5 border-primary/40 shadow-xl shadow-primary/5"
+            : "bg-card border-border/40 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5",
         )}
       >
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-4 relative z-10">
           <div
             className={cn(
-              "relative h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
-              isSelected ? "bg-primary text-white" : "bg-muted",
+              "relative h-11 w-11 rounded-xl flex items-center justify-center transition-all",
+              isSelected
+                ? "bg-primary text-white shadow-lg shadow-primary/30 rotate-0"
+                : "bg-muted text-muted-foreground/60 group-hover:bg-primary/10 group-hover:text-primary transition-transform",
             )}
           >
-            <Car className="h-4 w-4" />
+            <Car className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-xs font-bold">{type.label}</p>
-            <p className="text-[10px] text-muted-foreground font-mono">
-              {String(id).split("-").pop()?.slice(0, 6)}
-            </p>
+          <div className="flex flex-col">
+            <p className="text-[13px] font-black tracking-tight text-foreground/90">{type.label}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[9px] font-bold text-muted-foreground/50 font-mono uppercase tracking-tighter bg-muted/50 px-1.5 py-0.5 rounded">
+                ID: {String(id).split("-").pop()?.slice(0, 6)}
+              </span>
+            </div>
           </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg relative z-10"
           onClick={(e) => {
             e.stopPropagation();
             onRemove(id);
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     );
@@ -85,20 +90,24 @@ interface JobItemProps {
 export const JobItem = memo(
   function JobItem({ id, label, onRemove }: JobItemProps) {
     return (
-      <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-transparent hover:border-border transition-all group">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-            <Package className="h-4 w-4" />
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border/40 hover:border-orange-500/20 hover:shadow-lg hover:shadow-orange-500/5 transition-all group relative overflow-hidden">
+
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="h-11 w-11 rounded-xl bg-orange-100/50 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-all shadow-sm group-hover:shadow-lg group-hover:shadow-orange-500/20">
+            <Package className="h-5 w-5" />
           </div>
-          <span className="text-xs font-bold">{label}</span>
+          <div className="flex flex-col">
+            <span className="text-[13px] font-black text-foreground/90 tracking-tight">{label}</span>
+            <span className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-widest mt-0.5">Punto de Entrega</span>
+          </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg relative z-10"
           onClick={() => onRemove(id)}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     );

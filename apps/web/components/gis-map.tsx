@@ -228,6 +228,7 @@ export function GISMap() {
   ]);
   const interactionModeRef = useRef(interactionMode);
   const selectedVehicleRef = useRef(selectedVehicle);
+  const selectedVehicleIdRef = useRef(selectedVehicleId);
   const addVehicleAtRef = useRef(addVehicleAt);
   const addJobAtRef = useRef(addJobAt);
 
@@ -238,6 +239,9 @@ export function GISMap() {
   useEffect(() => {
     selectedVehicleRef.current = selectedVehicle;
   }, [selectedVehicle]);
+  useEffect(() => {
+    selectedVehicleIdRef.current = selectedVehicleId;
+  }, [selectedVehicleId]);
   useEffect(() => {
     addVehicleAtRef.current = addVehicleAt;
   }, [addVehicleAt]);
@@ -281,11 +285,16 @@ export function GISMap() {
     [updateVehicleMetrics],
   );
 
-  const { isTracking, toggleTracking } = useLiveTracking({
+  const {
+    isTracking,
+    toggleTracking,
+    setIsTracking,
+  } = useLiveTracking({
     routeData,
     selectedVehicleId,
     updateVehiclePosition: handleUpdateVehiclePosition,
     updateVehicleMetrics: handleUpdateVehicleMetrics,
+    fleetVehicles, // Added
   });
 
   // Generate alerts for all vehicles based on their metrics
@@ -380,7 +389,7 @@ export function GISMap() {
         setInteractionMode(null);
         break;
       case "add-job":
-        doAddJob(coords);
+        doAddJob(coords); // No vehicle assignment for regular jobs
         setInteractionMode(null);
         break;
       case "pick-stop":
@@ -406,7 +415,7 @@ export function GISMap() {
   const handleAddJobDirectly = useCallback(
     (coords: [number, number], label: string) => {
       setPickedJobCoords(null);
-      addJobAt(coords, label);
+      addJobAt(coords, label); // No vehicle assignment
     },
     [addJobAt],
   );
@@ -453,7 +462,7 @@ export function GISMap() {
 
   const handleAddJobSubmit = useCallback(
     (coords: [number, number], label: string) => {
-      addJobAt(coords, label);
+      addJobAt(coords, label); // No vehicle assignment
       setIsAddJobOpen(false);
       setPickedJobCoords(null);
     },
@@ -584,6 +593,7 @@ export function GISMap() {
         onStartPickingStop={handleStartPickingStop}
         pickedStopCoords={pickedStopCoords}
         onAddStopSubmit={handleAddStopSubmit}
+        gasStations={dynamicGasStations}
       />
       <div className="relative flex-1">
         <MapContainer

@@ -6,6 +6,7 @@
 
 import { useMemo } from "react";
 import type {
+  POI,
   FleetVehicle,
   VehicleMetrics,
   FleetJob,
@@ -13,10 +14,13 @@ import type {
 } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 
-import { Activity, Battery, Fuel, Truck } from "lucide-react";
+import { Activity, Battery, Fuel, Truck, ChevronRight, Route, Package } from "lucide-react";
 import { VehicleDetailSheet } from "./vehicle-detail-sheet";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
 
 interface FleetDashboardProps {
   vehicles: FleetVehicle[];
@@ -36,6 +40,11 @@ interface FleetDashboardProps {
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
   drivers?: Driver[];
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
+  gasStations?: POI[];
+  selectedVehicleId?: string | number | null;
+  onVehicleSelect?: (id: string | number | null) => void;
+  isGasStationLayerVisible?: boolean;
+  onToggleGasStationLayer?: () => void;
 }
 
 export function FleetDashboard({
@@ -51,79 +60,105 @@ export function FleetDashboard({
   onAddStopSubmit,
   drivers,
   onAssignDriver,
+  gasStations = [],
+  selectedVehicleId,
+  onVehicleSelect,
+  isGasStationLayerVisible = true,
+  onToggleGasStationLayer,
 }: FleetDashboardProps) {
-  const [selectedVehicleId, setSelectedVehicleId] = useState<
-    string | number | null
-  >(null);
 
-  // Get live vehicle data from the updated prop array
   const selectedVehicle = useMemo(
     () => vehicles.find((v) => v.id === selectedVehicleId) || null,
     [vehicles, selectedVehicleId],
   );
 
   const handleRowClick = (vehicle: FleetVehicle) => {
-    setSelectedVehicleId(vehicle.id);
+    onVehicleSelect?.(vehicle.id);
   };
 
-  // Calculate KPIs from unified vehicle metrics
   const kpis = useMemo(() => {
-    const metricsArray = vehicles
-      .map((v) => v.metrics)
-      .filter((m): m is VehicleMetrics => Boolean(m));
+    const vehiclesWithMetrics = vehicles.filter((v) => v.metrics);
 
-    if (metricsArray.length === 0) {
-      return {
-        activeVehicles: 0,
-        avgFuel: 0,
-        avgBattery: 0,
-        totalDistance: 0,
-      };
-    }
-
-    const fuelVehicles = metricsArray.filter((m) => m.fuelLevel !== undefined);
-    const batteryVehicles = metricsArray.filter(
-      (m) => m.batteryLevel !== undefined,
+    const hasElectricVehicles = vehicles.some(v =>
+      v.type.id.includes("electric") || v.type.id === "zero"
     );
-    const activeCount = metricsArray.filter(
-      (m) => m.status === "active",
-    ).length;
+    const hasFuelVehicles = vehicles.some(v =>
+      !v.type.id.includes("electric") && v.type.id !== "zero"
+    );
+
+    const fuelLevels: number[] = [];
+    const batteryLevels: number[] = [];
+    let activeCount = 0;
+    let onRouteCount = 0;
+    let alertsCount = 0;
+
+    vehicles.forEach((v) => {
+      const m = v.metrics;
+      if (m?.status === "active") activeCount++;
+      if (m?.movementState === "on_route") onRouteCount++;
+      if (v.id && vehicleAlerts[v.id]?.length > 0) alertsCount++;
+
+      const isElectric =
+        v.type.id === "zero" ||
+        v.type.tags?.includes("0") ||
+        v.type.id.toLowerCase().includes("electric") ||
+        v.type.label.toLowerCase().includes("electric") ||
+        (m?.batteryLevel !== undefined && m?.fuelLevel === undefined);
+
+      if (isElectric && m?.batteryLevel !== undefined) {
+        batteryLevels.push(m.batteryLevel);
+      } else if (!isElectric && m?.fuelLevel !== undefined) {
+        fuelLevels.push(m.fuelLevel);
+      }
+    });
 
     return {
       activeVehicles: activeCount,
-      avgFuel: fuelVehicles.length
-        ? Math.round(
-            fuelVehicles.reduce((sum, m) => sum + (m.fuelLevel || 0), 0) /
-              fuelVehicles.length,
-          )
+      avgFuel: fuelLevels.length
+        ? Math.round(fuelLevels.reduce((sum, val) => sum + val, 0) / fuelLevels.length)
         : null,
-      avgBattery: batteryVehicles.length
-        ? Math.round(
-            batteryVehicles.reduce((sum, m) => sum + (m.batteryLevel || 0), 0) /
-              batteryVehicles.length,
-          )
+      avgBattery: batteryLevels.length
+        ? Math.round(batteryLevels.reduce((sum, val) => sum + val, 0) / batteryLevels.length)
         : null,
-      totalDistance: Math.round(
-        metricsArray.reduce((sum, m) => sum + m.distanceTotal, 0),
-      ),
+      hasFuelVehicles,
+      hasElectricVehicles,
+      onRouteCount,
+      alertsCount,
+      pendingJobsCount: jobs.length
     };
-  }, [vehicles]);
+  }, [vehicles, jobs, vehicleAlerts]);
+
+  // Sort gas stations by cheapest price
+  const sortedGasStations = useMemo(() => {
+    return [...gasStations].sort((a, b) => {
+      const priceA = a.prices?.diesel || a.prices?.gasoline95 || 999;
+      const priceB = b.prices?.diesel || b.prices?.gasoline95 || 999;
+      return priceA - priceB;
+    });
+  }, [gasStations]);
+
+  const [showAllGasStations, setShowAllGasStations] = useState(false);
+
+  const displayedGasStations = useMemo(() => {
+    return showAllGasStations ? sortedGasStations : sortedGasStations.slice(0, 5);
+  }, [sortedGasStations, showAllGasStations]);
+
+  const [assigningPOI, setAssigningPOI] = useState<POI | null>(null);
 
   if (vehicles.length === 0) {
     return (
-      <div className="p-6 text-center text-muted-foreground">
-        <Truck className="mx-auto mb-2 h-12 w-12 opacity-50" />
-        <p>No hay vehículos en la flota</p>
+      <div className="p-10 text-center flex flex-col items-center justify-center h-full bg-background">
+        <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center mb-6 border-2 border-dashed border-border/60">
+          <Truck className="h-10 w-10 text-muted-foreground/30" />
+        </div>
+        <h3 className="text-lg font-black italic tracking-tighter text-foreground/40 uppercase">No hay flota activa</h3>
+        <p className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest mt-2">Agregue vehículos desde la pestaña de flota</p>
       </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        "flex flex-col bg-muted/5 font-sans transition-all duration-300 h-auto max-h-full",
-      )}
-    >
+    <div className="flex flex-col h-full overflow-hidden bg-background">
       {selectedVehicle ? (
         <div className="flex-1 min-h-0">
           <VehicleDetailSheet
@@ -140,77 +175,136 @@ export function FleetDashboard({
             onAddStopSubmit={onAddStopSubmit}
             drivers={drivers}
             onAssignDriver={onAssignDriver}
-            onClose={() => {
-              setSelectedVehicleId(null);
-            }}
+            onClose={() => onVehicleSelect?.(null)}
           />
         </div>
       ) : (
-        <div className="flex flex-col min-h-0">
-          <div className="px-4 py-3 shrink-0 flex items-center justify-between border-b border-border/10 bg-background/50 backdrop-blur-sm">
-            <div>
-              <h2 className="text-sm font-bold text-foreground tracking-tight">
-                Flota Activa
-              </h2>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                <Activity className="h-3 w-3 text-green-500" />
-                <span>
-                  {kpis.activeVehicles} de {vehicles.length} en servicio
+        <div className="flex flex-col h-full">
+          {/* Header Section */}
+          <div className="p-6 pb-6 border-b border-border/10 flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black italic tracking-tighter text-foreground leading-none">
+                  DASHBOARD
+                </h2>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-[0.2em] mt-1 ml-0.5">
+                  Métricas en Tiempo Real
+                </p>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[20px] font-black italic text-primary leading-none">
+                  {kpis.activeVehicles}
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">
+                  En Servicio
                 </span>
               </div>
             </div>
-            <div className="text-right">
-              <div className="flex items-center gap-3 mt-1 justify-end">
-                {kpis.avgBattery !== null && kpis.avgBattery > 0 && (
-                  <div className="flex items-center gap-1 text-xs font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100/50">
-                    <Battery className="h-3 w-3" /> {kpis.avgBattery}%
-                  </div>
-                )}
-                {kpis.avgFuel !== null && kpis.avgFuel > 0 && (
-                  <div className="flex items-center gap-1 text-xs font-black text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-100/50">
-                    <Fuel className="h-3 w-3" /> {kpis.avgFuel}%
-                  </div>
-                )}
+
+            {/* KPI Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-card border border-border/40 rounded-2xl shadow-sm flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <Route className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-[14px] font-black italic text-foreground">{kpis.onRouteCount}</span>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Vehículos en Ruta</span>
               </div>
+              <div className="p-3 bg-card border border-border/40 rounded-2xl shadow-sm flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <Package className="h-3.5 w-3.5 text-orange-500" />
+                  <span className="text-[14px] font-black italic text-foreground">{kpis.pendingJobsCount}</span>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Pedidos Pendientes</span>
+              </div>
+
+              {kpis.hasElectricVehicles && (
+                <div className="p-3 bg-card border border-border/40 rounded-2xl shadow-sm flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <Battery className="h-3.5 w-3.5 text-blue-500" />
+                    <span className="text-[14px] font-black italic text-foreground">
+                      {kpis.avgBattery !== null ? `${kpis.avgBattery}%` : "--%"}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Energía Media</span>
+                </div>
+              )}
+              {kpis.hasFuelVehicles && (
+                <div className="p-3 bg-card border border-border/40 rounded-2xl shadow-sm flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <Fuel className="h-3.5 w-3.5 text-orange-500" />
+                    <span className="text-[14px] font-black italic text-foreground">
+                      {kpis.avgFuel !== null ? `${kpis.avgFuel}%` : "--%"}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Combustible Medio</span>
+                </div>
+              )}
+
+              {kpis.alertsCount > 0 && (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-2xl shadow-sm flex flex-col gap-1 col-span-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-red-600" />
+                      <span className="text-[14px] font-black italic text-red-600">{kpis.alertsCount} ALERTAS</span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-red-600/60">Requiere Atención</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Premium List Cards */}
-          <div className="flex-1 overflow-y-auto min-h-0 p-3 pt-0 space-y-2.5">
-            {/* Vehicles List */}
-            {vehicles.map((vehicle) => {
-              const m = vehicle.metrics;
-              const movement = m ? m.movementState : null;
-              const isElectric =
-                vehicle.type.id.includes("electric") ||
-                vehicle.type.id === "zero" ||
-                (m?.batteryLevel !== undefined && m?.fuelLevel === undefined);
-              const energyLevel = isElectric ? m?.batteryLevel : m?.fuelLevel;
+          {/* Scrollable List */}
+          <ScrollArea className="flex-1 px-5 py-4">
+            <div className="space-y-4 pb-8">
+              <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest pl-1 mb-2 block">
+                Vehículos Conectados
+              </Label>
 
-              return (
-                <div
-                  key={vehicle.id}
-                  onClick={() => handleRowClick(vehicle)}
-                  className="group relative flex items-center justify-between p-3 bg-card border border-border/50 rounded-xl shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-primary/20 transition-all cursor-pointer overflow-hidden"
-                >
-                  {/* Left: Identity */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center shrink-0 border border-primary/10 group-hover:bg-primary/10 transition-colors">
-                      <Truck className="h-5 w-5 text-primary/80" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground truncate">
-                          {vehicle.label}
-                        </span>
-                        {vehicleAlerts[vehicle.id]?.length > 0 && (
-                          <span className="inline-flex items-center justify-center h-5 px-1.5 bg-red-600 text-white rounded-full text-[8px] font-bold shrink-0">
-                            !
-                          </span>
-                        )}
-                        <span
+              {vehicles.map((vehicle) => {
+                const m = vehicle.metrics;
+                const movement = m ? m.movementState : null;
+                const isElectric =
+                  vehicle.type.id.includes("electric") ||
+                  vehicle.type.id === "zero" ||
+                  (m?.batteryLevel !== undefined && m?.fuelLevel === undefined);
+                const energyLevel = isElectric ? m?.batteryLevel : m?.fuelLevel;
+
+                return (
+                  <div
+                    key={vehicle.id}
+                    onClick={() => handleRowClick(vehicle)}
+                    className="group relative bg-card border border-border/40 rounded-2xl p-5 transition-all hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 cursor-pointer overflow-hidden"
+                  >
+                    <div className="flex items-start justify-between relative z-10">
+                      <div className="flex gap-4 items-center">
+                        <div className="h-12 w-12 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
+                          <Truck className="h-6 w-6 text-primary/40" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-[15px] font-black tracking-tight text-foreground truncate">
+                              {vehicle.label}
+                            </h3>
+                            {vehicleAlerts[vehicle.id]?.length > 0 && (
+                              <div className="h-4 w-4 rounded-full bg-red-600 flex items-center justify-center border-none">
+                                <span className="text-[8px] font-black text-white">!</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/50 uppercase tracking-tighter mt-1">
+                            <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded">{vehicle.licensePlate || "N/A"}</span>
+                            <span className="h-1 w-1 rounded-full bg-border" />
+                            <span className="truncate max-w-[80px]">{vehicle.driver?.name || "No Driver"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1.5">
+                        <div
                           className={cn(
-                            "inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium border shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
+                            "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border",
                             movement === "on_route"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                               : movement === "moving"
@@ -223,108 +317,155 @@ export function FleetDashboard({
                             : movement === "moving"
                               ? "Moviendo"
                               : "Parado"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                        <span className="font-mono">
-                          {vehicle.licensePlate}
-                        </span>
-                        <span className="h-0.5 w-0.5 rounded-full bg-border" />
-                        <span>{vehicle.driver?.name || "Sin Conductor"}</span>
+                        </div>
+                        {m && m.speed > 0 && (
+                          <div className="text-[18px] font-black italic tracking-tighter text-foreground leading-none">
+                            {m.speed} <span className="text-[9px] not-italic text-muted-foreground">KM/H</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Right: Metrics */}
-                  <div className="flex items-center gap-4 shrink-0 pl-2">
-                    {/* Telemetry Pills */}
-                    {m && (
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1.5 text-[10px] font-medium">
-                          {m.speed > 0 && (
-                            <span
-                              className={cn(
-                                "transition-colors duration-300",
-                                m.maxSpeed && m.speed > m.maxSpeed
-                                  ? "text-red-600 font-bold animate-pulse"
-                                  : "text-foreground",
-                              )}
-                            >
-                              {m.speed}
-                              <span className="text-[8px] ml-0.5 opacity-50">
-                                km/h
-                              </span>
-                            </span>
-                          )}
-                          {m.maxSpeed && (
-                            <span
-                              className="bg-zinc-100 text-zinc-500 px-1 rounded-[4px] border border-zinc-200/50 text-[8px] flex items-center gap-0.5"
-                              title="Límite de la vía"
-                            >
-                              <span className="opacity-40 tracking-tighter">
-                                L
-                              </span>
-                              {m.maxSpeed}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {energyLevel !== undefined && (
-                            <div className="flex items-center gap-1 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50">
-                              {isElectric ? (
-                                <Battery className="h-2.5 w-2.5 text-blue-500" />
-                              ) : (
-                                <Fuel className="h-2.5 w-2.5 text-orange-500" />
-                              )}
-                              <span
+                    {energyLevel !== undefined && (
+                      <div className="mt-4 pt-4 border-t border-border/30 flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            {isElectric ? (
+                              <Battery className="h-3 w-3 text-blue-500" />
+                            ) : (
+                              <Fuel className="h-3 w-3 text-orange-500" />
+                            )}
+                            <div className="h-1.5 w-24 bg-muted/50 rounded-full overflow-hidden border border-border/20">
+                              <div
                                 className={cn(
-                                  "text-[10px] font-mono font-medium",
-                                  energyLevel < 20
-                                    ? "text-red-600"
-                                    : "text-foreground",
+                                  "h-full transition-all duration-500 rounded-full",
+                                  energyLevel < 20 ? "bg-red-500" : isElectric ? "bg-blue-500" : "bg-orange-500"
                                 )}
-                              >
-                                {energyLevel}%
-                              </span>
+                                style={{ width: `${energyLevel}%` }}
+                              />
                             </div>
-                          )}
+                            <span className={cn("text-[10px] font-black italic", energyLevel < 20 ? "text-red-600" : "text-foreground")}>
+                              {energyLevel}%
+                            </span>
+                          </div>
                         </div>
+                        <ChevronRight className="h-4 w-4 text-primary/40 group-hover:translate-x-1 transition-transform" />
                       </div>
                     )}
-
-                    {/* Action Arrow */}
-                    <div className="h-6 w-6 rounded-full bg-transparent flex items-center justify-center group-hover:bg-primary/5 text-muted-foreground/30 group-hover:text-primary transition-colors">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </div>
                   </div>
+                );
+              })}
 
-                  {/* Selection Indicator */}
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+              {/* Gas Stations Section */}
+              <div className="mt-8 pt-6 border-t border-border/20">
+                <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest pl-1 mb-4 block">
+                  Estaciones de Servicio (Más Económicas)
+                </Label>
+
+                <div className="space-y-3">
+                  {sortedGasStations.length === 0 ? (
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[10px] text-muted-foreground/50 italic p-4 text-center border border-dashed border-border/40 rounded-xl">
+                        {isGasStationLayerVisible
+                          ? "No hay estaciones cercanas detectadas"
+                          : "La capa de Gasolineras está oculta"}
+                      </p>
+                      {!isGasStationLayerVisible && onToggleGasStationLayer && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full h-8 text-[10px] font-black uppercase tracking-wider rounded-xl border-orange-500/20 text-orange-600 bg-orange-50/50 hover:bg-orange-100 transition-all"
+                          onClick={onToggleGasStationLayer}
+                        >
+                          <Fuel className="h-3 w-3 mr-2" />
+                          Mostrar Gasolineras
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {displayedGasStations.map((poi) => (
+                        <div
+                          key={poi.id}
+                          className="p-4 bg-muted/20 border border-border/40 rounded-2xl flex flex-col gap-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 bg-orange-500/10 text-orange-600 rounded-xl flex items-center justify-center">
+                                <Fuel className="h-5 w-5" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-xs font-black truncate max-w-[150px]">{poi.name}</span>
+                                <span className="text-[9px] text-muted-foreground font-bold truncate max-w-[150px] uppercase">
+                                  {poi.address || "Dirección no disponible"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm font-black text-foreground">
+                                {poi.prices?.diesel ? `${poi.prices.diesel} €` : poi.prices?.gasoline95 ? `${poi.prices.gasoline95} €` : "-- €"}
+                              </span>
+                              <span className="text-[8px] font-bold text-muted-foreground uppercase">DIESEL/G95</span>
+                            </div>
+                          </div>
+
+                          {assigningPOI?.id === poi.id ? (
+                            <div className="flex flex-col gap-2 mt-2 p-3 bg-background rounded-xl border border-primary/20 animate-in fade-in zoom-in-95 duration-200">
+                              <span className="text-[9px] font-bold text-foreground/60 uppercase">Asignar a vehículo:</span>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {vehicles.map(v => (
+                                  <Button
+                                    key={v.id}
+                                    variant="secondary"
+                                    size="sm"
+                                    className="h-8 text-[9px] font-black uppercase rounded-lg border border-border/40 hover:border-primary/40"
+                                    onClick={() => {
+                                      addStopToVehicle?.(v.id, poi.position, poi.name);
+                                      setAssigningPOI(null);
+                                    }}
+                                  >
+                                    {v.label}
+                                  </Button>
+                                ))}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-[8px] font-bold uppercase mt-1"
+                                onClick={() => setAssigningPOI(null)}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full h-9 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary hover:bg-orange-600 hover:text-white transition-all"
+                              onClick={() => setAssigningPOI(poi)}
+                            >
+                              Asignar como punto adicional
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+
+                      {sortedGasStations.length > 5 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAllGasStations(!showAllGasStations)}
+                          className="w-full text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-foreground hover:bg-muted/30 h-8"
+                        >
+                          {showAllGasStations ? "Ver menos" : `Ver ${sortedGasStations.length - 5} más`}
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
-              );
-            })}
-
-            {vehicles.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Truck className="h-8 w-8 opacity-20 mb-3" />
-                <span className="text-xs font-medium opacity-50">
-                  No hay vehículos conectados
-                </span>
               </div>
-            )}
-          </div>
+            </div>
+          </ScrollArea>
         </div>
       )}
     </div>

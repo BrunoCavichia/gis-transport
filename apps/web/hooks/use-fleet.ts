@@ -132,21 +132,29 @@ export function useFleet(
   );
 
   // Function to add a job at specific coordinates
-  const addJobAt = useCallback((position: [number, number], label?: string) => {
-    const id = generateId("job");
-    setFleetJobs((prev) => {
-      const next: FleetJob[] = [
-        ...prev,
-        {
-          id,
-          position,
-          label: label || `Job ${prev.length + 1}`,
-          status: "pending",
-        },
-      ];
-      return next;
-    });
-  }, []);
+  const addJobAt = useCallback(
+    (
+      position: [number, number],
+      label?: string,
+      vehicleId?: string | number,
+    ) => {
+      const id = generateId("job");
+      setFleetJobs((prev) => {
+        const next: FleetJob[] = [
+          ...prev,
+          {
+            id,
+            position,
+            label: label || `Job ${prev.length + 1}`,
+            status: "pending",
+            ...(vehicleId && { assignedVehicleId: vehicleId }),
+          },
+        ];
+        return next;
+      });
+    },
+    [],
+  );
 
   // Function to add a stop (pinned job) to a specific vehicle
   const addStopToVehicle = useCallback(

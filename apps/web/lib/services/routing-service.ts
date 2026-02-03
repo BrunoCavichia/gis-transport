@@ -376,12 +376,24 @@ export class RoutingService {
     matrices: Record<string, number[][]>,
     vehicleToProfile: { name: string }[],
   ): Promise<VroomResult> {
+    console.log('[Vroom] Vehicles mapping:', vehicles.map((v, idx) => ({
+      idx,
+      id: v.id,
+      label: v.label,
+    })));
+
+    // Generate all possible vehicle skills (all indices + 1)
+    const allSkills = vehicles.map((_, idx) => idx + 1);
+
     const payload = {
       vehicles: vehicles.map((v, idx) => ({
         id: idx,
         start_index: idx,
         profile: vehicleToProfile[idx].name,
         capacity: [ROUTING_CONFIG.MAX_CAPACITY],
+        // Each vehicle has its UNIQUE skill only
+        // This ensures pinned jobs can ONLY go to their assigned vehicle
+        skills: [idx + 1],
       })),
       jobs: jobs.map((job, jidx) => {
         const vehicleIdx = job.assignedVehicleId
@@ -390,14 +402,30 @@ export class RoutingService {
           )
           : -1;
 
-        return {
+        const isPinned = vehicleIdx !== -1;
+
+        console.log(`[Vroom] Job "${job.label}":`, {
+          assignedVehicleId: job.assignedVehicleId,
+          vehicleIdx,
+          isPinned,
+          willUseSkills: isPinned,
+        });
+
+        const jobPayload: any = {
           id: vehicles.length + jidx,
           location_index: vehicles.length + jidx,
           service: ROUTING_CONFIG.DEFAULT_SERVICE_TIME,
           delivery: [1],
           description: job.label,
-          ...(vehicleIdx !== -1 && { vehicle: vehicleIdx }),
         };
+
+        // ONLY pinned jobs (stops/paradas) get skills
+        // Regular jobs remain free for optimization
+        if (isPinned) {
+          jobPayload.skills = [vehicleIdx + 1];
+        }
+
+        return jobPayload;
       }),
       matrices: Object.entries(matrices).reduce(
         (acc: Record<string, { durations: number[][] }>, [name, matrix]) => {
@@ -408,6 +436,9 @@ export class RoutingService {
       ),
     };
 
+    console.log('[Vroom] Full payload vehicles:', JSON.stringify(payload.vehicles, null, 2));
+    console.log('[Vroom] Full payload jobs:', JSON.stringify(payload.jobs, null, 2));
+
     const res = await fetch(VROOM_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -415,7 +446,16 @@ export class RoutingService {
     });
 
     if (!res.ok) throw new Error(`VROOM failed: ${await res.text()}`);
-    return await res.json();
+
+    const vroomResult = await res.json();
+
+    console.log('[Vroom] Response routes:', vroomResult.routes.map((r: any) => ({
+      vehicle: r.vehicle,
+      steps: r.steps.length,
+      jobSteps: r.steps.filter((s: any) => s.type === 'job').length,
+    })));
+
+    return vroomResult;
   }
 
   private static async snapCoordinates(

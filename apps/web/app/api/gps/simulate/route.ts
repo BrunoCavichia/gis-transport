@@ -13,23 +13,23 @@ declare global {
   // eslint-disable-next-line no-var
   var gpsSimulation:
     | {
-        routes: Record<string, [number, number][]>;
-        positions: Record<
-          string,
-          { coords: [number, number]; routeIndex: number }
-        >;
-        telemetry: Record<
-          string,
-          {
-            fuel?: number;
-            battery?: number;
-            distance: number;
-            isElectric: boolean;
-          }
-        >;
-        isRunning: boolean;
-        intervalId?: NodeJS.Timeout;
-      }
+      routes: Record<string, [number, number][]>;
+      positions: Record<
+        string,
+        { coords: [number, number]; routeIndex: number }
+      >;
+      telemetry: Record<
+        string,
+        {
+          fuel?: number;
+          battery?: number;
+          distance: number;
+          isElectric: boolean;
+        }
+      >;
+      isRunning: boolean;
+      intervalId?: NodeJS.Timeout;
+    }
     | undefined;
 }
 
@@ -53,11 +53,16 @@ export async function POST(req: Request) {
       global.gpsSimulation!.isRunning = true;
 
       // Set initial positions and telemetry
-      Object.entries(routes as Record<string, [number, number][]>).forEach(
-        ([vehicleId, route]) => {
-          const isElectric = vehicleId.includes("phys")
-            ? parseInt(vehicleId.split("-").pop() || "0") % 2 === 1
-            : vehicleId.includes("eco") || vehicleId.includes("zero");
+      Object.entries(routes as Record<string, any>).forEach(
+        ([vehicleId, data]) => {
+          const route = Array.isArray(data) ? data : data.coordinates;
+          const typeId = Array.isArray(data) ? null : data.typeId;
+
+          const isElectric = typeId
+            ? typeId === "zero" || typeId.toLowerCase().includes("electric")
+            : vehicleId.includes("phys")
+              ? parseInt(vehicleId.split("-").pop() || "0") % 2 === 1
+              : vehicleId.includes("eco") || vehicleId.includes("zero");
 
           if (route && route.length > 0) {
             global.gpsSimulation!.positions[vehicleId] = {
@@ -137,15 +142,21 @@ export async function POST(req: Request) {
 
     if (action === "update" && routes) {
       // Update routes while simulation is running
-      // This handles cases where routes change during active tracking (e.g., adding waypoints)
       global.gpsSimulation!.routes = routes;
 
-      // Update positions and reset route progress for any new routes
-      Object.entries(routes as Record<string, [number, number][]>).forEach(
-        ([vehicleId, route]) => {
+      // Update positions and ensure telemetry for all vehicles in routes
+      Object.entries(routes as Record<string, any>).forEach(
+        ([vehicleId, data]) => {
+          const route = Array.isArray(data) ? data : data.coordinates;
+          const typeId = Array.isArray(data) ? null : data.typeId;
+
+          const isElectric = typeId
+            ? typeId === "zero" || typeId.toLowerCase().includes("electric")
+            : vehicleId.includes("phys")
+              ? parseInt(vehicleId.split("-").pop() || "0") % 2 === 1
+              : vehicleId.includes("eco") || vehicleId.includes("zero");
+
           if (route && route.length > 0) {
-            // If vehicle already has position, keep it but reset route index
-            // Otherwise initialize from start
             if (global.gpsSimulation!.positions[vehicleId]) {
               global.gpsSimulation!.positions[vehicleId].routeIndex = 0;
             } else {
@@ -154,6 +165,16 @@ export async function POST(req: Request) {
                 routeIndex: 0,
               };
             }
+          }
+
+          // Initialize telemetry if missing
+          if (!global.gpsSimulation!.telemetry[vehicleId]) {
+            global.gpsSimulation!.telemetry[vehicleId] = {
+              fuel: isElectric ? undefined : 80 + Math.random() * 20,
+              battery: isElectric ? 80 + Math.random() * 20 : undefined,
+              distance: 10000 + Math.floor(Math.random() * 50000),
+              isElectric,
+            };
           }
         },
       );

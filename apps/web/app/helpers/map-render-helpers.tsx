@@ -11,7 +11,7 @@ import {
   VehicleType,
 } from "@gis/shared";
 import { createMapIcon } from "@/lib/map-icons";
-import { Package, Truck, Fuel, Zap } from "lucide-react";
+import { Package, Truck, Fuel, Zap, Octagon } from "lucide-react";
 import { getLOD, MapLOD } from "@/lib/map-utils";
 
 import { AlertBadge } from "@/components/alert-badge";
@@ -61,7 +61,7 @@ export function renderPOIs({
   if (lod === "HIDDEN") return null;
 
   const type = isEV ? "ev" : "gas";
-  const color = POI_CONFIG[type].color;
+  const color = isEV ? "#76e19dff" : "#f97316";
 
   return (stations || []).map((station) => {
     const pos = station.position as [number, number];
@@ -239,25 +239,6 @@ export function renderVehicleMarkers({
           click: () => onSelect?.(String(vehicle.id)),
         }}
       >
-        {alerts.length > 0 && lod !== "MINIMAL" && (
-          <Tooltip
-            permanent
-            direction="right"
-            offset={[10, -20]}
-            className="bg-transparent border-none shadow-none"
-          >
-            <div className="flex -space-x-1">
-              {alerts.slice(0, 2).map((alert, i) => (
-                <div
-                  key={alert.id}
-                  className={`w-3 h-3 rounded-full border border-white ${alert.severity === "critical" ? "bg-red-500" : "bg-amber-500"
-                    }`}
-                  title={alert.title}
-                />
-              ))}
-            </div>
-          </Tooltip>
-        )}
         <Tooltip
           direction="top"
           offset={THEME.map.popups.vehicleTooltipOffset}
@@ -484,8 +465,14 @@ export function renderJobMarkers({
     }
 
     // Use dynamic icon color based on assigned vehicle
+    // If it has an assigned vehicle (either by routing or manual assignment), it's a "stop" logic
+    // But specifically, if manual assignment exists (job.assignedVehicleId), we want the Stop icon (Octagon)
+    const isCustomStop = !!job.assignedVehicleId;
+    const IconComponent = isCustomStop ? Octagon : Package;
+    const iconSize = isCustomStop ? 22 : 26; // Slightly smaller for Octagon as it's blocky
+
     const iconToUse = assignedTo
-      ? createMapIcon(Package, routeColor, 26, 15, { opacity: 1 })
+      ? createMapIcon(IconComponent, routeColor, iconSize, 15, { opacity: 1 })
       : icon;
 
     const showPermanentLabel = lod === "DETAILED" && !!assignedTo && !isJobDimmed;

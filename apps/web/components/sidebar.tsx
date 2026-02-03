@@ -16,16 +16,24 @@ import {
   Route,
   LayoutDashboard,
   Users,
+  Search,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type {
-  LayerVisibility,
-  VehicleType,
   CustomPOI,
+  Driver,
   FleetJob,
   FleetVehicle,
-  Driver,
+  LayerVisibility,
+  POI,
+  RouteData,
+  RouteWeather,
+  VehicleType,
+  Zone,
 } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
@@ -40,7 +48,7 @@ import {
 } from "@/components/sidebar-components";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 
-const STABLE_NOOP = () => {};
+const STABLE_NOOP = () => { };
 const STABLE_PROMISE_NOOP = () => Promise.resolve();
 
 import { FleetDashboard } from "@/components/fleet-dashboard";
@@ -68,7 +76,6 @@ interface SidebarProps {
   addJobDirectly?: (coords: [number, number], label: string) => void;
   removeVehicle: (vehicleId: string | number) => void;
   removeJob: (jobId: string | number) => void;
-  addMode: "vehicle" | "job" | null;
   cancelAddMode: () => void;
   startRouting: () => void;
   isCalculatingRoute?: boolean;
@@ -89,15 +96,17 @@ interface SidebarProps {
   toggleTracking?: () => void;
   hasRoute?: boolean;
   isAddStopOpen?: boolean;
-  setIsAddStopOpen?: (open: boolean) => void;
-  onStartPickingStop?: () => void;
-  pickedStopCoords?: [number, number] | null;
-  onAddStopSubmit?: (coords: [number, number], label: string) => void;
-  drivers?: Driver[];
-  onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
+  setIsAddStopOpen?: (value: boolean) => void;
+  addDriver?: (data: Partial<Driver>) => Promise<Driver | undefined>;
+  gasStations?: POI[];
+  onStartPickingStop: () => void;
+  addMode: "vehicle" | "job" | null;
   isLoadingDrivers?: boolean;
   fetchDrivers?: () => Promise<void>;
-  addDriver?: (data: Partial<Driver>) => Promise<Driver>;
+  onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
+  drivers?: Driver[];
+  onAddStopSubmit?: (coords: [number, number], label: string) => void;
+  pickedStopCoords?: [number, number] | null;
 }
 
 type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";
@@ -173,7 +182,6 @@ interface FleetTabProps {
   fleetVehicles: FleetVehicle[];
   fleetJobs: FleetJob[];
   vehicleAlerts?: Record<string | number, Alert[]>;
-  addMode: "vehicle" | "job" | null;
   addVehicle: () => void;
   onAddJobClick: () => void;
   cancelAddMode: () => void;
@@ -191,8 +199,9 @@ interface FleetTabProps {
   onStartPickingStop?: () => void;
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
-  drivers?: Driver[];
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
+  drivers?: Driver[];
+  addMode: "vehicle" | "job" | null;
 }
 
 const FleetTab = memo(
@@ -216,116 +225,177 @@ const FleetTab = memo(
     isTracking,
     toggleTracking,
     hasRoute,
-  }: FleetTabProps) => (
-    <div className="flex flex-col h-auto min-h-0 min-w-0">
-      <div className="p-5 border-b border-border/10">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-xl font-black tracking-tight text-foreground">
-            Flota
-          </h2>
-          <FleetHeaderButtons
-            isLoading={isLoadingVehicles}
-            hasData={fleetVehicles.length > 0 || fleetJobs.length > 0}
-            onRefresh={fetchVehicles}
-            onClear={clearFleet}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground font-medium">
-          Gestión de rutas y vehículos
-        </p>
-        <div className="flex gap-2 mt-4">
-          <div className="flex-1 bg-primary/5 rounded-xl p-2.5 flex flex-col items-center justify-center border border-primary/10">
-            <span className="text-lg font-black text-primary leading-none">
-              {fleetVehicles.length}
-            </span>
-            <span className="text-[9px] uppercase font-bold text-muted-foreground mt-1">
-              Vehículos
-            </span>
-          </div>
-          <div className="flex-1 bg-primary/5 rounded-xl p-2.5 flex flex-col items-center justify-center border border-primary/10">
-            <span className="text-lg font-black text-primary leading-none">
-              {fleetJobs.length}
-            </span>
-            <span className="text-[9px] uppercase font-bold text-muted-foreground mt-1">
-              Pedidos
-            </span>
-          </div>
-        </div>
-      </div>
+    onStartPickingStop,
+    onAddStopSubmit,
+    isAddStopOpen,
+    setIsAddStopOpen,
+  }: FleetTabProps) => {
+    const [searchQuery, setSearchQuery] = useState("");
+    const [expandedGroups, setExpandedGroups] = useState({
+      vehicles: false,
+      jobs: false,
+    });
 
-      <FleetActionButtons
-        addMode={addMode}
-        isRouting={isCalculatingRoute}
-        onAddVehicle={addVehicle}
-        onAddJob={onAddJobClick}
-      />
+    const toggleGroup = (group: "vehicles" | "jobs") => {
+      setExpandedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
+    };
 
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="p-4 pt-0 space-y-6">
-          {addMode && (
-            <div className="bg-primary text-primary-foreground p-3 rounded-xl flex items-center justify-between shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-top-2 mb-4">
-              <span className="text-xs font-bold">
-                Selecciona ubicación en el mapa
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-white hover:bg-white/20 rounded-full"
-                onClick={cancelAddMode}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
+    const filteredVehicles = fleetVehicles.filter(
+      (v) =>
+        v.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.licensePlate?.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+
+    const filteredJobs = fleetJobs.filter((j) =>
+      j.label.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+
+    return (
+      <div className="flex flex-col h-full overflow-hidden bg-background">
+        <div className="p-6 pb-4 flex flex-col gap-5 border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black italic tracking-tighter text-foreground leading-none">
+                FLEET
+              </h2>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-[0.2em] mt-1 ml-0.5">
+                Gestión de Operaciones
+              </p>
             </div>
-          )}
-          <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest pl-1">
-              Vehículos Activos
-            </Label>
-            {fleetVehicles.length === 0 ? (
-              <div className="text-center py-6 border-2 border-dashed border-muted rounded-xl">
-                <Car className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground font-medium">
-                  Sin vehículos
-                </p>
-              </div>
-            ) : (
-              <VehiclesList
-                vehicles={fleetVehicles}
-                selectedVehicleId={selectedVehicleId}
-                vehicleAlerts={vehicleAlerts}
-                onSelect={setSelectedVehicleId}
-                onRemove={removeVehicle}
-              />
-            )}
+            <FleetHeaderButtons
+              isLoading={isLoadingVehicles}
+              hasData={fleetVehicles.length > 0 || fleetJobs.length > 0}
+              onRefresh={fetchVehicles}
+              onClear={clearFleet}
+            />
           </div>
-          <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest pl-1">
-              Lista de Pedidos
-            </Label>
-            {fleetJobs.length === 0 ? (
-              <div className="text-center py-6 border-2 border-dashed border-muted rounded-xl">
-                <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground font-medium">
-                  Sin pedidos
-                </p>
-              </div>
-            ) : (
-              <JobsList jobs={fleetJobs} onRemove={removeJob} />
-            )}
+
+          {/* Compact Search Bar */}
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+            <Input
+              placeholder="Buscar vehículo o pedido..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-10 bg-muted/30 border-border/40 hover:border-primary/20 focus:bg-background transition-all rounded-xl text-xs"
+            />
           </div>
         </div>
-      </ScrollArea>
 
-      <FleetFooterButtons
-        isRouting={isCalculatingRoute}
-        hasData={fleetVehicles.length > 0 && fleetJobs.length > 0}
-        hasRoute={hasRoute}
-        isTracking={isTracking}
-        onStartRouting={startRouting}
-        onToggleTracking={toggleTracking}
-      />
-    </div>
-  ),
+        <FleetActionButtons
+          addMode={addMode}
+          isRouting={isCalculatingRoute}
+          onAddVehicle={addVehicle}
+          onAddJob={onAddJobClick}
+        />
+
+        <ScrollArea className="flex-1 min-h-0 px-5 py-4">
+          <div className="space-y-8 pb-8">
+            {addMode && (
+              <div className="bg-primary text-primary-foreground p-4 rounded-2xl flex items-center justify-between shadow-xl shadow-primary/20 animate-in fade-in slide-in-from-top-2">
+                <span className="text-xs font-black uppercase tracking-tight">
+                  Selecciona el punto en el mapa
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-white hover:bg-white/20 rounded-full"
+                  onClick={cancelAddMode}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Vehicles Group */}
+            <div className="space-y-3">
+              <button
+                onClick={() => toggleGroup("vehicles")}
+                className="w-full flex items-center justify-between px-1 hover:opacity-70 transition-opacity"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
+                  <span className="text-[11px] font-black uppercase tracking-widest text-foreground/70">
+                    Vehículos Activos ({filteredVehicles.length})
+                  </span>
+                </div>
+                {expandedGroups.vehicles ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+
+              {expandedGroups.vehicles && (
+                <div className="space-y-4 pt-1">
+                  {filteredVehicles.length === 0 ? (
+                    <div className="py-8 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-border/40">
+                      <Car className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                      <p className="text-[10px] text-muted-foreground/40 font-black uppercase tracking-widest">
+                        Sin vehículos
+                      </p>
+                    </div>
+                  ) : (
+                    <VehiclesList
+                      vehicles={filteredVehicles}
+                      selectedVehicleId={selectedVehicleId}
+                      vehicleAlerts={vehicleAlerts}
+                      onSelect={setSelectedVehicleId}
+                      onRemove={removeVehicle}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Jobs Group */}
+            <div className="space-y-3">
+              <button
+                onClick={() => toggleGroup("jobs")}
+                className="w-full flex items-center justify-between px-1 hover:opacity-70 transition-opacity"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                  <span className="text-[11px] font-black uppercase tracking-widest text-foreground/70">
+                    Lista de Pedidos ({filteredJobs.length})
+                  </span>
+                </div>
+                {expandedGroups.jobs ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+
+              {expandedGroups.jobs && (
+                <div className="space-y-4 pt-1">
+                  {filteredJobs.length === 0 ? (
+                    <div className="py-8 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-border/40">
+                      <Package className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                      <p className="text-[10px] text-muted-foreground/40 font-black uppercase tracking-widest">
+                        Sin pedidos
+                      </p>
+                    </div>
+                  ) : (
+                    <JobsList jobs={filteredJobs} onRemove={removeJob} />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </ScrollArea>
+
+        <FleetFooterButtons
+          isRouting={isCalculatingRoute}
+          hasData={fleetVehicles.length > 0 && fleetJobs.length > 0}
+          hasRoute={hasRoute}
+          isTracking={isTracking}
+          onStartRouting={startRouting}
+          onToggleTracking={toggleTracking}
+        />
+      </div>
+    );
+  },
   (prev: FleetTabProps, next: FleetTabProps) => {
     return (
       prev.isLoadingVehicles === next.isLoadingVehicles &&
@@ -361,100 +431,102 @@ const LayersTab = memo(
     removeCustomPOI,
     clearAllCustomPOIs,
   }: LayersTabProps) => (
-    <div className="flex flex-col h-auto min-h-0 min-w-0">
-      <div className="p-5 border-b border-border/10">
-        <h2 className="text-xl font-black tracking-tight text-foreground">
-          Capas
+    <div className="flex flex-col h-full overflow-hidden bg-background">
+      <div className="p-6 pb-4 flex flex-col gap-2 border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent">
+        <h2 className="text-2xl font-black italic tracking-tighter text-foreground leading-none">
+          LAYERS
         </h2>
-        <p className="text-xs text-muted-foreground font-medium">
-          Personalización del mapa
+        <p className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-[0.2em] mt-1 ml-0.5">
+          Personalización del Mapa
         </p>
       </div>
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="p-5 space-y-8">
+      <ScrollArea className="flex-1 min-h-0 px-5 py-4">
+        <div className="space-y-10 pb-8">
           <div className="space-y-3">
-            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest pl-1">
+            <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest pl-1">
               Elementos del Mapa
             </Label>
-            {Object.entries(layers).map(([key, value]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between p-3 rounded-xl bg-card border border-transparent hover:border-border transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "h-3 w-3 rounded-full shadow-sm",
-                      value ? "bg-primary shadow-primary/50" : "bg-muted",
-                    )}
+            <div className="space-y-3 pt-1">
+              {Object.entries(layers).map(([key, value]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border/40 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "h-2 w-2 rounded-full shadow-[0_0_8px]",
+                        value ? "bg-primary shadow-primary/50" : "bg-muted shadow-transparent",
+                      )}
+                    />
+                    <span className="text-[13px] font-bold capitalize text-foreground/90">
+                      {key.replace(/([A-Z])/g, " $1").trim()}
+                    </span>
+                  </div>
+                  <Switch
+                    checked={value as boolean}
+                    onCheckedChange={() => toggleLayer(key as keyof LayerVisibility)}
+                    className="scale-90 origin-right transition-all data-[state=checked]:bg-primary"
                   />
-                  <span className="text-xs font-bold capitalize text-foreground">
-                    {key.replace(/([A-Z])/g, " $1").trim()}
-                  </span>
                 </div>
-                <Switch
-                  checked={value as boolean}
-                  onCheckedChange={() =>
-                    toggleLayer(key as keyof LayerVisibility)
-                  }
-                  className="scale-75 origin-right"
-                />
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex items-center justify-between pl-1">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+              <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest">
                 Puntos de Interés
               </Label>
-              <Badge variant="secondary" className="text-[10px] font-bold h-5">
+              <Badge variant="outline" className="text-[10px] font-black border-primary/20 text-primary h-5 bg-primary/5">
                 {customPOIs.length}
               </Badge>
             </div>
             <Button
               variant="outline"
-              className="w-full justify-start text-xs font-bold h-10 rounded-xl"
+              className="w-full justify-start text-[11px] font-black uppercase tracking-wider h-11 rounded-xl border-dashed border-2 border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all"
               onClick={onAddPOIClick}
             >
-              <Plus className="h-3.5 w-3.5 mr-2" /> Nuevo Punto
+              <Plus className="h-4 w-4 mr-2 text-primary" /> Nuevo Punto de Gestión
             </Button>
             {customPOIs.length > 0 && (
-              <div className="space-y-2 mt-2">
+              <div className="space-y-3 mt-2">
                 {customPOIs.map((poi: CustomPOI) => (
                   <div
                     key={poi.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-card/50 border border-transparent hover:bg-card hover:border-border transition-all group"
+                    className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border/40 hover:border-primary/20 hover:shadow-lg transition-all group relative overflow-hidden"
                   >
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <Warehouse className="h-4 w-4 text-cyan-600" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-4 overflow-hidden relative z-10">
+                      <div className="h-10 w-10 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center shrink-0">
+                        <Warehouse className="h-5 w-5 text-cyan-600" />
+                      </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold truncate">
+                        <span className="text-[13px] font-black text-foreground truncate">
                           {poi.name}
                         </span>
-                        <span className="text-[9px] text-muted-foreground font-mono">
-                          {poi.position[0].toFixed(3)},{" "}
-                          {poi.position[1].toFixed(3)}
+                        <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter mt-0.5">
+                          GPS: {poi.position[0].toFixed(4)}, {poi.position[1].toFixed(4)}
                         </span>
                       </div>
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 rounded-lg transition-opacity relative z-10"
                       onClick={() => removeCustomPOI?.(poi.id)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-                <div className="pt-2">
+                <div className="pt-4 border-t border-border/10 mt-6">
                   <Button
-                    variant="destructive"
+                    variant="ghost"
                     size="sm"
-                    className="w-full h-8 text-[10px] font-bold rounded-lg opacity-80 hover:opacity-100"
+                    className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
                     onClick={clearAllCustomPOIs}
                   >
-                    Eliminar todos los POIs
+                    Limpiar Todo
                   </Button>
                 </div>
               </div>
@@ -504,6 +576,7 @@ export const Sidebar = memo(
     setIsAddStopOpen,
     onStartPickingStop,
     pickedStopCoords,
+    gasStations = [],
     onAddStopSubmit,
     drivers = [],
     onAssignDriver,
@@ -592,15 +665,15 @@ export const Sidebar = memo(
             "ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto h-auto max-h-full",
             isExpanded
               ? cn(
-                  "opacity-100 translate-x-0",
-                  activeTab === "dashboard"
-                    ? selectedVehicleId !== null
-                      ? "w-[32rem]"
-                      : fleetVehicles.length > 3
-                        ? "w-[28rem]"
-                        : "w-80"
-                    : "w-80",
-                )
+                "opacity-100 translate-x-0",
+                activeTab === "dashboard"
+                  ? selectedVehicleId !== null
+                    ? "w-[40rem]" // Increased from 32rem
+                    : fleetVehicles.length > 3
+                      ? "w-[36rem]" // Increased from 28rem
+                      : "w-96"      // Increased from w-80 (24rem)
+                  : "w-80",
+              )
               : "w-0 opacity-0 -translate-x-10",
           )}
         >
@@ -653,8 +726,9 @@ export const Sidebar = memo(
             ) : (
               <DriversTab
                 drivers={drivers || []}
+                fleetVehicles={fleetVehicles || []}
                 isLoading={isLoadingDrivers || false}
-                fetchDrivers={fetchDrivers || (async () => {})}
+                fetchDrivers={fetchDrivers || (async () => { })}
                 addDriver={addDriver || (async () => undefined)}
                 onDriverSelect={(d) => setSelectedDriverId(d.id)}
               />
@@ -664,7 +738,12 @@ export const Sidebar = memo(
               <FleetDashboard
                 vehicles={fleetVehicles}
                 jobs={fleetJobs}
+                gasStations={gasStations}
                 vehicleAlerts={vehicleAlerts}
+                selectedVehicleId={selectedVehicleId}
+                onVehicleSelect={setSelectedVehicleId}
+                isGasStationLayerVisible={layers.gasStations}
+                onToggleGasStationLayer={() => toggleLayer("gasStations")}
                 isTracking={isTracking}
                 addStopToVehicle={addStopToVehicle}
                 startRouting={startRouting}

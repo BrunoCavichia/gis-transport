@@ -10,8 +10,10 @@ import {
   Clock,
   ShieldCheck,
   AlertTriangle,
-  RefreshCw,
   Car,
+  Search,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import {
   cn,
@@ -20,208 +22,224 @@ import {
   getDriverCurrentVehicle,
 } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import type { Driver } from "@gis/shared";
+import { Input } from "@/components/ui/input";
+import type {
+  Driver,
+  FleetVehicle,
+} from "@gis/shared";
 
 type FilterType = "all" | "available" | "assigned";
 
 interface DriversTabProps {
   drivers: Driver[];
+  fleetVehicles: FleetVehicle[];
   isLoading: boolean;
-  addDriver: (data: Partial<Driver>) => Promise<Driver | undefined>;
+  addDriver: (driver: Partial<Driver>) => Promise<Driver | undefined>;
   fetchDrivers: () => Promise<void>;
   onDriverSelect?: (driver: Driver) => void;
 }
 
 export function DriversTab({
   drivers,
+  fleetVehicles,
   isLoading,
   addDriver,
   fetchDrivers,
   onDriverSelect,
 }: DriversTabProps) {
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    available: false,
+    assigned: false,
+  });
 
-  // Filtrar conductores basado en el estado seleccionado
-  const filteredDrivers = useMemo(() => {
-    switch (filterType) {
-      case "available":
-        return drivers.filter((d) => getDriverIsAvailable(d));
-      case "assigned":
-        return drivers.filter((d) => !getDriverIsAvailable(d));
-      default:
-        return drivers;
-    }
-  }, [drivers, filterType]);
+  const toggleGroup = (group: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
+  };
 
-  // Contar por estado
-  const counts = useMemo(() => {
+  // Filter and group drivers
+  const groups = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    const filtered = drivers.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        d.licenseType?.toLowerCase().includes(q) ||
+        d.currentVehicleId?.toString().includes(q),
+    );
+
     return {
-      all: drivers.length,
-      available: drivers.filter((d) => getDriverIsAvailable(d)).length,
-      assigned: drivers.filter((d) => !getDriverIsAvailable(d)).length,
+      available: filtered.filter((d) => getDriverIsAvailable(d)),
+      assigned: filtered.filter((d) => !getDriverIsAvailable(d)),
     };
-  }, [drivers]);
+  }, [drivers, searchQuery]);
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-5 border-b border-border/10">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-black tracking-tight text-foreground">
-            Conductores
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-full"
-            onClick={fetchDrivers}
-            disabled={isLoading}
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground font-medium mb-3">
-          Gestión de personal y rendimiento
-        </p>
+  const renderDriverCard = (driver: Driver) => (
+    <div
+      key={driver.id}
+      onClick={() => onDriverSelect?.(driver)}
+      className="group relative bg-card border border-border/40 rounded-2xl p-5 transition-all hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 cursor-pointer overflow-hidden"
+    >
 
-        {/* Filter Buttons */}
-        <div className="flex gap-2 mb-4 flex-wrap">
-          <Button
-            variant={filterType === "all" ? "default" : "outline"}
-            size="sm"
-            className="text-xs h-8 rounded-lg"
-            onClick={() => setFilterType("all")}
-          >
-            <Users className="h-3 w-3 mr-1" />
-            Todos ({counts.all})
-          </Button>
-          <Button
-            variant={filterType === "available" ? "default" : "outline"}
-            size="sm"
-            className="text-xs h-8 rounded-lg"
-            onClick={() => setFilterType("available")}
-          >
-            <span className="h-2 w-2 rounded-full bg-green-500 mr-1.5" />
-            Disponibles ({counts.available})
-          </Button>
-          <Button
-            variant={filterType === "assigned" ? "default" : "outline"}
-            size="sm"
-            className="text-xs h-8 rounded-lg"
-            onClick={() => setFilterType("assigned")}
-          >
-            <span className="h-2 w-2 rounded-full bg-orange-500 mr-1.5" />
-            Asignados ({counts.assigned})
-          </Button>
-        </div>
-
-        <Button
-          onClick={() => setIsAddOpen(true)}
-          className="w-full h-12 rounded-xl text-sm font-bold shadow-lg shadow-primary/25 bg-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
-        >
-          <UserPlus className="h-4 w-4 mr-2" /> Alta de Conductor
-        </Button>
-      </div>
-
-      <ScrollArea className="flex-1 overflow-hidden">
-        <div className="p-4 space-y-3">
-          {filteredDrivers.length === 0 && !isLoading ? (
-            <div className="text-center py-12 px-6">
-              <div className="h-16 w-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-border">
-                <Users className="h-8 w-8 text-muted-foreground/30" />
-              </div>
-              <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                {filterType === "available" && "No hay conductores disponibles"}
-                {filterType === "assigned" && "No hay conductores asignados"}
-                {filterType === "all" && "No hay conductores registrados"}
-              </p>
-            </div>
+      <div className="flex gap-4 items-center relative z-10">
+        <div className="h-14 w-14 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+          {driver.imageUrl ? (
+            <img
+              src={driver.imageUrl}
+              alt={driver.name}
+              className="h-full w-full object-cover"
+            />
           ) : (
-            filteredDrivers.map((driver) => (
-              <div
-                key={driver.id}
-                onClick={() => onDriverSelect?.(driver)}
-                className="group bg-card border border-border/50 rounded-2xl p-4 transition-all hover:border-primary/30 hover:shadow-md hover:shadow-primary/5 cursor-pointer relative overflow-hidden"
-              >
-                {/* Driver Status Indicator */}
+            <div className="flex flex-col items-center">
+              <Users className="h-7 w-7 text-primary/30" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[15px] font-black tracking-tight text-foreground truncate">
+                {driver.name}
+              </h3>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {driver.speedingEvents && driver.speedingEvents.length > 0 && (
+                  <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+                )}
                 <div
                   className={cn(
-                    "absolute top-0 left-0 w-1 h-full",
+                    "h-2 w-2 rounded-full",
                     driver.isAvailable ? "bg-green-500" : "bg-orange-500",
                   )}
                 />
+              </div>
+            </div>
 
-                <div className="flex gap-3 items-start">
-                  <div className="h-12 w-12 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                    {driver.imageUrl ? (
-                      <img
-                        src={driver.imageUrl}
-                        alt={driver.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Users className="h-6 w-6 text-primary/40" />
-                    )}
-                  </div>
+            <div className="flex items-center gap-3 text-[11px] font-bold text-muted-foreground/70 uppercase tracking-tight">
+              <div className="flex items-center gap-1">
+                <ShieldCheck className="h-3 w-3" />
+                <span>{driver.licenseType || "Cat. B"}</span>
+              </div>
+              <span className="h-1 w-1 rounded-full bg-border" />
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{getDriverOnTimeRate(driver)}% Puntual</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between gap-2 min-w-0">
-                        <h3 className="text-sm font-black truncate">
-                          {driver.name}
-                        </h3>
-                        <Badge
-                          variant={
-                            getDriverIsAvailable(driver)
-                              ? "outline"
-                              : "secondary"
-                          }
-                          className="text-[9px] uppercase font-black px-1.5 h-4 border-emerald-500/20 text-emerald-600 bg-emerald-500/5 shrink-0"
-                        >
-                          {getDriverIsAvailable(driver)
-                            ? "Disponible"
-                            : "Asignado"}
-                        </Badge>
-                      </div>
+      {driver.currentVehicleId && (
+        <div className="mt-4 pt-4 border-t border-border/30 flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-2 px-2.5 py-1 bg-muted/30 rounded-lg border border-border/40">
+            <Car className="h-3.5 w-3.5 text-primary/60" />
+            <span className="text-[10px] font-black uppercase text-foreground/80">
+              {fleetVehicles.some(v => String(v.id) === String(driver.currentVehicleId))
+                ? `ID: ${getDriverCurrentVehicle(driver)?.registration}`
+                : `Ultimo vehiculo asignado: ${driver.currentVehicleId}`}
+            </span>
+          </div>
+          {fleetVehicles.some(v => String(v.id) === String(driver.currentVehicleId)) && (
+            <div className="text-[10px] font-bold text-primary flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+              Ver Vehículo <ChevronRight className="h-3 w-3" />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
-                      <div className="flex flex-wrap items-center gap-3 text-[10px]">
-                        <div className="flex items-center gap-1.5">
-                          <ShieldCheck className="h-3 w-3 text-primary/60 shrink-0" />
-                          <span className="font-bold text-muted-foreground">
-                            {driver.licenseType || "Cat. B"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3 w-3 text-primary/60 shrink-0" />
-                          <span className="font-bold text-muted-foreground">
-                            {getDriverOnTimeRate(driver)}% Puntual
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+  return (
+    <div className="flex flex-col h-full overflow-hidden bg-background">
+      <div className="p-6 pb-4 flex flex-col gap-5 border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black italic tracking-tighter text-foreground leading-none">
+              DRIVERS
+            </h2>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-[0.2em] mt-1 ml-0.5">
+              Gestión de Personal
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="icon"
+              className="h-9 w-9 rounded-xl bg-primary shadow-lg shadow-primary/20 hover:scale-[1.05] transition-transform"
+              onClick={() => setIsAddOpen(true)}
+            >
+              <UserPlus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-                {getDriverCurrentVehicle(driver) && (
-                  <div className="mt-3 pt-3 border-t border-border/50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Car className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="text-[10px] font-black uppercase text-muted-foreground truncate">
-                        {getDriverCurrentVehicle(driver)?.registration || "N/A"}
-                      </span>
-                    </div>
-                  </div>
-                )}
+        {/* Search Bar */}
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+          <Input
+            placeholder="Buscar por nombre o licencia..."
+            value={searchQuery}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+            className="pl-10 h-11 bg-muted/30 border-border/40 hover:border-primary/20 focus:bg-background transition-all rounded-xl text-sm"
+          />
+        </div>
+      </div>
 
-                {/* Speeding Alerts Hint */}
-                {driver.speedingEvents && driver.speedingEvents.length > 0 && (
-                  <div className="absolute top-4 right-4 animate-pulse">
-                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+      <ScrollArea className="flex-1 overflow-hidden px-5 py-4">
+        <div className="space-y-8 pb-8">
+          {/* Available Drivers Group */}
+          <div className="space-y-3">
+            <button
+              onClick={() => toggleGroup("available")}
+              className="w-full flex items-center justify-between px-1 hover:opacity-70 transition-opacity"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                <span className="text-[11px] font-black uppercase tracking-widest text-foreground/70">
+                  Disponibles ({groups.available.length})
+                </span>
+              </div>
+              {expandedGroups.available ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            </button>
+            {expandedGroups.available && (
+              <div className="space-y-4 pt-1">
+                {groups.available.length > 0 ? (
+                  groups.available.map(renderDriverCard)
+                ) : (
+                  <div className="py-4 text-center text-[10px] font-bold text-muted-foreground/40 bg-muted/20 rounded-2xl border-2 border-dashed border-border/40">
+                    No hay conductores disponibles
                   </div>
                 )}
               </div>
-            ))
-          )}
+            )}
+          </div>
+
+          {/* Assigned Drivers Group */}
+          <div className="space-y-3">
+            <button
+              onClick={() => toggleGroup("assigned")}
+              className="w-full flex items-center justify-between px-1 hover:opacity-70 transition-opacity"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-orange-500" />
+                <span className="text-[11px] font-black uppercase tracking-widest text-foreground/70">
+                  Asignados ({groups.assigned.length})
+                </span>
+              </div>
+              {expandedGroups.assigned ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            </button>
+            {expandedGroups.assigned && (
+              <div className="space-y-4 pt-1">
+                {groups.assigned.length > 0 ? (
+                  groups.assigned.map(renderDriverCard)
+                ) : (
+                  <div className="py-4 text-center text-[10px] font-bold text-muted-foreground/40 bg-muted/20 rounded-2xl border-2 border-dashed border-border/40">
+                    No hay conductores asignados
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </ScrollArea>
 
@@ -231,7 +249,6 @@ export function DriversTab({
         onSubmit={async (val) => {
           await addDriver(val);
           setIsAddOpen(false);
-          // Refresh the list after adding
           await fetchDrivers();
         }}
         isLoading={isLoading}

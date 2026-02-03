@@ -66,14 +66,14 @@ export const NavigationButton = memo(
         className={cn(
           "h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 relative group",
           activeTab === tabId && isExpanded
-            ? "bg-primary text-white shadow-lg shadow-primary/30 scale-105"
+            ? "bg-primary text-white shadow-lg shadow-primary/30"
             : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
         )}
       >
         {IconEl}
 
         {alertCount > 0 && tabId === "dashboard" && (
-          <span className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 bg-red-600 rounded-full text-white text-xs font-bold shadow-lg ring-2 ring-background animate-pulse">
+          <span className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 bg-red-600 rounded-full text-white text-xs font-bold shadow-lg ring-2 ring-background">
             {alertCount > 9 ? "9+" : alertCount}
           </span>
         )}
@@ -198,7 +198,12 @@ interface FleetActionButtonsProps {
 }
 
 export const FleetActionButtons = memo(
-  ({ addMode, isRouting, onAddVehicle, onAddJob }: FleetActionButtonsProps) => {
+  ({
+    addMode,
+    isRouting,
+    onAddVehicle,
+    onAddJob,
+  }: FleetActionButtonsProps) => {
     const PlusEl = React.useMemo(
       () => <Plus className="h-3.5 w-3.5 mr-1.5" />,
       [],
@@ -208,7 +213,7 @@ export const FleetActionButtons = memo(
       <div className="p-3 grid grid-cols-2 gap-2">
         <Button
           variant={addMode === "vehicle" ? "default" : "secondary"}
-          className="h-10 rounded-xl text-xs font-bold transition-all"
+          className="h-10 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all"
           onClick={onAddVehicle}
           disabled={!!addMode || isRouting}
         >
@@ -216,7 +221,7 @@ export const FleetActionButtons = memo(
         </Button>
         <Button
           variant={addMode === "job" ? "default" : "secondary"}
-          className="h-10 rounded-xl text-xs font-bold transition-all"
+          className="h-10 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all"
           onClick={onAddJob}
           disabled={!!addMode || isRouting}
         >
@@ -257,7 +262,7 @@ export const FleetFooterButtons = memo(
     const NavigationEl = React.useMemo(
       () => (
         <Navigation
-          className={cn("h-4 w-4 mr-2", isTracking && "animate-pulse")}
+          className={cn("h-4 w-4 mr-2")}
         />
       ),
       [isTracking],
@@ -266,7 +271,7 @@ export const FleetFooterButtons = memo(
     return (
       <div className="p-4 border-t border-border/10 bg-background/50 space-y-2">
         <Button
-          className="w-full h-12 rounded-xl text-sm font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all active:scale-[0.98]"
+          className="w-full h-12 rounded-xl text-sm font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
           onClick={onStartRouting}
           disabled={!hasData || isRouting}
         >
@@ -279,7 +284,7 @@ export const FleetFooterButtons = memo(
         {hasRoute && (
           <Button
             variant={isTracking ? "destructive" : "secondary"}
-            className="w-full h-10 rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
+            className="w-full h-10 rounded-xl text-sm font-bold transition-all"
             onClick={onToggleTracking}
           >
             {NavigationEl}
