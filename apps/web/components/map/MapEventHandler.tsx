@@ -156,7 +156,8 @@ export function MapEventHandler({
             // Only fetch if turning ON (not turning OFF)
             if (layers.evStations || layers.gasStations) {
                 if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
-                fetchTimeoutRef.current = setTimeout(() => fetchPOIs(), 100);
+                // Execute immediately, don't wait for timeout
+                fetchPOIs();
             } else {
                 // If all layers are OFF, don't update state to avoid unnecessary re-renders
                 // The renderedGasStations and renderedEVStations memos will return null

@@ -16,6 +16,7 @@ import type { Alert } from "@/lib/utils";
 
 import { Activity, Battery, Fuel, Truck, ChevronRight, Route, Package } from "lucide-react";
 import { VehicleDetailSheet } from "./vehicle-detail-sheet";
+import { AddGasStationDialog } from "./add-gas-station-dialog";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -72,8 +73,14 @@ export function FleetDashboard({
     [vehicles, selectedVehicleId],
   );
 
+  // State for selecting vehicles to show gas stations nearby
+  const [selectedVehiclesForGasStations, setSelectedVehiclesForGasStations] = useState<(string | number)[]>([]);
+  
+  // Local state for vehicle detail sheet (independent from parent selectedVehicleId)
+  const [selectedVehicleIdLocal, setSelectedVehicleIdLocal] = useState<string | number | null>(null);
+
   const handleRowClick = (vehicle: FleetVehicle) => {
-    onVehicleSelect?.(vehicle.id);
+    setSelectedVehicleIdLocal(vehicle.id);
   };
 
   const kpis = useMemo(() => {
@@ -130,12 +137,40 @@ export function FleetDashboard({
 
   // Sort gas stations by cheapest price
   const sortedGasStations = useMemo(() => {
-    return [...gasStations].sort((a, b) => {
+    // If no vehicles selected, show all stations; otherwise filter by selected vehicles
+    let filtered = gasStations;
+    
+    if (selectedVehiclesForGasStations.length > 0) {
+      const selectedVehicleObjects = vehicles.filter((v) => 
+        selectedVehiclesForGasStations.includes(v.id)
+      );
+      
+      // Filter stations that are near at least one selected vehicle
+      if (selectedVehicleObjects.length > 0) {
+        filtered = gasStations.filter((station) => {
+          // Check if this station is in the vicinity of any selected vehicle
+          // Using a simple radius check (e.g., within 5km)
+          return selectedVehicleObjects.some((vehicle) => {
+            const [vehicleLat, vehicleLng] = vehicle.position;
+            const [stationLat, stationLng] = station.position;
+            
+            // Simple distance calculation (Haversine approximation)
+            const dLat = (stationLat - vehicleLat) * 111; // 1 degree latitude ≈ 111 km
+            const dLng = (stationLng - vehicleLng) * 111 * Math.cos(vehicleLat * Math.PI / 180);
+            const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+            
+            return distance <= 5; // Within 5km
+          });
+        });
+      }
+    }
+    
+    return [...filtered].sort((a, b) => {
       const priceA = a.prices?.diesel || a.prices?.gasoline95 || 999;
       const priceB = b.prices?.diesel || b.prices?.gasoline95 || 999;
       return priceA - priceB;
     });
-  }, [gasStations]);
+  }, [gasStations, vehicles, selectedVehiclesForGasStations]);
 
   const [showAllGasStations, setShowAllGasStations] = useState(false);
 
@@ -143,7 +178,8 @@ export function FleetDashboard({
     return showAllGasStations ? sortedGasStations : sortedGasStations.slice(0, 5);
   }, [sortedGasStations, showAllGasStations]);
 
-  const [assigningPOI, setAssigningPOI] = useState<POI | null>(null);
+  const [selectedGasStation, setSelectedGasStation] = useState<POI | null>(null);
+  const [isGasStationDialogOpen, setIsGasStationDialogOpen] = useState(false);
 
   if (vehicles.length === 0) {
     return (
@@ -158,28 +194,9 @@ export function FleetDashboard({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
-      {selectedVehicle ? (
-        <div className="flex-1 min-h-0">
-          <VehicleDetailSheet
-            vehicle={selectedVehicle}
-            metrics={selectedVehicle.metrics ?? null}
-            alerts={vehicleAlerts[selectedVehicle.id] || []}
-            jobs={jobs}
-            addStopToVehicle={addStopToVehicle}
-            startRouting={startRouting}
-            isAddStopOpen={isAddStopOpen}
-            setIsAddStopOpen={setIsAddStopOpen}
-            onStartPickingStop={onStartPickingStop}
-            pickedStopCoords={pickedStopCoords}
-            onAddStopSubmit={onAddStopSubmit}
-            drivers={drivers}
-            onAssignDriver={onAssignDriver}
-            onClose={() => onVehicleSelect?.(null)}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full overflow-hidden bg-background">
+      <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           {/* Header Section */}
           <div className="p-6 pb-6 border-b border-border/10 flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -358,15 +375,56 @@ export function FleetDashboard({
 
               {/* Gas Stations Section */}
               <div className="mt-8 pt-6 border-t border-border/20">
+                <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest pl-1 mb-3 block">
+                  Gasolineras (Filtrar Por)
+                </Label>
+
+                {/* Vehicle Filter for Gas Stations - Compact Style */}
+                <div className="mb-4 p-2.5 bg-muted/30 rounded-lg border border-border/30">
+                  {vehicles.length === 0 ? (
+                    <p className="text-[9px] text-muted-foreground/60 italic">Sin vehículos</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {vehicles.map((vehicle) => (
+                        <button
+                          key={vehicle.id}
+                          onClick={() => {
+                            setSelectedVehiclesForGasStations((prev) =>
+                              prev.includes(vehicle.id)
+                                ? prev.filter((id) => id !== vehicle.id)
+                                : [...prev, vehicle.id]
+                            );
+                          }}
+                          className={cn(
+                            "px-2 py-1 rounded text-[8px] font-bold uppercase tracking-wider transition-all border",
+                            selectedVehiclesForGasStations.includes(vehicle.id)
+                              ? "bg-primary/20 text-primary border-primary/40"
+                              : "bg-muted/50 text-muted-foreground/70 border-border/30 hover:bg-muted/70"
+                          )}
+                        >
+                          {vehicle.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[7px] text-muted-foreground/50 italic mt-1.5">
+                    {selectedVehiclesForGasStations.length === 0
+                      ? "Sin filtro: mostrando todas"
+                      : `${selectedVehiclesForGasStations.length} seleccionado${selectedVehiclesForGasStations.length === 1 ? "" : "s"}`}
+                  </p>
+                </div>
+
                 <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest pl-1 mb-4 block">
-                  Estaciones de Servicio (Más Económicas)
+                  Estaciones Encontradas
                 </Label>
 
                 <div className="space-y-3">
                   {sortedGasStations.length === 0 ? (
                     <div className="flex flex-col gap-3">
                       <p className="text-[10px] text-muted-foreground/50 italic p-4 text-center border border-dashed border-border/40 rounded-xl">
-                        {isGasStationLayerVisible
+                        {selectedVehiclesForGasStations.length === 0
+                          ? "Selecciona vehículos para ver estaciones cercanas"
+                          : isGasStationLayerVisible
                           ? "No hay estaciones cercanas detectadas"
                           : "La capa de Gasolineras está oculta"}
                       </p>
@@ -374,7 +432,7 @@ export function FleetDashboard({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full h-8 text-[10px] font-black uppercase tracking-wider rounded-xl border-orange-500/20 text-orange-600 bg-orange-50/50 hover:bg-orange-100 transition-all"
+                          className="w-full h-8 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all"
                           onClick={onToggleGasStationLayer}
                         >
                           <Fuel className="h-3 w-3 mr-2" />
@@ -409,44 +467,17 @@ export function FleetDashboard({
                             </div>
                           </div>
 
-                          {assigningPOI?.id === poi.id ? (
-                            <div className="flex flex-col gap-2 mt-2 p-3 bg-background rounded-xl border border-primary/20 animate-in fade-in zoom-in-95 duration-200">
-                              <span className="text-[9px] font-bold text-foreground/60 uppercase">Asignar a vehículo:</span>
-                              <div className="grid grid-cols-2 gap-1.5">
-                                {vehicles.map(v => (
-                                  <Button
-                                    key={v.id}
-                                    variant="secondary"
-                                    size="sm"
-                                    className="h-8 text-[9px] font-black uppercase rounded-lg border border-border/40 hover:border-primary/40"
-                                    onClick={() => {
-                                      addStopToVehicle?.(v.id, poi.position, poi.name);
-                                      setAssigningPOI(null);
-                                    }}
-                                  >
-                                    {v.label}
-                                  </Button>
-                                ))}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-[8px] font-bold uppercase mt-1"
-                                onClick={() => setAssigningPOI(null)}
-                              >
-                                Cancelar
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full h-9 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary hover:bg-orange-600 hover:text-white transition-all"
-                              onClick={() => setAssigningPOI(poi)}
-                            >
-                              Asignar como punto adicional
-                            </Button>
-                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-9 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all"
+                            onClick={() => {
+                              setSelectedGasStation(poi);
+                              setIsGasStationDialogOpen(true);
+                            }}
+                          >
+                            Asignar como punto adicional
+                          </Button>
                         </div>
                       ))}
 
@@ -466,6 +497,40 @@ export function FleetDashboard({
               </div>
             </div>
           </ScrollArea>
+        </div>
+      </div>
+
+      <AddGasStationDialog
+        isOpen={isGasStationDialogOpen}
+        onOpenChange={setIsGasStationDialogOpen}
+        gasStation={selectedGasStation}
+        vehicles={vehicles}
+        onAddToVehicle={(vehicleId, coords, label) => {
+          addStopToVehicle?.(vehicleId, coords, label);
+          setSelectedGasStation(null);
+          // Trigger route optimization like when adding a custom stop
+          setTimeout(() => startRouting?.(), 500);
+        }}
+      />
+
+      {/* Vehicle Detail Sheet - Independent from dashboard state - Overlay Position */}
+      {selectedVehicleIdLocal && (
+        <div className="absolute inset-0 z-50 pointer-events-auto">
+          <VehicleDetailSheet
+            vehicle={vehicles.find((v) => v.id === selectedVehicleIdLocal) || null}
+            metrics={vehicles.find((v) => v.id === selectedVehicleIdLocal)?.metrics || null}
+            alerts={vehicleAlerts[selectedVehicleIdLocal] || []}
+            onClose={() => setSelectedVehicleIdLocal(null)}
+            addStopToVehicle={addStopToVehicle}
+            startRouting={startRouting}
+            isAddStopOpen={isAddStopOpen}
+            setIsAddStopOpen={setIsAddStopOpen}
+            onStartPickingStop={onStartPickingStop}
+            pickedStopCoords={pickedStopCoords}
+            onAddStopSubmit={onAddStopSubmit}
+            drivers={drivers}
+            onAssignDriver={onAssignDriver}
+          />
         </div>
       )}
     </div>

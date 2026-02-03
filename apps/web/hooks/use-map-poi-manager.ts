@@ -1,5 +1,5 @@
 // hooks/use-map-poi-manager.ts
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import L from "leaflet";
 import { THEME } from "@/lib/theme";
 import { snapToGrid, calculateFetchRadius } from "@/lib/map-utils";
@@ -26,6 +26,9 @@ export function useMapPOIManager({
     setDynamicEVStations,
     setDynamicGasStations,
 }: POIManagerProps) {
+    // Memoize the vehicle label to prevent unnecessary re-renders
+    const vehicleLabel = useMemo(() => selectedVehicle.label, [selectedVehicle.label]);
+
     const fetchPOIs = useCallback(async () => {
         const center = map.getCenter();
         const zoom = map.getZoom();
@@ -59,7 +62,7 @@ export function useMapPOIManager({
                     snapLat,
                     snapLng,
                     Math.ceil(radiusMeters),
-                    selectedVehicle.label,
+                    vehicleLabel,
                   )
                 : Promise.resolve(null),
             willFetchGas
@@ -68,7 +71,7 @@ export function useMapPOIManager({
                     snapLat,
                     snapLng,
                     Math.ceil(Math.min(radiusMeters, THEME.map.poi.maxGasRadius)),
-                    selectedVehicle.label,
+                    vehicleLabel,
                   )
                 : Promise.resolve(null),
         ]);
@@ -84,7 +87,7 @@ export function useMapPOIManager({
         map,
         layers.evStations,
         layers.gasStations,
-        selectedVehicle.label,
+        vehicleLabel,
         setDynamicEVStations,
         setDynamicGasStations,
         poiCache

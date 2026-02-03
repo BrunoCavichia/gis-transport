@@ -107,6 +107,8 @@ interface SidebarProps {
   drivers?: Driver[];
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
   pickedStopCoords?: [number, number] | null;
+  isGasStationLayerVisible?: boolean;
+  onToggleGasStationLayer?: () => void;
 }
 
 type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";
@@ -583,6 +585,8 @@ export const Sidebar = memo(
     isLoadingDrivers = false,
     fetchDrivers,
     addDriver,
+    isGasStationLayerVisible = false,
+    onToggleGasStationLayer,
   }: SidebarProps) {
     // Local state for sidebar visibility
     const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");

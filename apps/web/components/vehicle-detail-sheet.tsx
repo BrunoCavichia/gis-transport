@@ -140,9 +140,9 @@ export function VehicleDetailSheet({
   );
 
   return (
-    <div className="flex flex-col h-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 overflow-hidden animate-in slide-in-from-right-4 duration-300 font-sans text-xs">
+    <div className="flex flex-col h-full bg-background overflow-hidden animate-in slide-in-from-right-4 duration-300 font-sans text-xs">
       {/* Header - Minimalist */}
-      <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between shrink-0 bg-background/50 sticky top-0 z-20 backdrop-blur-md">
+      <div className="px-4 py-3 border-b border-border/40 flex items-center justify-between shrink-0 bg-background sticky top-0 z-20">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"

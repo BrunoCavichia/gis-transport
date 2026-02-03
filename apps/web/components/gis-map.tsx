@@ -285,11 +285,7 @@ export function GISMap() {
     [updateVehicleMetrics],
   );
 
-  const {
-    isTracking,
-    toggleTracking,
-    setIsTracking,
-  } = useLiveTracking({
+  const { isTracking, toggleTracking, setIsTracking } = useLiveTracking({
     routeData,
     selectedVehicleId,
     updateVehiclePosition: handleUpdateVehiclePosition,
@@ -594,6 +590,8 @@ export function GISMap() {
         pickedStopCoords={pickedStopCoords}
         onAddStopSubmit={handleAddStopSubmit}
         gasStations={dynamicGasStations}
+        isGasStationLayerVisible={layers.gasStations}
+        onToggleGasStationLayer={() => toggleLayer('gasStations')}
       />
       <div className="relative flex-1">
         <MapContainer
