@@ -37,7 +37,7 @@ export function useZoneCache(
     }
 
     // Minimum zoom for zones - prevents unnecessary fetches when zoomed out
-    const MIN_ZOOM_FOR_ZONES = 12;
+    const MIN_ZOOM_FOR_ZONES = 8;
     if (map.getZoom() < MIN_ZOOM_FOR_ZONES) {
       return;
     }
@@ -45,8 +45,8 @@ export function useZoneCache(
     const center = map.getCenter();
     const last = lastZoneFetch.current;
 
-    // Only refetch if moved more than 3km (zones are large polygons)
-    const MIN_DISTANCE_METERS = 3000;
+    // Only refetch if moved more than 5km (increased for better stability)
+    const MIN_DISTANCE_METERS = 5000;
     if (
       last &&
       haversineMeters(last.lat, last.lon, center.lat, center.lng) <
@@ -62,6 +62,7 @@ export function useZoneCache(
 
     isLoading.current = true;
     lastZoneFetch.current = { lat: center.lat, lon: center.lng };
+    console.log(`[useZoneCache] Fetching zones at ${center.lat.toFixed(4)},${center.lng.toFixed(4)} radius:50km zoom:${map.getZoom()}`);
 
     await wrapAsync(async () => {
       try {
@@ -69,7 +70,7 @@ export function useZoneCache(
         const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const res = await fetch(
-          `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=15000&vehicle=all`,
+          `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=50000&vehicle=all`,
           { signal: controller.signal },
         );
 

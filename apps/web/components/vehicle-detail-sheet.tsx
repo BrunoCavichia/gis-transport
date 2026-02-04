@@ -115,6 +115,12 @@ export function VehicleDetailSheet({
     }
   }, [vehicle?.id, metrics?.speed === 0]); // Re-run when vehicle changes OR it stops/starts
 
+  // Get alert logs for this vehicle - MUST be before early return
+  const vehicleLogs = useMemo(
+    () => (vehicle ? getVehicleLogs(vehicle.id) : []),
+    [vehicle?.id, getVehicleLogs],
+  );
+
   if (!vehicle) return null;
 
   const isElectric =
@@ -134,12 +140,6 @@ export function VehicleDetailSheet({
   // Check if there are any critical alerts
   const hasCriticalAlerts = alerts.some((a) => a.severity === "critical");
   const hasAnyAlerts = alerts.length > 0;
-
-  // Get alert logs for this vehicle
-  const vehicleLogs = useMemo(
-    () => getVehicleLogs(vehicle.id),
-    [vehicle.id, getVehicleLogs],
-  );
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden animate-in slide-in-from-right-4 duration-300 font-sans text-xs">

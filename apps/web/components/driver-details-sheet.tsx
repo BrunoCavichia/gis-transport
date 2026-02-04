@@ -97,6 +97,19 @@ export function DriverDetailsSheet({
                   </span>
                 </div>
               )}
+              {driver.phoneNumber && (
+                <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Teléfono
+                  </span>
+                  <a
+                    href={`tel:${driver.phoneNumber}`}
+                    className="text-xs font-mono font-bold text-blue-600 hover:underline"
+                  >
+                    {driver.phoneNumber}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 

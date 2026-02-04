@@ -56,7 +56,7 @@ export type CustomPOI = z.infer<typeof CustomPOISchema>;
 export const ZoneSchema = z.object({
   id: z.string(),
   name: z.string(),
-  coordinates: z.array(LatLonSchema),
+  coordinates: z.any(), // Flexible for Polygon/MultiPolygon
   type: z.string().optional(),
   description: z.string().optional(),
   requiredTags: z.array(z.string()).optional(),
@@ -100,6 +100,7 @@ export const DriverSchema = z.object({
   name: z.string(),
   licenseType: z.string().optional(),
   licenseNumber: z.string().optional(),
+  phoneNumber: z.string().optional(),
   onTimeDeliveryRate: z.number().min(0).max(100).default(100),
   isAvailable: z.boolean().default(true),
   imageUrl: z.string().optional(),

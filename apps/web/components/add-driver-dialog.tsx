@@ -31,6 +31,21 @@ export function AddDriverDialog({
   const [name, setName] = useState("");
   const [licenseType, setLicenseType] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,10 +54,15 @@ export function AddDriverDialog({
         name: name.trim(),
         licenseType: licenseType.trim() || undefined,
         licenseNumber: licenseNumber.trim() || undefined,
+        phoneNumber: phoneNumber.trim() || undefined,
+        imageUrl: imagePreview || undefined,
       });
       setName("");
       setLicenseType("");
       setLicenseNumber("");
+      setPhoneNumber("");
+      setImageFile(null);
+      setImagePreview("");
       onOpenChange(false);
     }
   };
@@ -108,6 +128,43 @@ export function AddDriverDialog({
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
                   className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone-number" className="text-xs font-semibold">
+                Número de Teléfono
+              </Label>
+              <Input
+                id="phone-number"
+                placeholder="Ej: +34 600 123 456..."
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="image-file" className="text-xs font-semibold">
+                Foto del Conductor (Opcional)
+              </Label>
+              <div className="flex items-center gap-3">
+                {imagePreview && (
+                  <div className="h-16 w-16 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
+                <Input
+                  id="image-file"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                 />
               </div>
             </div>

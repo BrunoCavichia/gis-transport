@@ -3,22 +3,28 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// Enable PostGIS extension for geospatial queries
+model extensions {
+  @@ignore
+}
+
+// PostgreSQL extensions initialization (run manually via SQL)
+// CREATE EXTENSION IF NOT EXISTS postgis;
+// CREATE EXTENSION IF NOT EXISTS postgis_topology;
+// CREATE EXTENSION IF NOT EXISTS uuid-ossp;
 
 model OptimizationSnapshot {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
   
-  // We use String for SQLite JSON compatibility (Prisma handles serialization usually, 
-  // but explicit String is safer if we want to control parsing manually or if Json type issues arise)
-  // Actually, let's try native Json if supported, otherwise String. 
-  // For SQLite, Prisma implies Json is supported.
-  
-  fleetData       String // JSON content of FleetOverview
-  optimizationData String // JSON content of OptimizationSummary
-  weatherData     String // JSON content of WeatherSummary
+  // Native PostgreSQL jsonb for efficient JSON storage and querying
+  fleetData       Json // FleetOverview object
+  optimizationData Json // OptimizationSummary object
+  weatherData     Json // WeatherSummary object
   
   status String // "optimized", "failed", etc.
   
@@ -59,23 +65,23 @@ model GeoZone {
   name      String
   type      String   // "LEZ", "ENVIRONMENTAL", "PEDESTRIAN", "RESTRICTED"
   
-  // Geometry stored as JSON string for SQLite 
-  // Should follow the [ [lat, lon], ... ] pattern or GeoJSON
-  geometry  String
+  // Native PostGIS geometry - stores polygon boundaries as geographic data
+  // Using geometry(MultiPolygon, 4326) to handle complex zones
+  geometry  Unsupported("geometry(MultiPolygon, 4326)")?
   
-  // Metadata for filtering and UI
-  metadata  String?  // JSON with extra OSM tags
+  // Metadata as native jsonb for OSM tags and additional attributes
+  metadata  Json?
   
-  // Boundary box for fast spatial queries
-  minLat    Float
-  maxLat    Float
-  minLon    Float
-  maxLon    Float
+  // Keep centroid point for additional spatial operations
+  // Using geometry(Point, 4326) for WGS84
+  centroid  Unsupported("geometry(Point, 4326)")?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([minLat, maxLat, minLon, maxLon])
+  // Spatial indexes will be created via raw SQL migrations
+  // CREATE INDEX IF NOT EXISTS "GeoZone_geometry_idx" ON "GeoZone" USING GIST (geometry);
+  // CREATE INDEX IF NOT EXISTS "GeoZone_centroid_idx" ON "GeoZone" USING GIST (centroid);
 }
 
 model Driver {
@@ -83,6 +89,7 @@ model Driver {
   name               String
   licenseType        String?
   licenseNumber      String?
+  phoneNumber        String?
   onTimeDeliveryRate Float           @default(100)
   isAvailable        Boolean         @default(true)
   imageUrl           String?
@@ -120,11 +127,15 @@ model SpeedingEvent {
   timestamp DateTime @default(now())
   speed     Float
   limit     Float
-  latitude  Float
-  longitude Float
+  
+  // Native PostGIS Point geometry for speeding event location (WGS84)
+  location  Unsupported("geometry(Point, 4326)")
   
   driverId  String
   driver    Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
   
   createdAt DateTime @default(now())
+  
+  // Spatial index will be created via raw SQL migration
+  // CREATE INDEX IF NOT EXISTS "SpeedingEvent_location_idx" ON "SpeedingEvent" USING GIST (location);
 }

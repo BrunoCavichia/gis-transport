@@ -109,6 +109,8 @@ interface SidebarProps {
   pickedStopCoords?: [number, number] | null;
   isGasStationLayerVisible?: boolean;
   onToggleGasStationLayer?: () => void;
+  isExpanded?: boolean;
+  setIsExpanded?: (value: boolean) => void;
 }
 
 type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";
@@ -596,13 +598,19 @@ export const Sidebar = memo(
     addDriver,
     isGasStationLayerVisible = false,
     onToggleGasStationLayer,
+    isExpanded: externalIsExpanded,
+    setIsExpanded: externalSetIsExpanded,
   }: SidebarProps) {
     // Local state for sidebar visibility
     const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
-    const [isExpanded, setIsExpanded] = useState(true);
+    const [internalIsExpanded, setInternalIsExpanded] = useState(true);
     const [selectedDriverId, setSelectedDriverId] = useState<string | null>(
       null,
     );
+
+    // Use external isExpanded if provided, otherwise use internal state
+    const isExpanded = externalIsExpanded !== undefined ? externalIsExpanded : internalIsExpanded;
+    const setIsExpandedState = externalSetIsExpanded || setInternalIsExpanded;
 
     // Derived state for selected driver (ensures data is always fresh)
     const selectedDriver = useMemo(
@@ -617,14 +625,20 @@ export const Sidebar = memo(
     const setActiveTab = useCallback(
       (tab: SidebarTab) => {
         setActiveTabState(tab);
-        if (!isExpanded) setIsExpanded(true);
+        if (!isExpanded) {
+          if (externalSetIsExpanded) {
+            externalSetIsExpanded(true);
+          } else {
+            setInternalIsExpanded(true);
+          }
+        }
 
         // Implicitly handle fleet mode
         if (tab === "fleet") {
           setFleetMode(true);
         }
       },
-      [isExpanded, setFleetMode],
+      [isExpanded, externalSetIsExpanded, setFleetMode],
     );
 
     // Sync initial fleet mode
@@ -634,10 +648,13 @@ export const Sidebar = memo(
       }
     }, [activeTab, fleetMode, setFleetMode]);
 
-    const handleToggleExpand = useCallback(
-      () => setIsExpanded((prev) => !prev),
-      [],
-    );
+    const handleToggleExpand = useCallback(() => {
+      if (externalSetIsExpanded) {
+        externalSetIsExpanded(!isExpanded);
+      } else {
+        setInternalIsExpanded((prev) => !prev);
+      }
+    }, [isExpanded, externalSetIsExpanded]);
 
     const handleShowAddJob = useCallback(() => {
       setIsAddJobOpen?.(true);

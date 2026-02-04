@@ -253,12 +253,24 @@ export function useFleet(
   );
 
   /**
-   * Assign a driver to a vehicle
+   * Update a vehicle's license plate
+   */
+  const updateVehicleLicensePlate = useCallback(
+    (vehicleId: string | number, newLicensePlate: string) => {
+      setFleetVehicles((prev) =>
+        prev.map((v) => (v.id === vehicleId ? { ...v, licensePlate: newLicensePlate } : v)),
+      );
+    },
+    [],
+  );
+
+  /**
+   * Assign a driver to a vehicle (or unassign with null)
    */
   const assignDriverToVehicle = useCallback(
-    (vehicleId: string | number, driver: Driver) => {
+    (vehicleId: string | number, driver: Driver | null) => {
       setFleetVehicles((prev) =>
-        prev.map((v) => (v.id === vehicleId ? { ...v, driver: driver } : v)),
+        prev.map((v) => (v.id === vehicleId ? { ...v, driver: driver || undefined } : v)),
       );
     },
     [],
@@ -287,6 +299,7 @@ export function useFleet(
     updateVehicleMetrics,
     updateVehicleType,
     updateVehicleLabel,
+    updateVehicleLicensePlate,
     assignDriverToVehicle,
   };
 }

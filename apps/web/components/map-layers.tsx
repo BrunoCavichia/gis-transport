@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Polygon, Popup, Marker, Tooltip } from "react-leaflet";
 import { THEME } from "@/lib/theme";
 import type { Zone, RouteData, RouteWeather } from "@gis/shared";
@@ -12,6 +12,38 @@ interface ZoneLayerProps {
     canAccessZone: (zone: Zone) => boolean;
 }
 
+// Helper to determine coordinate depth
+function getCoordDepth(coords: any): string {
+    if (!Array.isArray(coords) || coords.length === 0) return "empty";
+    if (!Array.isArray(coords[0])) return "1D";
+    if (!Array.isArray(coords[0][0])) return "2D";
+    if (!Array.isArray(coords[0][0][0])) return "3D";
+    return "4D";
+}
+
+// Normalize coordinates for Leaflet Polygon
+// Leaflet expects: LatLng[] | LatLng[][] | LatLng[][][]
+// - Simple polygon: LatLng[][] (outer ring + holes)
+// - MultiPolygon: LatLng[][][] (multiple polygons)
+function normalizeCoords(coords: any): any {
+    const depth = getCoordDepth(coords);
+    
+    if (depth === "2D") {
+        // It's just an array of points [lat, lon][] - wrap in another array for ring
+        return [coords];
+    }
+    if (depth === "3D") {
+        // It's a Polygon with rings LatLng[][] - this is correct
+        return coords;
+    }
+    if (depth === "4D") {
+        // It's a MultiPolygon LatLng[][][] - Leaflet can handle this
+        return coords;
+    }
+    
+    return coords;
+}
+
 export const ZoneLayer = memo(
     function ZoneLayer({
         zones,
@@ -21,36 +53,50 @@ export const ZoneLayer = memo(
     }: ZoneLayerProps) {
         if (!visible) return null;
 
+        console.log(`[ZoneLayer] Rendering ${zones.length} zones, visible=${visible}`);
+
         return (
             <>
                 {zones.map((zone, idx) => {
                     const hasAccess = canAccessZone(zone);
-                    const isLEZ =
-                        zone.type?.toUpperCase() === "LEZ" || zone.type === "Environmental";
+                    const normalizedType = (zone.type || "").toUpperCase();
+                    const isLEZ = normalizedType === "LEZ" || normalizedType === "ENVIRONMENTAL";
                     const zType = isLEZ ? "LEZ" : "RESTRICTED";
+
+                    // Normalize and debug coordinates
+                    const rawCoords = zone.coordinates;
+                    const depth = getCoordDepth(rawCoords);
+                    const normalizedCoords = normalizeCoords(rawCoords);
+                    
+                    console.log(`[ZoneLayer] Zone "${zone.name}": raw depth=${depth}, normalized length=${normalizedCoords?.length}`);
+
+                    if (!normalizedCoords || normalizedCoords.length === 0) {
+                        console.warn(`[ZoneLayer] Skipping zone "${zone.name}" - no valid coordinates`);
+                        return null;
+                    }
 
                     const style = isLEZ
                         ? {
                             color: hasAccess ? THEME.colors.success : THEME.colors.danger,
                             fillColor: hasAccess ? THEME.colors.success : THEME.colors.danger,
                             fillOpacity: hasAccess
-                                ? THEME.map.polygons.lez.fillOpacity.allowed
-                                : THEME.map.polygons.lez.fillOpacity.restricted,
-                            weight: THEME.map.polygons.lez.weight,
+                                ? 0.2 // Higher opacity for visibility
+                                : 0.3,
+                            weight: 2, // Thicker lines
                             dashArray: undefined,
                         }
                         : {
                             color: THEME.colors.danger,
                             fillColor: THEME.colors.danger,
-                            fillOpacity: THEME.map.polygons.restricted.fillOpacity,
-                            weight: THEME.map.polygons.restricted.weight,
+                            fillOpacity: 0.25,
+                            weight: 2,
                             dashArray: THEME.map.polygons.restricted.dashArray,
                         };
 
                     return (
                         <Polygon
                             key={`${zone.id}-${idx}`}
-                            positions={zone.coordinates}
+                            positions={normalizedCoords}
                             pathOptions={style}
                             interactive={!isInteracting}
                             bubblingMouseEvents={false}

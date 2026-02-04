@@ -464,7 +464,7 @@ export function FleetDashboard({
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full h-9 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary bg-primary/5 hover:bg-primary hover:text-primary-foreground transition-all"
+                            className="w-full h-9 text-[10px] font-black uppercase tracking-wider rounded-xl border-primary/20 text-primary bg-primary/5"
                             onClick={() => {
                               setSelectedGasStation(poi);
                               setIsGasStationDialogOpen(true);

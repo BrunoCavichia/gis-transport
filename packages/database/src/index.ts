@@ -32,13 +32,32 @@ export class PrismaGisRepository implements IGisRepository {
 
     if (!snapshot) return null;
 
+    // With PostgreSQL jsonb, data is already parsed as JSON objects
+    const parseField = (field: any) => {
+      if (field === null || field === undefined) return null;
+      if (typeof field === "string") {
+        try {
+          return JSON.parse(field);
+        } catch {
+          return null;
+        }
+      }
+      return field;
+    };
+
+    const fleet = parseField(snapshot.fleetData);
+    const optimization = parseField(snapshot.optimizationData);
+    const weather = parseField(snapshot.weatherData);
+
+    if (!fleet || !optimization || !weather) return null;
+
     return {
       meta: {
         generatedAt: snapshot.createdAt.toISOString(),
       },
-      fleet: JSON.parse(snapshot.fleetData),
-      optimization: JSON.parse(snapshot.optimizationData),
-      weather: JSON.parse(snapshot.weatherData),
+      fleet,
+      optimization,
+      weather,
     };
   }
 
@@ -65,9 +84,11 @@ export class PrismaGisRepository implements IGisRepository {
 
     const snapshot = await this.prisma.optimizationSnapshot.create({
       data: {
-        fleetData: JSON.stringify(context.fleet),
-        optimizationData: JSON.stringify(context.optimization),
-        weatherData: JSON.stringify(context.weather),
+        // PostgreSQL jsonb stores objects directly
+        // Prisma will handle JSON serialization for us
+        fleetData: context.fleet as any,
+        optimizationData: context.optimization as any,
+        weatherData: context.weather as any,
         status: context.optimization.status,
         runDetails: {
           create: runDetails,
@@ -79,31 +100,78 @@ export class PrismaGisRepository implements IGisRepository {
   }
 
   async getZones(lat: number, lon: number, radiusMs: number): Promise<Zone[]> {
-    // Approximate degrees for radius (111km per degree)
-    const radiusDeg = radiusMs / 111000;
+    // Use PostGIS ST_DWithin for distance-based spatial queries
+    // This is more accurate than bbox approximation and leverages PostGIS indexes
+    try {
+      const rawZones = await this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          osmId: string;
+          name: string;
+          type: string;
+          metadata: any;
+          geojson: string;
+        }>
+      >`
+        SELECT id, "osmId", name, type, metadata, ST_AsGeoJSON(geometry) as geojson
+        FROM "GeoZone"
+        WHERE ST_DWithin(
+          geometry::geography,
+          ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography,
+          ${radiusMs}
+        )
+        LIMIT 100;
+      `;
 
-    const rawZones = await this.prisma.geoZone.findMany({
-      where: {
-        OR: [
-          {
-            // Check if the search point is within the BBox
-            minLat: { lte: lat + radiusDeg },
-            maxLat: { gte: lat - radiusDeg },
-            minLon: { lte: lon + radiusDeg },
-            maxLon: { gte: lon - radiusDeg },
-          },
-        ],
-      },
-    });
+      console.log(`[Repository] getZones returned ${rawZones.length} zones`);
 
-    return rawZones.map((rz) => ({
-      id: rz.osmId,
-      name: rz.name,
-      type: rz.type as any,
-      coordinates: JSON.parse(rz.geometry),
-      description: rz.metadata || "",
-      requiredTags: rz.type === "PEDESTRIAN" ? [] : ["eco", "zero"],
-    }));
+      // Map results to domain Zone type with proper coordinate format
+      return rawZones.map((rz: any) => {
+        let coords: any = [];
+        try {
+          const geojson = JSON.parse(rz.geojson);
+          console.log(`[Repository] Zone ${rz.name}: GeoJSON type=${geojson.type}, parts=${geojson.coordinates?.length}`);
+          
+          if (geojson.type === "Polygon") {
+            // Polygon: coordinates is [ Ring1, Ring2(hole), ... ]
+            // Leaflet expects LatLng[][] for a polygon with rings
+            coords = geojson.coordinates.map((ring: any) =>
+              ring.map((p: any) => [p[1], p[0]])
+            );
+          } else if (geojson.type === "MultiPolygon") {
+            // MultiPolygon: coordinates is [ Polygon1, Polygon2, ... ]
+            // Each Polygon is [ Ring1, Ring2, ... ]
+            // Leaflet can render MultiPolygon as LatLng[][][] 
+            coords = geojson.coordinates.map((poly: any) =>
+              poly.map((ring: any) =>
+                ring.map((p: any) => [p[1], p[0]])
+              )
+            );
+          }
+          
+          // Log the structure for debugging
+          const depth = Array.isArray(coords) && coords.length > 0 
+            ? (Array.isArray(coords[0]) ? (Array.isArray(coords[0][0]) ? (Array.isArray(coords[0][0][0]) ? "4D" : "3D") : "2D") : "1D")
+            : "empty";
+          console.log(`[Repository] Zone ${rz.name}: coords depth=${depth}, first ring points=${coords[0]?.[0]?.length || coords[0]?.length || 0}`);
+        } catch (e) {
+          console.warn(`[Repository] Failed to parse geometry for zone ${rz.osmId}:`, e);
+        }
+
+        const meta = rz.metadata || {};
+        return {
+          id: rz.osmId,
+          name: rz.name,
+          type: rz.type,
+          coordinates: coords,
+          description: meta.description || `OSM: ${rz.osmId}`,
+          requiredTags: ["eco", "zero", "c", "b", "0"],
+        };
+      });
+    } catch (error) {
+      console.error("[Repository] getZones error:", error);
+      return [];
+    }
   }
 
   async getDrivers(): Promise<any[]> {
@@ -134,16 +202,19 @@ export class PrismaGisRepository implements IGisRepository {
   }
 
   async logSpeeding(driverId: string, event: any): Promise<void> {
-    await this.prisma.speedingEvent.create({
-      data: {
-        driverId,
-        speed: event.speed,
-        limit: event.limit,
-        latitude: event.latitude,
-        longitude: event.longitude,
-        timestamp: new Date(),
-      },
-    });
+    // Use PostGIS ST_MakePoint to create Point geometry (longitude, latitude order)
+    await this.prisma.$executeRaw`
+      INSERT INTO "SpeedingEvent" (id, "driverId", speed, "limit", location, timestamp, "createdAt")
+      VALUES (
+        gen_random_uuid(),
+        ${driverId},
+        ${event.speed},
+        ${event.limit},
+        ST_SetSRID(ST_MakePoint(${event.longitude}, ${event.latitude}), 4326),
+        NOW(),
+        NOW()
+      )
+    `;
   }
 
   async clearAllDrivers(): Promise<void> {

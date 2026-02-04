@@ -26,6 +26,8 @@ import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 import { useDrivers } from "@/hooks/use-drivers";
 import { DriverDetailsSheet } from "@/components/driver-details-sheet";
+import { VehicleDetailSheet as VehicleDetailSheetOld } from "@/components/vehicle-detail-sheet";
+import { VehicleDetailSheet } from "@/components/vehicle-details-panel";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
@@ -36,7 +38,7 @@ export function GISMap() {
   const [layers, setLayers] = useState<LayerVisibility>({
     gasStations: false,
     evStations: false,
-    cityZones: false,
+    cityZones: true,
     route: true,
   });
 
@@ -75,6 +77,15 @@ export function GISMap() {
   const [activeZones, setActiveZones] = useState<Zone[]>([]);
   const [selectedDriver, _setSelectedDriver] = useState<Driver | null>(null);
   const [isDriverDetailsOpen, setIsDriverDetailsOpen] = useState(false);
+  const [isVehicleDetailsOpen, setIsVehicleDetailsOpen] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+
+  // Efecto para cerrar sidebar cuando se abre el panel de detalles
+  useEffect(() => {
+    if (isVehicleDetailsOpen) {
+      setIsSidebarExpanded(false);
+    }
+  }, [isVehicleDetailsOpen]);
 
   const { addAlertLog } = useAlertLogs();
 
@@ -95,6 +106,7 @@ export function GISMap() {
     updateVehicleMetrics,
     updateVehicleType,
     updateVehicleLabel,
+    updateVehicleLicensePlate,
     assignDriverToVehicle,
   } = useFleet();
 
@@ -143,7 +155,7 @@ export function GISMap() {
         }
 
         // Optimistic update: Update frontend fleet state immediately
-        assignDriverToVehicle(vehicleId, newDriver as Driver);
+        assignDriverToVehicle(vehicleId, newDriver);
 
         // 1. First, unassign the old driver if one exists
         const oldDriver = drivers.find(
@@ -332,6 +344,12 @@ export function GISMap() {
     return alerts;
   }, [fleetVehicles, routeData?.weatherRoutes]);
 
+  // Get selected vehicle object
+  const selectedVehicleObject = useMemo(() => {
+    if (!selectedVehicleId || !fleetVehicles) return null;
+    return fleetVehicles.find((v) => String(v.id) === String(selectedVehicleId)) || null;
+  }, [selectedVehicleId, fleetVehicles]);
+
   // Save new alerts to logs
   useEffect(() => {
     Object.values(vehicleAlerts).forEach((alerts) => {
@@ -454,12 +472,26 @@ export function GISMap() {
   const handleSetSelectedVehicleId = useCallback(
     (id: string | number | null) => {
       setSelectedVehicleId(id ? String(id) : null);
+      setIsVehicleDetailsOpen(!!id);
     },
     [setSelectedVehicleId],
   );
 
   const handleRemoveVehicle = useCallback(
     (id: string | number) => {
+      // Find vehicle to check if it has a driver
+      const vehicle = fleetVehicles.find((v) => String(v.id) === String(id));
+      const hasDriver = vehicle?.driver || drivers.some((d) => String(d.currentVehicleId) === String(id));
+      
+      // Show confirmation dialog
+      const confirmMessage = hasDriver
+        ? "Si eliminas el vehículo se desvinculará al conductor y estará disponible para un nuevo vehículo. ¿Continuar?"
+        : "¿Estás seguro de que deseas eliminar este vehículo?";
+      
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+      
       removeVehicle(String(id));
       // Clean up drivers assigned to this vehicle
       drivers.forEach((driver) => {
@@ -473,7 +505,7 @@ export function GISMap() {
         }
       });
     },
-    [removeVehicle, drivers, updateDriver],
+    [removeVehicle, drivers, updateDriver, fleetVehicles],
   );
 
   const handleRemoveJob = useCallback(
@@ -623,6 +655,8 @@ export function GISMap() {
         gasStations={dynamicGasStations}
         isGasStationLayerVisible={layers.gasStations}
         onToggleGasStationLayer={() => toggleLayer("gasStations")}
+        isExpanded={isSidebarExpanded}
+        setIsExpanded={setIsSidebarExpanded}
       />
       <div className="relative flex-1">
         <MapContainer
@@ -653,7 +687,7 @@ export function GISMap() {
           isInteracting={!!interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
           onVehicleLabelUpdate={updateVehicleLabel}
-          onVehicleSelect={setSelectedVehicleId}
+          onVehicleSelect={handleSetSelectedVehicleId}
         />
 
         <AddJobDialog
@@ -687,6 +721,26 @@ export function GISMap() {
           isOpen={isDriverDetailsOpen}
           onOpenChange={setIsDriverDetailsOpen}
           onClose={() => setIsDriverDetailsOpen(false)}
+        />
+
+        <VehicleDetailSheet
+          vehicle={selectedVehicleObject}
+          isOpen={isVehicleDetailsOpen}
+          onClose={() => {
+            setIsVehicleDetailsOpen(false);
+            setSelectedVehicleId(null);
+          }}
+          drivers={drivers}
+          onAssignDriver={handleAssignDriver}
+          onUpdateLabel={updateVehicleLabel}
+          onUpdateLicensePlate={updateVehicleLicensePlate}
+          onChangeEnvironmentalTag={(vehicleId, tagId) => {
+            // Map tag ID to VehicleType from VEHICLE_TYPES
+            // "none" maps to "noLabel" in VEHICLE_TYPES
+            const mappedId = tagId === "none" ? "noLabel" : tagId;
+            const vehicleType = VEHICLE_TYPES.find((vt) => vt.id === mappedId) || VEHICLE_TYPES[4];
+            updateVehicleType(vehicleId, vehicleType);
+          }}
         />
       </div>
     </div>
