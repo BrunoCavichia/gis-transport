@@ -78,14 +78,6 @@ export function GISMap() {
   const [selectedDriver, _setSelectedDriver] = useState<Driver | null>(null);
   const [isDriverDetailsOpen, setIsDriverDetailsOpen] = useState(false);
   const [isVehicleDetailsOpen, setIsVehicleDetailsOpen] = useState(false);
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-
-  // Efecto para cerrar sidebar cuando se abre el panel de detalles
-  useEffect(() => {
-    if (isVehicleDetailsOpen) {
-      setIsSidebarExpanded(false);
-    }
-  }, [isVehicleDetailsOpen]);
 
   const { addAlertLog } = useAlertLogs();
 
@@ -131,16 +123,17 @@ export function GISMap() {
   const handleAssignDriver = useCallback(
     async (vehicleId: string | number, newDriver: Driver | null) => {
       try {
-        const vehicleExists = fleetVehicles.some(
+        // Find the vehicle to get its current driver
+        const vehicle = fleetVehicles.find(
           (v) => String(v.id) === String(vehicleId),
         );
-        if (!vehicleExists) {
+        if (!vehicle) {
+          console.error("Vehicle not found:", vehicleId);
           await fetchDrivers(); // Refresh to get latest state
           return;
         }
 
         // VALIDATION: If assigning a new driver, verify they are marked as available
-        // The database persists the driver state; we only check the availability flag
         if (newDriver) {
           if (!newDriver.isAvailable) {
             console.error("Cannot assign driver: driver is not available", {
@@ -157,11 +150,31 @@ export function GISMap() {
         // Optimistic update: Update frontend fleet state immediately
         assignDriverToVehicle(vehicleId, newDriver);
 
-        // 1. First, unassign the old driver if one exists
-        const oldDriver = drivers.find(
+        // 1. Release the OLD driver (check both sources: vehicle.driver and drivers array)
+        // First check vehicle.driver (the source of truth for vehicle state)
+        const vehicleCurrentDriver = vehicle.driver;
+        // Also check drivers array by currentVehicleId (in case of stale state)
+        const driverFromArray = drivers.find(
           (d) => d.currentVehicleId === String(vehicleId),
         );
-        if (oldDriver) {
+        
+        // Determine which driver(s) need to be released
+        const driversToRelease: Driver[] = [];
+        
+        if (vehicleCurrentDriver) {
+          driversToRelease.push(vehicleCurrentDriver);
+        }
+        
+        // Also release driver from array if different from vehicle's driver
+        if (driverFromArray && (!vehicleCurrentDriver || driverFromArray.id !== vehicleCurrentDriver.id)) {
+          driversToRelease.push(driverFromArray);
+        }
+        
+        // Release all old drivers
+        for (const oldDriver of driversToRelease) {
+          // Skip if this is the same as the new driver (shouldn't happen but safety check)
+          if (newDriver && oldDriver.id === newDriver.id) continue;
+          
           optimisticUpdateDriver(oldDriver.id, {
             isAvailable: true,
             currentVehicleId: undefined,
@@ -173,7 +186,7 @@ export function GISMap() {
           });
         }
 
-        // 2. Then assign the new driver if provided
+        // 2. Assign the NEW driver if provided
         if (newDriver) {
           optimisticUpdateDriver(newDriver.id, {
             isAvailable: false,
@@ -190,7 +203,8 @@ export function GISMap() {
         await fetchDrivers();
       } catch (error) {
         console.error("Error assigning driver:", error);
-        // Ideally we should revert the optimistic update here
+        // Refresh drivers to recover from any inconsistent state
+        await fetchDrivers();
       }
     },
     [
@@ -655,8 +669,6 @@ export function GISMap() {
         gasStations={dynamicGasStations}
         isGasStationLayerVisible={layers.gasStations}
         onToggleGasStationLayer={() => toggleLayer("gasStations")}
-        isExpanded={isSidebarExpanded}
-        setIsExpanded={setIsSidebarExpanded}
       />
       <div className="relative flex-1">
         <MapContainer
