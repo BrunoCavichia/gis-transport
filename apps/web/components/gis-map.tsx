@@ -13,7 +13,7 @@ import type {
 } from "@gis/shared";
 import { InteractionMode as LocalInteractionMode } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
-import { isDriverTrulyAvailable, generateVehicleAlerts } from "@/lib/utils";
+import { generateVehicleAlerts } from "@/lib/utils";
 import type { Alert } from "@/lib/utils";
 import { useFleet } from "@/hooks/use-fleet";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
@@ -127,18 +127,16 @@ export function GISMap() {
           return;
         }
 
-        // VALIDATION: If assigning a new driver, verify they are actually available
+        // VALIDATION: If assigning a new driver, verify they are marked as available
+        // The database persists the driver state; we only check the availability flag
         if (newDriver) {
-          if (!isDriverTrulyAvailable(newDriver)) {
-            console.error(
-              "Cannot assign driver: driver is not available or already assigned to another vehicle",
-              {
-                driverId: newDriver.id,
-                driverName: newDriver.name,
-                isAvailable: newDriver.isAvailable,
-                currentVehicleId: newDriver.currentVehicleId,
-              },
-            );
+          if (!newDriver.isAvailable) {
+            console.error("Cannot assign driver: driver is not available", {
+              driverId: newDriver.id,
+              driverName: newDriver.name,
+              isAvailable: newDriver.isAvailable,
+              currentVehicleId: newDriver.currentVehicleId,
+            });
             await fetchDrivers(); // Refresh to get latest state
             return;
           }
@@ -463,8 +461,19 @@ export function GISMap() {
   const handleRemoveVehicle = useCallback(
     (id: string | number) => {
       removeVehicle(String(id));
+      // Clean up drivers assigned to this vehicle
+      drivers.forEach((driver) => {
+        if (String(driver.currentVehicleId) === String(id)) {
+          updateDriver(driver.id, {
+            isAvailable: true,
+            currentVehicleId: null as any,
+          }).catch((err) =>
+            console.error("Failed to clean up driver assignment:", err),
+          );
+        }
+      });
     },
-    [removeVehicle],
+    [removeVehicle, drivers, updateDriver],
   );
 
   const handleRemoveJob = useCallback(

@@ -10,6 +10,12 @@ export interface IGisRepository {
   updateDriver(id: string, data: any): Promise<Driver>;
   logSpeeding(driverId: string, event: any): Promise<void>;
   clearAllDrivers(): Promise<void>;
+  createDriverVehicleAssignment(data: {
+    driverId: string;
+    vehicleId: string;
+    assignedAt?: Date;
+    unassignedAt?: Date | null;
+  }): Promise<any>;
 }
 
 export class PrismaGisRepository implements IGisRepository {
@@ -145,6 +151,22 @@ export class PrismaGisRepository implements IGisRepository {
     await this.prisma.speedingEvent.deleteMany({});
     // Then delete all drivers
     await this.prisma.driver.deleteMany({});
+  }
+
+  async createDriverVehicleAssignment(data: {
+    driverId: string;
+    vehicleId: string;
+    assignedAt?: Date;
+    unassignedAt?: Date | null;
+  }): Promise<any> {
+    return this.prisma.driverVehicleAssignment.create({
+      data: {
+        driverId: data.driverId,
+        vehicleId: data.vehicleId,
+        assignedAt: data.assignedAt || new Date(),
+        unassignedAt: data.unassignedAt || null,
+      },
+    });
   }
 }
 

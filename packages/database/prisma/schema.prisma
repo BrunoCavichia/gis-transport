@@ -89,9 +89,30 @@ model Driver {
   currentVehicleId   String?         // ID of the vehicle currently assigned
   
   speedingEvents     SpeedingEvent[]
+  vehicleAssignments DriverVehicleAssignment[]
   
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+}
+
+model DriverVehicleAssignment {
+  id          String   @id @default(uuid())
+  
+  driverId    String
+  driver      Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  vehicleId   String   // Can be null if vehicle was deleted, but we keep the history
+  
+  assignedAt  DateTime @default(now())
+  unassignedAt DateTime?
+  
+  notes       String?  // Optional: reason for unassignment, etc.
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([driverId, assignedAt])
+  @@index([vehicleId, assignedAt])
 }
 
 model SpeedingEvent {

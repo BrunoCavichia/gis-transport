@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { cn, isDriverTrulyAvailable } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +51,7 @@ interface VehicleDetailSheetProps {
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
   onClose: () => void;
   drivers?: Driver[];
+  vehicles?: FleetVehicle[];
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
 }
 
@@ -67,6 +68,7 @@ export function VehicleDetailSheet({
   pickedStopCoords,
   onAddStopSubmit,
   drivers = [],
+  vehicles = [],
   onAssignDriver,
   onClose,
 }: VehicleDetailSheetProps) {
@@ -388,14 +390,14 @@ export function VehicleDetailSheet({
                 </p>
                 <div className="flex flex-wrap gap-1 justify-center max-h-24 overflow-y-auto px-1">
                   {(() => {
-                    // Validation: Filter drivers that are TRULY available
-                    // using the dedicated validation utility
-                    const trulyAvailableDrivers = drivers.filter((d: Driver) =>
-                      isDriverTrulyAvailable(d),
-                    );
+                    // Filter drivers: only those marked as available
+                    // isAvailable flag is the source of truth for availability
+                    const availableDrivers = drivers.filter((d: Driver) => {
+                      return d.isAvailable === true;
+                    });
 
-                    return trulyAvailableDrivers.length > 0 ? (
-                      trulyAvailableDrivers.map((driver: Driver) => (
+                    return availableDrivers.length > 0 ? (
+                      availableDrivers.map((driver: Driver) => (
                         <Button
                           key={driver.id}
                           variant="outline"

@@ -532,6 +532,7 @@ export function FleetDashboard({
             pickedStopCoords={pickedStopCoords}
             onAddStopSubmit={onAddStopSubmit}
             drivers={drivers}
+            vehicles={vehicles}
             onAssignDriver={onAssignDriver}
           />
         </div>

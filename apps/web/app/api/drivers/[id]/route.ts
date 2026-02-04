@@ -68,16 +68,37 @@ export async function PATCH(
       }
     }
 
-    // BACKEND VALIDATION: If marking as available, must clear vehicle assignment
-    if (body.isAvailable === true && body.currentVehicleId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Cannot mark driver as available while assigned to a vehicle. Clear the assignment first.",
-        },
-        { status: 400 },
-      );
+    // Get current driver state to detect assignment changes
+    const drivers = await repository.getDrivers();
+    const currentDriver = drivers.find((d) => d.id === id);
+
+    // Handle vehicle assignment history: record transition when vehicle assignment changes
+    if (
+      currentDriver &&
+      body.currentVehicleId !== undefined &&
+      body.currentVehicleId !== currentDriver.currentVehicleId
+    ) {
+      const prevVehicleId = currentDriver.currentVehicleId;
+      const newVehicleId = body.currentVehicleId;
+
+      // If there was a previous assignment, close it
+      if (prevVehicleId) {
+        try {
+          await repository.createDriverVehicleAssignment({
+            driverId: id,
+            vehicleId: prevVehicleId,
+            assignedAt: new Date(currentDriver.updatedAt),
+            unassignedAt: new Date(),
+          });
+        } catch (historyErr) {
+          console.error("Failed to record assignment history:", historyErr);
+          // Don't fail the entire request if history fails
+        }
+      }
+
+      // If assigning to a new vehicle, we don't create a record yet
+      // The active assignment is tracked by currentVehicleId in the Driver model
+      // A new record will be created when this assignment is closed
     }
 
     const driver = await repository.updateDriver(id, body);
