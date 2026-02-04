@@ -7,164 +7,180 @@ import { THEME } from "@/lib/theme";
 import { useZoneCache } from "@/hooks/use-zone-cache";
 import { useMapPOIManager } from "@/hooks/use-map-poi-manager";
 import {
-    LayerVisibility,
-    VehicleType,
-    POI,
-    Zone,
-    RouteData,
-    WeatherData
+  LayerVisibility,
+  VehicleType,
+  POI,
+  Zone,
+  RouteData,
+  WeatherData,
 } from "@/lib/types";
 import { usePOICache } from "@/hooks/use-poi-cache";
 
 interface MapEventHandlerProps {
-    isRouting: boolean;
-    routePoints: { start: [number, number] | null; end: [number, number] | null };
-    setRoutePoints: (points: {
-        start: [number, number] | null;
-        end: [number, number] | null;
-    }) => void;
-    setDynamicEVStations: (stations: POI[]) => void;
-    setDynamicGasStations: (stations: POI[]) => void;
-    setDynamicZones: (zones: Zone[]) => void;
-    setMapCenter: (center: [number, number]) => void;
-    layers: LayerVisibility;
-    selectedVehicle: VehicleType;
-    onMapClick?: (coords: [number, number]) => void;
-    wrapAsync: (fn: () => Promise<void>) => Promise<void>;
-    poiCache: ReturnType<typeof usePOICache>;
-    mapCenter: [number, number];
-    onZonesUpdate?: (zones: Zone[]) => void;
-    setZoom: (zoom: number) => void;
-    setViewportBounds: (bounds: L.LatLngBounds) => void;
+  isRouting: boolean;
+  routePoints: { start: [number, number] | null; end: [number, number] | null };
+  setRoutePoints: (points: {
+    start: [number, number] | null;
+    end: [number, number] | null;
+  }) => void;
+  setDynamicEVStations: (stations: POI[]) => void;
+  setDynamicGasStations: (stations: POI[]) => void;
+  setDynamicZones: (zones: Zone[]) => void;
+  setMapCenter: (center: [number, number]) => void;
+  layers: LayerVisibility;
+  onMapClick?: (coords: [number, number]) => void;
+  wrapAsync: (fn: () => Promise<void>) => Promise<void>;
+  poiCache: ReturnType<typeof usePOICache>;
+  mapCenter: [number, number];
+  onZonesUpdate?: (zones: Zone[]) => void;
+  setZoom: (zoom: number) => void;
+  setViewportBounds: (bounds: L.LatLngBounds) => void;
 }
 
 export function MapEventHandler({
-    isRouting,
-    routePoints,
-    setRoutePoints,
+  isRouting,
+  routePoints,
+  setRoutePoints,
+  setDynamicEVStations,
+  setDynamicGasStations,
+  setDynamicZones,
+  setMapCenter,
+  layers,
+  onMapClick,
+  wrapAsync,
+  poiCache,
+  mapCenter,
+  onZonesUpdate,
+  setZoom,
+  setViewportBounds,
+}: MapEventHandlerProps) {
+  const map = useMap();
+  const zoneCache = useZoneCache(map, layers, wrapAsync);
+  const { fetchPOIs } = useMapPOIManager({
+    map,
+    poiCache,
+    layers,
     setDynamicEVStations,
     setDynamicGasStations,
-    setDynamicZones,
-    setMapCenter,
-    layers,
-    selectedVehicle,
-    onMapClick,
-    wrapAsync,
-    poiCache,
-    mapCenter,
-    onZonesUpdate,
-    setZoom,
-    setViewportBounds,
-}: MapEventHandlerProps) {
-    const map = useMap();
-    const zoneCache = useZoneCache(map, layers, selectedVehicle, wrapAsync);
-    const { fetchPOIs } = useMapPOIManager({
-        map,
-        selectedVehicle,
-        poiCache,
-        layers,
-        setDynamicEVStations,
-        setDynamicGasStations,
-    });
+  });
 
-    const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const lastLayersStateRef = useRef({ ev: layers.evStations, gas: layers.gasStations });
-    const lastZoomLevelRef = useRef<number | null>(null);
-    
-    // Check if any POI layer is enabled
-    const hasAnyLayerEnabled = useMemo(() => layers.evStations || layers.gasStations, [layers.evStations, layers.gasStations]);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLayersStateRef = useRef({
+    ev: layers.evStations,
+    gas: layers.gasStations,
+  });
+  const lastZoomLevelRef = useRef<number | null>(null);
 
-    useEffect(() => {
-        setDynamicZones(zoneCache.zones);
-        onZonesUpdate?.(zoneCache.zones);
-    }, [zoneCache.zones, setDynamicZones, onZonesUpdate]);
+  // Check if any POI layer is enabled
+  const hasAnyLayerEnabled = useMemo(
+    () => layers.evStations || layers.gasStations,
+    [layers.evStations, layers.gasStations],
+  );
 
-    useMapEvents({
-        click: (e) => {
-            const point: [number, number] = [e.latlng.lat, e.latlng.lng];
-            if (onMapClick) {
-                onMapClick(point);
-                return;
-            }
-            if (!isRouting) return;
-            if (!routePoints.start) setRoutePoints({ start: point, end: null });
-            else if (!routePoints.end) setRoutePoints({ ...routePoints, end: point });
-        },
-        moveend: () => {
-            const newCenter = map.getCenter();
-            const dist = newCenter.distanceTo({ lat: mapCenter[0], lng: mapCenter[1] });
+  useEffect(() => {
+    setDynamicZones(zoneCache.zones);
+    onZonesUpdate?.(zoneCache.zones);
+  }, [zoneCache.zones, setDynamicZones, onZonesUpdate]);
 
-            if (dist > THEME.map.interaction.moveThreshold) {
-                setMapCenter([newCenter.lat, newCenter.lng]);
-                setViewportBounds(map.getBounds());
-            }
+  useMapEvents({
+    click: (e) => {
+      const point: [number, number] = [e.latlng.lat, e.latlng.lng];
+      if (onMapClick) {
+        onMapClick(point);
+        return;
+      }
+      if (!isRouting) return;
+      if (!routePoints.start) setRoutePoints({ start: point, end: null });
+      else if (!routePoints.end) setRoutePoints({ ...routePoints, end: point });
+    },
+    moveend: () => {
+      const newCenter = map.getCenter();
+      const dist = newCenter.distanceTo({
+        lat: mapCenter[0],
+        lng: mapCenter[1],
+      });
 
-            if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
-            fetchTimeoutRef.current = setTimeout(() => {
-                zoneCache.fetchZones();
-                // Only fetch POIs if at least one layer is enabled
-                if (hasAnyLayerEnabled) {
-                    fetchPOIs();
-                }
-            }, THEME.map.interaction.fetchDebounce);
-        },
-        zoomend: () => {
-            const newZoom = map.getZoom();
-            setZoom(newZoom);
-            setViewportBounds(map.getBounds());
-            
-            // Check if zoom crossed the threshold for showing POI icons
-            const wasAboveThreshold = lastZoomLevelRef.current !== null && lastZoomLevelRef.current >= THEME.map.poi.lod.minZoomForDots;
-            const isNowAboveThreshold = newZoom >= THEME.map.poi.lod.minZoomForDots;
-            const thresholdCrossed = wasAboveThreshold !== isNowAboveThreshold;
-            
-            lastZoomLevelRef.current = newZoom;
-            
-            if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
-            
-            // If threshold was crossed and layers are enabled, fetch immediately
-            if (thresholdCrossed && hasAnyLayerEnabled && isNowAboveThreshold) {
-                fetchPOIs();
-            } else {
-                // Otherwise use normal debounce
-                fetchTimeoutRef.current = setTimeout(() => {
-                    zoneCache.fetchZones();
-                    if (hasAnyLayerEnabled) {
-                        fetchPOIs();
-                    }
-                }, THEME.map.interaction.zoomDebounce);
-            }
-        },
-    });
-
-    useEffect(() => {
-        zoneCache.fetchZones();
+      if (dist > THEME.map.interaction.moveThreshold) {
+        setMapCenter([newCenter.lat, newCenter.lng]);
         setViewportBounds(map.getBounds());
-        // Only fetch POIs on init if a layer is enabled
+      }
+
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = setTimeout(() => {
+        zoneCache.fetchZones();
+        // Only fetch POIs if at least one layer is enabled
         if (hasAnyLayerEnabled) {
+          fetchPOIs();
+        }
+      }, THEME.map.interaction.fetchDebounce);
+    },
+    zoomend: () => {
+      const newZoom = map.getZoom();
+      setZoom(newZoom);
+      setViewportBounds(map.getBounds());
+
+      // Check if zoom crossed the threshold for showing POI icons
+      const wasAboveThreshold =
+        lastZoomLevelRef.current !== null &&
+        lastZoomLevelRef.current >= THEME.map.poi.lod.poi.minimal;
+      const isNowAboveThreshold = newZoom >= THEME.map.poi.lod.poi.minimal;
+      const thresholdCrossed = wasAboveThreshold !== isNowAboveThreshold;
+
+      lastZoomLevelRef.current = newZoom;
+
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+
+      // If threshold was crossed and layers are enabled, fetch immediately
+      if (thresholdCrossed && hasAnyLayerEnabled && isNowAboveThreshold) {
+        fetchPOIs();
+      } else {
+        // Otherwise use normal debounce
+        fetchTimeoutRef.current = setTimeout(() => {
+          zoneCache.fetchZones();
+          if (hasAnyLayerEnabled) {
             fetchPOIs();
-        }
-    }, []);
+          }
+        }, THEME.map.interaction.zoomDebounce);
+      }
+    },
+  });
 
-    // Trigger fetch when layers toggle
-    useEffect(() => {
-        const hasChanged = lastLayersStateRef.current.ev !== layers.evStations ||
-            lastLayersStateRef.current.gas !== layers.gasStations;
+  useEffect(() => {
+    zoneCache.fetchZones();
+    setViewportBounds(map.getBounds());
+    // Only fetch POIs on init if a layer is enabled
+    if (hasAnyLayerEnabled) {
+      fetchPOIs();
+    }
+  }, []);
 
-        if (hasChanged) {
-            lastLayersStateRef.current = { ev: layers.evStations, gas: layers.gasStations };
-            // Only fetch if turning ON (not turning OFF)
-            if (layers.evStations || layers.gasStations) {
-                if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
-                // Execute immediately, don't wait for timeout
-                fetchPOIs();
-            } else {
-                // If all layers are OFF, don't update state to avoid unnecessary re-renders
-                // The renderedGasStations and renderedEVStations memos will return null
-                // based on the layers visibility check, so we don't need to clear the arrays
-            }
-        }
-    }, [layers.evStations, layers.gasStations, fetchPOIs]);
+  // Trigger fetch when layers toggle
+  useEffect(() => {
+    const hasChanged =
+      lastLayersStateRef.current.ev !== layers.evStations ||
+      lastLayersStateRef.current.gas !== layers.gasStations;
 
-    return null;
+    if (hasChanged) {
+      lastLayersStateRef.current = {
+        ev: layers.evStations,
+        gas: layers.gasStations,
+      };
+      // Only fetch if turning ON (not turning OFF)
+      if (layers.evStations || layers.gasStations) {
+        if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+        // Execute immediately, don't wait for timeout
+        console.log(
+          "[MapEventHandler] Fetching POIs, gas layer:",
+          layers.gasStations,
+        );
+        fetchPOIs();
+      } else {
+        // If all layers are OFF, don't update state to avoid unnecessary re-renders
+        // The renderedGasStations and renderedEVStations memos will return null
+        // based on the layers visibility check, so we don't need to clear the arrays
+      }
+    }
+  }, [layers.evStations, layers.gasStations, fetchPOIs]);
+
+  return null;
 }

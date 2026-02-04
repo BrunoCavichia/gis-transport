@@ -43,6 +43,14 @@ export function GISMap() {
   const [, setWeather] = useState<WeatherData | null>(null);
   const [dynamicEVStations, setDynamicEVStations] = useState<POI[]>([]);
   const [dynamicGasStations, setDynamicGasStations] = useState<POI[]>([]);
+
+  // Log when gas stations update
+  useEffect(() => {
+    console.log(
+      "[GISMap] dynamicGasStations updated:",
+      dynamicGasStations.length,
+    );
+  }, [dynamicGasStations]);
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>(
     VEHICLE_TYPES[0],
@@ -186,6 +194,9 @@ export function GISMap() {
   );
 
   // Reconciliation: Auto-release drivers assigned to non-existent vehicles
+  // Using useRef to track previous driver/vehicle IDs to avoid unnecessary reconciliation
+  const prevOhpanedCheckRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     // Only run if data is loaded
     if (isLoadingVehicles || isLoadingDrivers || !drivers.length) return;
@@ -200,8 +211,16 @@ export function GISMap() {
         !validVehicleIds.has(String(d.currentVehicleId)), // But vehicle doesn't exist in current fleet
     );
 
-    if (orphanedDrivers.length > 0) {
-      orphanedDrivers.forEach((driver) => {
+    // Get IDs of current orphaned drivers
+    const currentOrphanedIds = new Set(orphanedDrivers.map((d) => d.id));
+
+    // Only process if there are NEW orphaned drivers (not in previous check)
+    const newOrphanedDrivers = orphanedDrivers.filter(
+      (d) => !prevOhpanedCheckRef.current.has(d.id),
+    );
+
+    if (newOrphanedDrivers.length > 0) {
+      newOrphanedDrivers.forEach((driver) => {
         // 1. Optimistic local update
         optimisticUpdateDriver(driver.id, {
           isAvailable: true,
@@ -218,6 +237,9 @@ export function GISMap() {
         );
       });
     }
+
+    // Update the ref for next check
+    prevOhpanedCheckRef.current = currentOrphanedIds;
   }, [
     fleetVehicles,
     drivers,
@@ -591,7 +613,7 @@ export function GISMap() {
         onAddStopSubmit={handleAddStopSubmit}
         gasStations={dynamicGasStations}
         isGasStationLayerVisible={layers.gasStations}
-        onToggleGasStationLayer={() => toggleLayer('gasStations')}
+        onToggleGasStationLayer={() => toggleLayer("gasStations")}
       />
       <div className="relative flex-1">
         <MapContainer

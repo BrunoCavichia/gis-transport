@@ -48,7 +48,7 @@ import {
 } from "@/components/sidebar-components";
 import { DriverDetailsSheet } from "./driver-details-sheet";
 
-const STABLE_NOOP = () => { };
+const STABLE_NOOP = () => {};
 const STABLE_PROMISE_NOOP = () => Promise.resolve();
 
 import { FleetDashboard } from "@/components/fleet-dashboard";
@@ -458,7 +458,9 @@ const LayersTab = memo(
                     <div
                       className={cn(
                         "h-2 w-2 rounded-full shadow-[0_0_8px]",
-                        value ? "bg-primary shadow-primary/50" : "bg-muted shadow-transparent",
+                        value
+                          ? "bg-primary shadow-primary/50"
+                          : "bg-muted shadow-transparent",
                       )}
                     />
                     <span className="text-[13px] font-bold capitalize text-foreground/90">
@@ -467,7 +469,9 @@ const LayersTab = memo(
                   </div>
                   <Switch
                     checked={value as boolean}
-                    onCheckedChange={() => toggleLayer(key as keyof LayerVisibility)}
+                    onCheckedChange={() =>
+                      toggleLayer(key as keyof LayerVisibility)
+                    }
                     className="scale-90 origin-right transition-all data-[state=checked]:bg-primary"
                   />
                 </div>
@@ -479,7 +483,10 @@ const LayersTab = memo(
               <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest">
                 Puntos de Interés
               </Label>
-              <Badge variant="outline" className="text-[10px] font-black border-primary/20 text-primary h-5 bg-primary/5">
+              <Badge
+                variant="outline"
+                className="text-[10px] font-black border-primary/20 text-primary h-5 bg-primary/5"
+              >
                 {customPOIs.length}
               </Badge>
             </div>
@@ -488,7 +495,8 @@ const LayersTab = memo(
               className="w-full justify-start text-[11px] font-black uppercase tracking-wider h-11 rounded-xl border-dashed border-2 border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all"
               onClick={onAddPOIClick}
             >
-              <Plus className="h-4 w-4 mr-2 text-primary" /> Nuevo Punto de Gestión
+              <Plus className="h-4 w-4 mr-2 text-primary" /> Nuevo Punto de
+              Gestión
             </Button>
             {customPOIs.length > 0 && (
               <div className="space-y-3 mt-2">
@@ -507,7 +515,8 @@ const LayersTab = memo(
                           {poi.name}
                         </span>
                         <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter mt-0.5">
-                          GPS: {poi.position[0].toFixed(4)}, {poi.position[1].toFixed(4)}
+                          GPS: {poi.position[0].toFixed(4)},{" "}
+                          {poi.position[1].toFixed(4)}
                         </span>
                       </div>
                     </div>
@@ -669,15 +678,15 @@ export const Sidebar = memo(
             "ml-3 rounded-3xl border border-white/20 bg-background/90 backdrop-blur-xl shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden flex flex-col pointer-events-auto h-auto max-h-full",
             isExpanded
               ? cn(
-                "opacity-100 translate-x-0",
-                activeTab === "dashboard"
-                  ? selectedVehicleId !== null
-                    ? "w-[40rem]" // Increased from 32rem
-                    : fleetVehicles.length > 3
-                      ? "w-[36rem]" // Increased from 28rem
-                      : "w-96"      // Increased from w-80 (24rem)
-                  : "w-80",
-              )
+                  "opacity-100 translate-x-0",
+                  activeTab === "dashboard"
+                    ? selectedVehicleId !== null
+                      ? "w-[40rem]" // Increased from 32rem
+                      : fleetVehicles.length > 3
+                        ? "w-[36rem]" // Increased from 28rem
+                        : "w-96" // Increased from w-80 (24rem)
+                    : "w-80",
+                )
               : "w-0 opacity-0 -translate-x-10",
           )}
         >
@@ -732,7 +741,7 @@ export const Sidebar = memo(
                 drivers={drivers || []}
                 fleetVehicles={fleetVehicles || []}
                 isLoading={isLoadingDrivers || false}
-                fetchDrivers={fetchDrivers || (async () => { })}
+                fetchDrivers={fetchDrivers || (async () => {})}
                 addDriver={addDriver || (async () => undefined)}
                 onDriverSelect={(d) => setSelectedDriverId(d.id)}
               />
@@ -784,7 +793,8 @@ export const Sidebar = memo(
       prev.pickedStopCoords === next.pickedStopCoords &&
       prev.drivers === next.drivers &&
       prev.isLoadingDrivers === next.isLoadingDrivers &&
-      prev.onAssignDriver === next.onAssignDriver
+      prev.onAssignDriver === next.onAssignDriver &&
+      prev.gasStations === next.gasStations
     );
   },
 );

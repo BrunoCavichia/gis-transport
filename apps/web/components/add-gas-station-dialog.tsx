@@ -39,22 +39,28 @@ interface AddGasStationDialogProps {
   onOpenChange: (open: boolean) => void;
   gasStation: POI | null;
   vehicles: FleetVehicle[];
-  onAddToVehicle: (vehicleId: string | number, coords: [number, number], label: string) => void;
+  onAddToVehicle: (
+    vehicleId: string | number,
+    coords: [number, number],
+    label: string,
+  ) => void;
   isLoading?: boolean;
 }
 
 // Step 1: Preview del mapa
 const Step1Content = memo(
-  ({ gasStation, onNext, onCancel }: {
+  ({
+    gasStation,
+    onNext,
+    onCancel,
+  }: {
     gasStation: POI;
     onNext: () => void;
     onCancel: () => void;
   }) => (
     <div className="space-y-6 animate-in fade-in zoom-in duration-300">
       <div className="relative h-48 w-full rounded-2xl overflow-hidden border-2 border-primary/20 bg-muted shadow-inner group">
-        {gasStation && (
-          <MapPreview coords={gasStation.position} />
-        )}
+        {gasStation && <MapPreview coords={gasStation.position} />}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
         <div className="absolute top-3 right-3 flex gap-2">
           <div className="px-2 py-1 bg-background/90 backdrop-blur-md rounded-lg border border-border/50 shadow-sm flex items-center gap-1.5">
@@ -106,7 +112,13 @@ Step1Content.displayName = "Step1Content";
 
 // Step 2: Seleccionar vehículo
 const Step2Content = memo(
-  ({ gasStation, vehicles, isLoading, onBack, onSubmit }: {
+  ({
+    gasStation,
+    vehicles,
+    isLoading,
+    onBack,
+    onSubmit,
+  }: {
     gasStation: POI;
     vehicles: FleetVehicle[];
     isLoading?: boolean;
@@ -175,7 +187,13 @@ Step2Content.displayName = "Step2Content";
 
 // Step 3: Confirmación
 const Step3Content = memo(
-  ({ gasStation, selectedVehicle, isLoading, onBack, onSubmit }: {
+  ({
+    gasStation,
+    selectedVehicle,
+    isLoading,
+    onBack,
+    onSubmit,
+  }: {
     gasStation: POI;
     selectedVehicle: FleetVehicle | null;
     isLoading?: boolean;
@@ -251,7 +269,9 @@ export const AddGasStationDialog = memo(function AddGasStationDialog({
   isLoading = false,
 }: AddGasStationDialogProps) {
   const [step, setStep] = useState(1);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | number | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<
+    string | number | null
+  >(null);
 
   // Reset state when closing
   useEffect(() => {

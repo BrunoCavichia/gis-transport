@@ -1,24 +1,22 @@
 // hooks/use-zone-cache.ts
 import { useState, useRef, useCallback } from "react";
-import type { Zone, VehicleType, LayerVisibility } from "@/lib/types";
+import type { Zone, LayerVisibility } from "@/lib/types";
 import type { Map } from "leaflet";
 
 export function useZoneCache(
   map: Map,
   layers: LayerVisibility,
-  selectedVehicle: VehicleType,
-  wrapAsync: (fn: () => Promise<void>) => Promise<void>
+  wrapAsync: (fn: () => Promise<void>) => Promise<void>,
 ) {
   const [zones, setZones] = useState<Zone[]>([]);
   const lastZoneFetch = useRef<{ lat: number; lon: number } | null>(null);
   const isLoading = useRef(false);
-  const pendingRequest = useRef<Promise<void> | null>(null);
 
   const haversineMeters = (
     lat1: number,
     lon1: number,
     lat2: number,
-    lon2: number
+    lon2: number,
   ) => {
     const toRad = (v: number) => (v * Math.PI) / 180;
     const R = 6371000;
@@ -52,7 +50,7 @@ export function useZoneCache(
     if (
       last &&
       haversineMeters(last.lat, last.lon, center.lat, center.lng) <
-      MIN_DISTANCE_METERS
+        MIN_DISTANCE_METERS
     ) {
       return;
     }
@@ -71,8 +69,8 @@ export function useZoneCache(
         const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const res = await fetch(
-          `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=15000&vehicle=${selectedVehicle.label}`,
-          { signal: controller.signal }
+          `/api/zones?lat=${center.lat}&lon=${center.lng}&radius=15000&vehicle=all`,
+          { signal: controller.signal },
         );
 
         clearTimeout(timeoutId);
@@ -81,19 +79,14 @@ export function useZoneCache(
         const fetchedZones: Zone[] = data.zones || [];
         setZones(fetchedZones);
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
+        if ((err as Error).name !== "AbortError") {
           console.error("Failed to fetch zones:", err);
         }
       } finally {
         isLoading.current = false;
       }
     });
-  }, [
-    map,
-    layers.cityZones,
-    selectedVehicle.label,
-    wrapAsync,
-  ]);
+  }, [map, layers.cityZones, wrapAsync]);
 
   return { zones, fetchZones };
 }
