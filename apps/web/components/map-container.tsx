@@ -5,8 +5,7 @@ import {
   MAP_TILE_URL,
   MAP_ATTRIBUTION,
 } from "@/lib/config";
-import { THEME } from "@/lib/theme";
-import { useEffect, useState, useCallback, useMemo, Fragment } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   MapContainer as LeafletMap,
   TileLayer,
@@ -16,7 +15,6 @@ import {
 import type {
   RouteData,
   WeatherData,
-  RouteWeather,
   LayerVisibility,
   POI,
   CustomPOI,
@@ -37,14 +35,12 @@ import {
   renderJobMarkers,
   renderCustomPOIs,
 } from "@/app/helpers/map-render-helpers";
-
 // Modular Imports
 import { FitBounds } from "./map/FitBounds";
 import { MapCenterHandler } from "./map/MapCenterHandler";
 import { MapEventHandler } from "./map/MapEventHandler";
 import { RouteLayer } from "./map/RouteLayer";
 import { VehiclesLayer } from "./map/VehiclesLayer";
-import { useMapLOD } from "@/hooks/use-map-lod";
 
 interface MapContainerProps {
   layers: LayerVisibility;
@@ -106,25 +102,15 @@ export default function MapContainer({
   onVehicleTypeChange,
   onVehicleLabelUpdate,
   onVehicleSelect,
-  toggleLayer,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  const [_viewportBounds, setViewportBounds] = useState<L.LatLngBounds | null>(
-    null,
-  );
+  const [, setViewportBounds] = useState<L.LatLngBounds | null>(null);
   // Force re-render when gas stations change
-  const [, setGasStationUpdateTrigger] = useState(0);
 
   const { loading, wrapAsync } = useLoadingLayers();
   const poiCache = usePOICache();
-
-  // Trigger re-render when dynamicGasStations updates
-  useEffect(() => {
-    setGasStationUpdateTrigger((prev) => prev + 1);
-  }, [dynamicGasStations]);
-
   const mapIcons = useMemo(() => createMapIcons(), []);
   const { job, customPOI, picking, vehicle, weather, gasStation, evStation } =
     mapIcons;
@@ -146,10 +132,7 @@ export default function MapContainer({
 
   const renderedGasStations = useMemo(() => {
     if (!layers.gasStations) return null;
-    console.log(
-      "[MapContainer] Rendering gas stations:",
-      dynamicGasStations.length,
-    );
+
     return renderPOIs({
       stations: dynamicGasStations,
       isEV: false,

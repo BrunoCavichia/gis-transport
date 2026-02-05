@@ -8,9 +8,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  MapPin,
-  Clock,
-  Phone,
   AlertTriangle,
   Activity,
   Users,
@@ -19,9 +16,9 @@ import {
   Tag,
   Edit2,
   Check,
-  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VEHICLE_TYPES } from "@/lib/types";
 
 interface VehicleDetailSheetProps {
   vehicle: FleetVehicle | null;
@@ -29,18 +26,39 @@ interface VehicleDetailSheetProps {
   isOpen?: boolean;
   drivers?: Driver[];
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
-  onChangeEnvironmentalTag?: (vehicleId: string | number, tagId: string) => void;
+  onChangeEnvironmentalTag?: (
+    vehicleId: string | number,
+    tagId: string,
+  ) => void;
   onUpdateLabel?: (vehicleId: string | number, label: string) => void;
-  onUpdateLicensePlate?: (vehicleId: string | number, licensePlate: string) => void;
+  onUpdateLicensePlate?: (
+    vehicleId: string | number,
+    licensePlate: string,
+  ) => void;
 }
 
-const ENVIRONMENTAL_TAGS = [
-  { id: "zero", label: "ZERO", color: "bg-green-500" },
-  { id: "eco", label: "ECO", color: "bg-blue-500" },
-  { id: "c", label: "C", color: "bg-yellow-500" },
-  { id: "b", label: "B", color: "bg-orange-500" },
-  { id: "none", label: "Sin etiqueta", color: "bg-gray-500" },
-];
+const ENVIRONMENTAL_TAGS = VEHICLE_TYPES.map((vehicleType) => {
+  const id = vehicleType.id === "noLabel" ? "none" : vehicleType.id || "";
+  const label =
+    vehicleType.id === "noLabel"
+      ? "Sin etiqueta"
+      : (vehicleType.id || "").toUpperCase();
+  const color = (() => {
+    switch (vehicleType.id) {
+      case "zero":
+        return "bg-green-500";
+      case "eco":
+        return "bg-blue-500";
+      case "c":
+        return "bg-yellow-500";
+      case "b":
+        return "bg-orange-500";
+      default:
+        return "bg-gray-500";
+    }
+  })();
+  return { id, label, color };
+});
 
 export function VehicleDetailSheet({
   vehicle,
@@ -77,20 +95,21 @@ export function VehicleDetailSheet({
   // Determine current environmental tag - Fixed logic for "none" selection
   const getCurrentTag = () => {
     const typeId = vehicle.type.id?.toLowerCase() || "";
-    
+
     // Check for "noLabel" or "none" explicitly
     if (typeId === "nolabel" || typeId === "none") {
-      return ENVIRONMENTAL_TAGS.find(tag => tag.id === "none")!;
+      return ENVIRONMENTAL_TAGS.find((tag) => tag.id === "none")!;
     }
-    
+
     // Find matching tag by ID
-    const matchedTag = ENVIRONMENTAL_TAGS.find(tag => 
-      tag.id !== "none" && (typeId === tag.id || typeId.includes(tag.id))
+    const matchedTag = ENVIRONMENTAL_TAGS.find(
+      (tag) =>
+        tag.id !== "none" && (typeId === tag.id || typeId.includes(tag.id)),
     );
-    
-    return matchedTag || ENVIRONMENTAL_TAGS.find(tag => tag.id === "none")!;
+
+    return matchedTag || ENVIRONMENTAL_TAGS.find((tag) => tag.id === "none")!;
   };
-  
+
   const currentTag = getCurrentTag();
 
   // Format timestamp if available
@@ -133,14 +152,16 @@ export function VehicleDetailSheet({
 
   // Get available drivers (excluding the currently assigned driver)
   const availableDrivers = drivers.filter(
-    (d: Driver) => d.isAvailable === true && d.id !== driver?.id
+    (d: Driver) => d.isAvailable === true && d.id !== driver?.id,
   );
 
   return (
     <div
       className={cn(
         "fixed top-4 right-4 bottom-4 w-[420px] max-w-[calc(100vw-120px)] bg-background border-2 border-border rounded-3xl shadow-2xl z-40 transition-all duration-300 ease-out transform flex flex-col overflow-hidden",
-        isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
+        isOpen
+          ? "translate-x-0 opacity-100"
+          : "translate-x-full opacity-0 pointer-events-none",
       )}
     >
       {/* Header */}
@@ -165,7 +186,6 @@ export function VehicleDetailSheet({
 
       {/* Content - Scrollable */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
-        
         {/* Primary Editable Fields Card */}
         <Card className="bg-card border-2 border-border/40 rounded-2xl p-0 overflow-hidden">
           <div className="p-5 space-y-4">
@@ -183,7 +203,9 @@ export function VehicleDetailSheet({
                     <div className="flex items-center gap-2 mt-1">
                       <Input
                         value={licensePlateValue}
-                        onChange={(e) => setLicensePlateValue(e.target.value.toUpperCase())}
+                        onChange={(e) =>
+                          setLicensePlateValue(e.target.value.toUpperCase())
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") handleSaveLicensePlate();
                           if (e.key === "Escape") {
@@ -272,7 +294,9 @@ export function VehicleDetailSheet({
                   <span>{vehicle.type.label}</span>
                   <span className="h-1 w-1 rounded-full bg-border" />
                   <Badge
-                    variant={metrics?.status === "active" ? "outline" : "secondary"}
+                    variant={
+                      metrics?.status === "active" ? "outline" : "secondary"
+                    }
                     className="text-[8px] uppercase font-black px-2 h-4"
                   >
                     {metrics?.status === "active" ? "Activo" : "Inactivo"}
@@ -290,7 +314,8 @@ export function VehicleDetailSheet({
                     Velocidad
                   </p>
                   <p className="text-lg font-black text-foreground">
-                    {metrics.speed} <span className="text-xs text-muted-foreground">km/h</span>
+                    {metrics.speed}{" "}
+                    <span className="text-xs text-muted-foreground">km/h</span>
                   </p>
                 </div>
 
@@ -303,7 +328,7 @@ export function VehicleDetailSheet({
                     <p
                       className={cn(
                         "text-lg font-black",
-                        isHealthy ? "text-green-600" : "text-red-600"
+                        isHealthy ? "text-green-600" : "text-red-600",
                       )}
                     >
                       {metrics.health}%
@@ -311,7 +336,7 @@ export function VehicleDetailSheet({
                     <Activity
                       className={cn(
                         "h-4 w-4",
-                        isHealthy ? "text-green-500" : "text-red-500"
+                        isHealthy ? "text-green-500" : "text-red-500",
                       )}
                     />
                   </div>
@@ -324,7 +349,9 @@ export function VehicleDetailSheet({
                       Combustible
                     </p>
                     <div className="space-y-1.5">
-                      <p className="text-sm font-black text-foreground">{metrics.fuelLevel}%</p>
+                      <p className="text-sm font-black text-foreground">
+                        {metrics.fuelLevel}%
+                      </p>
                       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-amber-500 rounded-full transition-all"
@@ -341,7 +368,9 @@ export function VehicleDetailSheet({
                       Batería
                     </p>
                     <div className="space-y-1.5">
-                      <p className="text-sm font-black text-foreground">{metrics.batteryLevel}%</p>
+                      <p className="text-sm font-black text-foreground">
+                        {metrics.batteryLevel}%
+                      </p>
                       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-emerald-500 rounded-full transition-all"
@@ -367,7 +396,12 @@ export function VehicleDetailSheet({
                 <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wide mb-1">
                   Etiqueta Actual
                 </p>
-                <Badge className={cn(currentTag.color, "text-white font-black px-3 py-1")}>
+                <Badge
+                  className={cn(
+                    currentTag.color,
+                    "text-white font-black px-3 py-1",
+                  )}
+                >
                   {currentTag.label}
                 </Badge>
               </div>
@@ -387,9 +421,12 @@ export function VehicleDetailSheet({
                       size="sm"
                       className={cn(
                         "h-10 text-xs font-bold px-2 rounded-lg transition-all relative",
-                        isSelected 
-                          ? cn(tag.color, "text-white border-0 shadow-md dark:text-white") 
-                          : "border border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5"
+                        isSelected
+                          ? cn(
+                              tag.color,
+                              "text-white border-0 shadow-md dark:text-white",
+                            )
+                          : "border border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5",
                       )}
                       onClick={() => {
                         if (onChangeEnvironmentalTag && !isSelected) {
@@ -397,7 +434,9 @@ export function VehicleDetailSheet({
                         }
                       }}
                     >
-                      <span className="drop-shadow-sm">{tag.id === "none" ? "—" : tag.label}</span>
+                      <span className="drop-shadow-sm">
+                        {tag.id === "none" ? "—" : tag.label}
+                      </span>
                       {isSelected && (
                         <Check className="h-3 w-3 absolute top-0.5 right-0.5 drop-shadow-sm" />
                       )}
@@ -421,10 +460,10 @@ export function VehicleDetailSheet({
                 <div className="flex items-center gap-3">
                   <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
                   <span className="text-xs font-bold text-foreground">
-                    {metrics?.movementState === "on_route" 
-                      ? "En Ruta" 
-                      : metrics?.movementState === "moving" 
-                        ? "En Movimiento" 
+                    {metrics?.movementState === "on_route"
+                      ? "En Ruta"
+                      : metrics?.movementState === "moving"
+                        ? "En Movimiento"
                         : "Parado"}
                   </span>
                 </div>
@@ -463,7 +502,9 @@ export function VehicleDetailSheet({
                       {driver.licenseNumber && (
                         <>
                           <span className="h-1 w-1 rounded-full bg-border" />
-                          <span className="font-mono text-[10px]">{driver.licenseNumber}</span>
+                          <span className="font-mono text-[10px]">
+                            {driver.licenseNumber}
+                          </span>
                         </>
                       )}
                     </div>
@@ -531,7 +572,7 @@ export function VehicleDetailSheet({
                               ? "bg-emerald-500"
                               : driver.onTimeDeliveryRate >= 75
                                 ? "bg-orange-500"
-                                : "bg-red-500"
+                                : "bg-red-500",
                           )}
                           style={{ width: `${driver.onTimeDeliveryRate}%` }}
                         />
@@ -541,10 +582,12 @@ export function VehicleDetailSheet({
 
                   {/* Availability Status */}
                   <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-xl border border-border/30">
-                    <div className={cn(
-                      "h-2 w-2 rounded-full shrink-0",
-                      driver.isAvailable ? "bg-emerald-500" : "bg-gray-500"
-                    )} />
+                    <div
+                      className={cn(
+                        "h-2 w-2 rounded-full shrink-0",
+                        driver.isAvailable ? "bg-emerald-500" : "bg-gray-500",
+                      )}
+                    />
                     <span className="text-xs font-bold text-foreground">
                       {driver.isAvailable ? "Disponible" : "No disponible"}
                     </span>

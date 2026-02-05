@@ -1,5 +1,5 @@
 import { repository } from "@/lib/db";
-import { GisDashboardData, FleetOverview, OptimizationSummary, WeatherSummary } from "@/lib/types/dashboard";
+import { GisDashboardData } from "@/lib/types/dashboard";
 
 export class GisDataService {
   /**

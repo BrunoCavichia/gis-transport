@@ -130,32 +130,44 @@ export class PrismaGisRepository implements IGisRepository {
         let coords: any = [];
         try {
           const geojson = JSON.parse(rz.geojson);
-          console.log(`[Repository] Zone ${rz.name}: GeoJSON type=${geojson.type}, parts=${geojson.coordinates?.length}`);
-          
+          console.log(
+            `[Repository] Zone ${rz.name}: GeoJSON type=${geojson.type}, parts=${geojson.coordinates?.length}`,
+          );
+
           if (geojson.type === "Polygon") {
             // Polygon: coordinates is [ Ring1, Ring2(hole), ... ]
             // Leaflet expects LatLng[][] for a polygon with rings
             coords = geojson.coordinates.map((ring: any) =>
-              ring.map((p: any) => [p[1], p[0]])
+              ring.map((p: any) => [p[1], p[0]]),
             );
           } else if (geojson.type === "MultiPolygon") {
             // MultiPolygon: coordinates is [ Polygon1, Polygon2, ... ]
             // Each Polygon is [ Ring1, Ring2, ... ]
-            // Leaflet can render MultiPolygon as LatLng[][][] 
+            // Leaflet can render MultiPolygon as LatLng[][][]
             coords = geojson.coordinates.map((poly: any) =>
-              poly.map((ring: any) =>
-                ring.map((p: any) => [p[1], p[0]])
-              )
+              poly.map((ring: any) => ring.map((p: any) => [p[1], p[0]])),
             );
           }
-          
+
           // Log the structure for debugging
-          const depth = Array.isArray(coords) && coords.length > 0 
-            ? (Array.isArray(coords[0]) ? (Array.isArray(coords[0][0]) ? (Array.isArray(coords[0][0][0]) ? "4D" : "3D") : "2D") : "1D")
-            : "empty";
-          console.log(`[Repository] Zone ${rz.name}: coords depth=${depth}, first ring points=${coords[0]?.[0]?.length || coords[0]?.length || 0}`);
+          const depth =
+            Array.isArray(coords) && coords.length > 0
+              ? Array.isArray(coords[0])
+                ? Array.isArray(coords[0][0])
+                  ? Array.isArray(coords[0][0][0])
+                    ? "4D"
+                    : "3D"
+                  : "2D"
+                : "1D"
+              : "empty";
+          console.log(
+            `[Repository] Zone ${rz.name}: coords depth=${depth}, first ring points=${coords[0]?.[0]?.length || coords[0]?.length || 0}`,
+          );
         } catch (e) {
-          console.warn(`[Repository] Failed to parse geometry for zone ${rz.osmId}:`, e);
+          console.warn(
+            `[Repository] Failed to parse geometry for zone ${rz.osmId}:`,
+            e,
+          );
         }
 
         const meta = rz.metadata || {};

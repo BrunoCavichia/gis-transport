@@ -26,7 +26,6 @@ import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 import { useDrivers } from "@/hooks/use-drivers";
 import { DriverDetailsSheet } from "@/components/driver-details-sheet";
-import { VehicleDetailSheet as VehicleDetailSheetOld } from "@/components/vehicle-detail-sheet";
 import { VehicleDetailSheet } from "@/components/vehicle-details-panel";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
@@ -157,24 +156,28 @@ export function GISMap() {
         const driverFromArray = drivers.find(
           (d) => d.currentVehicleId === String(vehicleId),
         );
-        
+
         // Determine which driver(s) need to be released
         const driversToRelease: Driver[] = [];
-        
+
         if (vehicleCurrentDriver) {
           driversToRelease.push(vehicleCurrentDriver);
         }
-        
+
         // Also release driver from array if different from vehicle's driver
-        if (driverFromArray && (!vehicleCurrentDriver || driverFromArray.id !== vehicleCurrentDriver.id)) {
+        if (
+          driverFromArray &&
+          (!vehicleCurrentDriver ||
+            driverFromArray.id !== vehicleCurrentDriver.id)
+        ) {
           driversToRelease.push(driverFromArray);
         }
-        
+
         // Release all old drivers
         for (const oldDriver of driversToRelease) {
           // Skip if this is the same as the new driver (shouldn't happen but safety check)
           if (newDriver && oldDriver.id === newDriver.id) continue;
-          
+
           optimisticUpdateDriver(oldDriver.id, {
             isAvailable: true,
             currentVehicleId: undefined,
@@ -361,7 +364,10 @@ export function GISMap() {
   // Get selected vehicle object
   const selectedVehicleObject = useMemo(() => {
     if (!selectedVehicleId || !fleetVehicles) return null;
-    return fleetVehicles.find((v) => String(v.id) === String(selectedVehicleId)) || null;
+    return (
+      fleetVehicles.find((v) => String(v.id) === String(selectedVehicleId)) ||
+      null
+    );
   }, [selectedVehicleId, fleetVehicles]);
 
   // Save new alerts to logs
@@ -495,17 +501,19 @@ export function GISMap() {
     (id: string | number) => {
       // Find vehicle to check if it has a driver
       const vehicle = fleetVehicles.find((v) => String(v.id) === String(id));
-      const hasDriver = vehicle?.driver || drivers.some((d) => String(d.currentVehicleId) === String(id));
-      
+      const hasDriver =
+        vehicle?.driver ||
+        drivers.some((d) => String(d.currentVehicleId) === String(id));
+
       // Show confirmation dialog
       const confirmMessage = hasDriver
         ? "Si eliminas el vehículo se desvinculará al conductor y estará disponible para un nuevo vehículo. ¿Continuar?"
         : "¿Estás seguro de que deseas eliminar este vehículo?";
-      
+
       if (!window.confirm(confirmMessage)) {
         return;
       }
-      
+
       removeVehicle(String(id));
       // Clean up drivers assigned to this vehicle
       drivers.forEach((driver) => {
@@ -750,7 +758,9 @@ export function GISMap() {
             // Map tag ID to VehicleType from VEHICLE_TYPES
             // "none" maps to "noLabel" in VEHICLE_TYPES
             const mappedId = tagId === "none" ? "noLabel" : tagId;
-            const vehicleType = VEHICLE_TYPES.find((vt) => vt.id === mappedId) || VEHICLE_TYPES[4];
+            const vehicleType =
+              VEHICLE_TYPES.find((vt) => vt.id === mappedId) ||
+              VEHICLE_TYPES[4];
             updateVehicleType(vehicleId, vehicleType);
           }}
         />

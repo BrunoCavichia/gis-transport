@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback } from "react";
 import type { Zone, LayerVisibility } from "@/lib/types";
 import type { Map } from "leaflet";
+import { haversineDistance } from "@/app/helpers/api-helpers";
 
 export function useZoneCache(
   map: Map,
@@ -17,16 +18,7 @@ export function useZoneCache(
     lon1: number,
     lat2: number,
     lon2: number,
-  ) => {
-    const toRad = (v: number) => (v * Math.PI) / 180;
-    const R = 6371000;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
+  ) => haversineDistance(lat1, lon1, lat2, lon2, "m");
 
   const fetchZones = useCallback(async () => {
     if (!map) return;
@@ -62,7 +54,9 @@ export function useZoneCache(
 
     isLoading.current = true;
     lastZoneFetch.current = { lat: center.lat, lon: center.lng };
-    console.log(`[useZoneCache] Fetching zones at ${center.lat.toFixed(4)},${center.lng.toFixed(4)} radius:50km zoom:${map.getZoom()}`);
+    console.log(
+      `[useZoneCache] Fetching zones at ${center.lat.toFixed(4)},${center.lng.toFixed(4)} radius:50km zoom:${map.getZoom()}`,
+    );
 
     await wrapAsync(async () => {
       try {
