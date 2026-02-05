@@ -45,11 +45,15 @@ export type POI = z.infer<typeof POISchema>;
 export const CustomPOISchema = z.object({
   id: z.string(),
   name: z.string(),
-  position: LatLonSchema,
+  position: LatLonSchema.optional(), // For point POIs
+  coordinates: z.any().optional(), // For polygon zones
+  entityType: z.enum(["point", "zone"]).default("point"),
   type: z.literal("custom"),
   description: z.string().optional(),
   createdAt: z.number(),
   selectedForFleet: z.boolean().optional(),
+  zoneType: z.string().optional(), // For zones: "LEZ", "RESTRICTED", etc.
+  requiredTags: z.array(z.string()).optional(), // For zone access control
 });
 export type CustomPOI = z.infer<typeof CustomPOISchema>;
 

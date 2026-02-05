@@ -24,7 +24,7 @@ import { useAlertLogs } from "@/hooks/use-alert-logs";
 import { RouteErrorAlert } from "@/components/route-error-alert";
 import { MAP_CENTER } from "@/lib/config";
 import { AddJobDialog } from "@/components/add-job-dialog";
-import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
+import { AddCustomPOIDialogV2 } from "@/components/add-custom-poi-dialog-v2";
 import { useDrivers } from "@/hooks/use-drivers";
 import { useDriverManagement } from "@/hooks/use-driver-management";
 import { useGISState } from "@/hooks/use-gis-state";
@@ -169,7 +169,7 @@ export function GISMap() {
     addJobAtRef.current = addJobAt;
   }, [addJobAt]);
 
-  const { customPOIs, addCustomPOI, removeCustomPOI, clearAllCustomPOIs } =
+  const { customPOIs, addCustomPOI, addCustomZone, removeCustomPOI, clearAllCustomPOIs } =
     useCustomPOI();
 
   const {
@@ -305,6 +305,12 @@ export function GISMap() {
         dispatch({ type: "SET_INTERACTION_MODE", payload: null });
         dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: true });
         break;
+      case "pick-zone":
+        // Add point to zone and keep picking mode active
+        dispatch({ type: "ADD_ZONE_POINT", payload: coords });
+        dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: true });
+        // Don't clear interaction mode - keep picking points
+        break;
       case "pick-job":
         dispatch({ type: "SET_PICKED_JOB_COORDS", payload: coords });
         dispatch({ type: "SET_INTERACTION_MODE", payload: null });
@@ -348,6 +354,18 @@ export function GISMap() {
 
   const handleStartPicking = useCallback(() => {
     dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-poi" });
+    dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
+  }, []);
+
+  const handleStartZonePicking = useCallback(() => {
+    dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-zone" });
+    dispatch({ type: "CLEAR_ZONE_POINTS" });
+    dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false }); // Close dialog to allow map clicks
+  }, []);
+
+  const handleContinueZonePicking = useCallback(() => {
+    dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-zone" });
+    // Don't clear points - just close dialog to continue picking
     dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
   }, []);
 
@@ -496,6 +514,22 @@ export function GISMap() {
     [addCustomPOI],
   );
 
+  const handleAddCustomZoneSubmit = useCallback(
+    (
+      name: string,
+      coordinates: any,
+      desc?: string,
+      zoneType?: string,
+      requiredTags?: string[]
+    ) => {
+      addCustomZone(name, coordinates, desc, zoneType, requiredTags);
+      dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
+      dispatch({ type: "CLEAR_ZONE_POINTS" });
+      dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+    },
+    [addCustomZone],
+  );
+
   const handleOpenAddJobChange = useCallback(
     (open: boolean) => {
       dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: open });
@@ -513,7 +547,8 @@ export function GISMap() {
       dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: open });
       if (!open) {
         dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
-        if (state.interactionMode === "pick-poi")
+        dispatch({ type: "CLEAR_ZONE_POINTS" });
+        if (state.interactionMode === "pick-poi" || state.interactionMode === "pick-zone")
           dispatch({ type: "SET_INTERACTION_MODE", payload: null });
       }
     },
@@ -643,6 +678,8 @@ export function GISMap() {
           onMapClick={handleMapClick}
           pickedPOICoords={state.pickedPOICoords}
           pickedJobCoords={state.pickedJobCoords}
+          zonePoints={state.zonePoints}
+          interactionMode={state.interactionMode}
           onZonesUpdate={handleZonesUpdate}
           isInteracting={!!state.interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
@@ -660,13 +697,17 @@ export function GISMap() {
           onStartPicking={handleStartPickingJob}
           pickedCoords={state.pickedJobCoords}
         />
-        <AddCustomPOIDialog
+        <AddCustomPOIDialogV2
           isOpen={state.isAddCustomPOIOpen}
           onOpenChange={handleOpenAddCustomPOIChange}
-          onSubmit={handleAddCustomPOISubmit}
+          onSubmitPOI={handleAddCustomPOISubmit}
+          onSubmitZone={handleAddCustomZoneSubmit}
           mapCenter={state.mapCenter}
           onStartPicking={handleStartPicking}
+          onStartZonePicking={handleStartZonePicking}
+          onContinueZonePicking={handleContinueZonePicking}
           pickedCoords={state.pickedPOICoords}
+          zonePoints={state.zonePoints}
         />
 
         <RouteErrorAlert

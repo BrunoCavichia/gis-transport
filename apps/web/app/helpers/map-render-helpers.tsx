@@ -424,8 +424,10 @@ export function renderCustomPOIs({
   const lod = getLOD(zoom, THEME.map.poi.lod.poi); // Use same LOD as POIs for custom ones
   if (lod === "HIDDEN") return null;
 
-  return (customPOIs || []).map((poi) => {
-    const pos = poi.position;
+  return (customPOIs || [])
+    .filter(poi => poi.position && poi.position.length === 2)
+    .map((poi) => {
+    const pos = poi.position as [number, number];
 
     if (lod === "MINIMAL") {
       return (

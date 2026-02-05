@@ -508,8 +508,8 @@ const LayersTab = memo(
                           {poi.name}
                         </span>
                         <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter mt-0.5">
-                          GPS: {poi.position[0].toFixed(4)},{" "}
-                          {poi.position[1].toFixed(4)}
+                          GPS: {poi.position?.[0].toFixed(4)},{" "}
+                          {poi.position?.[1].toFixed(4)}
                         </span>
                       </div>
                     </div>

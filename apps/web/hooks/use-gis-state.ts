@@ -8,6 +8,7 @@ import type {
   Driver,
 } from "@gis/shared";
 import { VEHICLE_TYPES } from "@/lib/types";
+import { MAP_CENTER } from "@/lib/config";
 
 interface GISState {
   layers: LayerVisibility;
@@ -29,6 +30,7 @@ interface GISState {
   selectedDriver: Driver | null;
   isDriverDetailsOpen: boolean;
   isVehicleDetailsOpen: boolean;
+  zonePoints: [number, number][]; // For custom zone creation
 }
 
 type GISAction =
@@ -50,7 +52,9 @@ type GISAction =
   | { type: "SET_ACTIVE_ZONES"; payload: Zone[] }
   | { type: "SET_SELECTED_DRIVER"; payload: Driver | null }
   | { type: "SET_IS_DRIVER_DETAILS_OPEN"; payload: boolean }
-  | { type: "SET_IS_VEHICLE_DETAILS_OPEN"; payload: boolean };
+  | { type: "SET_IS_VEHICLE_DETAILS_OPEN"; payload: boolean }
+  | { type: "ADD_ZONE_POINT"; payload: [number, number] }
+  | { type: "CLEAR_ZONE_POINTS" };
 
 const initialState: GISState = {
   layers: {
@@ -62,7 +66,7 @@ const initialState: GISState = {
   weather: null,
   dynamicEVStations: [],
   dynamicGasStations: [],
-  mapCenter: [40.4168, -3.7038], // Default MAP_CENTER
+  mapCenter: MAP_CENTER, // Default MAP_CENTER
   selectedVehicle: VEHICLE_TYPES[0],
   fleetMode: false,
   showCustomPOIs: true,
@@ -77,6 +81,7 @@ const initialState: GISState = {
   selectedDriver: null,
   isDriverDetailsOpen: false,
   isVehicleDetailsOpen: false,
+  zonePoints: [],
 };
 
 function gisReducer(state: GISState, action: GISAction): GISState {
@@ -119,6 +124,10 @@ function gisReducer(state: GISState, action: GISAction): GISState {
       return { ...state, isDriverDetailsOpen: action.payload };
     case "SET_IS_VEHICLE_DETAILS_OPEN":
       return { ...state, isVehicleDetailsOpen: action.payload };
+    case "ADD_ZONE_POINT":
+      return { ...state, zonePoints: [...state.zonePoints, action.payload] };
+    case "CLEAR_ZONE_POINTS":
+      return { ...state, zonePoints: [] };
     default:
       return state;
   }

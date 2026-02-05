@@ -4,6 +4,32 @@ import { useState, useCallback, useEffect } from "react";
 import type { CustomPOI } from "@/lib/types";
 
 const STORAGE_KEY = "gis-custom-pois";
+const STORAGE_VERSION = 1;
+
+interface StorageData {
+  version: number;
+  data: CustomPOI[];
+}
+
+// Migration function for future schema changes
+function migrateData(stored: any): CustomPOI[] {
+  // If it's the new format with version
+  if (stored.version !== undefined) {
+    return stored.data || [];
+  }
+  
+  // Old format - array of POIs without version
+  if (Array.isArray(stored)) {
+    // Migrate old POIs to new format with entityType
+    return stored.map((poi: any) => ({
+      ...poi,
+      entityType: poi.entityType || "point",
+      position: poi.position,
+    }));
+  }
+  
+  return [];
+}
 
 export function useCustomPOI() {
   const [customPOIs, setCustomPOIs] = useState<CustomPOI[]>([]);
@@ -14,7 +40,9 @@ export function useCustomPOI() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setCustomPOIs(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        const migrated = migrateData(parsed);
+        setCustomPOIs(migrated);
       }
     } catch (error) {
       console.error("Failed to load custom POIs from localStorage:", error);
@@ -27,7 +55,11 @@ export function useCustomPOI() {
   useEffect(() => {
     if (!isLoading) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(customPOIs));
+        const storageData: StorageData = {
+          version: STORAGE_VERSION,
+          data: customPOIs,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
       } catch (error) {
         console.error("Failed to save custom POIs to localStorage:", error);
       }
@@ -41,6 +73,7 @@ export function useCustomPOI() {
         id: `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: poiName,
         position: coords,
+        entityType: "point",
         type: "custom",
         description,
         createdAt: Date.now(),
@@ -48,7 +81,33 @@ export function useCustomPOI() {
       setCustomPOIs((prev) => [...prev, newPOI]);
       return newPOI;
     },
-    []
+    [customPOIs.length]
+  );
+
+  const addCustomZone = useCallback(
+    (
+      name: string,
+      coordinates: any,
+      description?: string,
+      zoneType: string = "LEZ",
+      requiredTags?: string[]
+    ) => {
+      const zoneName = name.trim() || `Custom Zone ${customPOIs.length + 1}`;
+      const newZone: CustomPOI = {
+        id: `custom-zone-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: zoneName,
+        coordinates,
+        entityType: "zone",
+        type: "custom",
+        description,
+        zoneType,
+        requiredTags,
+        createdAt: Date.now(),
+      };
+      setCustomPOIs((prev) => [...prev, newZone]);
+      return newZone;
+    },
+    [customPOIs.length]
   );
 
   const removeCustomPOI = useCallback((id: string) => {
@@ -78,13 +137,26 @@ export function useCustomPOI() {
     );
   }, []);
 
+  // Get only point POIs
+  const getPointPOIs = useCallback(() => {
+    return customPOIs.filter(poi => poi.entityType === "point");
+  }, [customPOIs]);
+
+  // Get only zone POIs
+  const getZonePOIs = useCallback(() => {
+    return customPOIs.filter(poi => poi.entityType === "zone");
+  }, [customPOIs]);
+
   return {
     customPOIs,
     addCustomPOI,
+    addCustomZone,
     removeCustomPOI,
     updateCustomPOI,
     clearAllCustomPOIs,
     togglePOISelectionForFleet,
+    getPointPOIs,
+    getZonePOIs,
     isLoading,
   };
 }

@@ -41,6 +41,7 @@ import { MapCenterHandler } from "./map/MapCenterHandler";
 import { MapEventHandler } from "./map/MapEventHandler";
 import { RouteLayer } from "./map/RouteLayer";
 import { VehiclesLayer } from "./map/VehiclesLayer";
+import { ZoneDrawingPreview } from "./map/ZoneDrawingPreview";
 
 interface MapContainerProps {
   layers: LayerVisibility;
@@ -68,6 +69,8 @@ interface MapContainerProps {
   selectedVehicleId?: string | null;
   pickedPOICoords?: [number, number] | null;
   pickedJobCoords?: [number, number] | null;
+  zonePoints?: [number, number][]; // For zone drawing preview
+  interactionMode?: string | null; // To know when in zone picking mode
   onZonesUpdate?: (zones: Zone[]) => void;
   isInteracting?: boolean;
   onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
@@ -102,6 +105,8 @@ export default function MapContainer({
   onMapClick,
   pickedPOICoords,
   pickedJobCoords,
+  zonePoints = [],
+  interactionMode,
   onZonesUpdate,
   isInteracting = false,
   onVehicleTypeChange,
@@ -159,11 +164,26 @@ export default function MapContainer({
 
   const renderedCustomPOIs = useMemo(() => {
     return renderCustomPOIs({
-      customPOIs: customPOIs || [],
+      customPOIs: customPOIs?.filter(poi => !poi.entityType || poi.entityType === "point") || [],
       icon: customPOI,
       zoom,
     });
   }, [customPOIs, isRouting, customPOI, zoom]);
+
+  // Convert custom zones to Zone format for rendering
+  const customZonesAsZones = useMemo(() => {
+    if (!customPOIs) return [];
+    return customPOIs
+      .filter(poi => poi.entityType === "zone" && poi.coordinates)
+      .map(zone => ({
+        id: zone.id,
+        name: zone.name,
+        coordinates: zone.coordinates,
+        type: zone.zoneType || "LEZ",
+        description: zone.description,
+        requiredTags: zone.requiredTags,
+      }));
+  }, [customPOIs]);
 
   const renderedJobs = useMemo(() => {
     return renderJobMarkers({
@@ -232,6 +252,20 @@ export default function MapContainer({
           visible={!!layers.cityZones}
           isInteracting={isInteracting}
           canAccessZone={canAccessZone}
+        />
+
+        {/* Custom Zones Layer - renders custom zones with same behavior as LEZ */}
+        <ZoneLayer
+          zones={customZonesAsZones}
+          visible={true}
+          isInteracting={isInteracting}
+          canAccessZone={canAccessZone}
+        />
+
+        {/* Zone Drawing Preview - shows polygon being created */}
+        <ZoneDrawingPreview
+          points={zonePoints}
+          visible={interactionMode === "pick-zone"}
         />
 
         {layers.route && routeData?.vehicleRoutes?.length ? (
