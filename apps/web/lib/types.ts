@@ -29,6 +29,9 @@ import {
   OverpassGeometry,
   OverpassElement,
   OverpassResponse,
+  IGisResponse,
+  WeatherIncomingBody,
+  GisDataContext,
 } from "@gis/shared";
 
 export type {
@@ -62,7 +65,13 @@ export type {
   OverpassGeometry,
   OverpassElement,
   OverpassResponse,
+  IGisResponse,
+  WeatherIncomingBody,
+  GisDataContext,
 };
+
+// Alias IGisResponse as ApiResponse for backward compatibility
+export type ApiResponse<T = any> = IGisResponse<T>;
 
 export const VEHICLE_TYPES: VehicleType[] = [
   {

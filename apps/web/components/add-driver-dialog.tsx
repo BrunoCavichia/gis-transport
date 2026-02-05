@@ -54,7 +54,7 @@ export function AddDriverDialog({
         name: name.trim(),
         licenseType: licenseType.trim() || undefined,
         licenseNumber: licenseNumber.trim() || undefined,
-        phoneNumber: phoneNumber.trim() || undefined,
+        phoneNumber: phoneNumber.trim(),
         imageUrl: imagePreview || undefined,
       });
       setName("");

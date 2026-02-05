@@ -35,12 +35,15 @@ export function useDrivers() {
     try {
       // Filter out fields that are no longer stored directly on Driver
       // (isAvailable, onTimeDeliveryRate, currentVehicleId are now derived)
-      const { name, licenseType, licenseNumber, imageUrl } = driverData;
+      const { name, licenseType, licenseNumber, phoneNumber, imageUrl } =
+        driverData;
 
       // Only include fields that have values
       const payload: Partial<Driver> = { name };
       if (licenseType) payload.licenseType = licenseType;
       if (licenseNumber) payload.licenseNumber = licenseNumber;
+      if (phoneNumber && phoneNumber.trim())
+        payload.phoneNumber = phoneNumber.trim();
       if (imageUrl) payload.imageUrl = imageUrl;
 
       const res = await fetch("/api/drivers", {
@@ -70,12 +73,15 @@ export function useDrivers() {
     async (id: string, updateData: Partial<Driver>) => {
       try {
         // Filter out fields that are derived or handled via VehicleAssignment
-        const { name, licenseType, licenseNumber, imageUrl } = updateData;
+        const { name, licenseType, licenseNumber, phoneNumber, imageUrl } =
+          updateData;
         const payload: Partial<Driver> = {};
 
         if (name !== undefined) payload.name = name;
         if (licenseType !== undefined) payload.licenseType = licenseType;
         if (licenseNumber !== undefined) payload.licenseNumber = licenseNumber;
+        if (phoneNumber !== undefined && phoneNumber.trim())
+          payload.phoneNumber = phoneNumber.trim();
         if (imageUrl !== undefined) payload.imageUrl = imageUrl;
 
         // Handle assignment changes via isAvailable/currentVehicleId

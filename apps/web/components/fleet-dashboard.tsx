@@ -48,10 +48,10 @@ interface FleetDashboardProps {
   pickedStopCoords?: [number, number] | null;
   onAddStopSubmit?: (coords: [number, number], label: string) => void;
   drivers?: Driver[];
+  selectedVehicleId?: string | number | null;
+  onSelectVehicle?: (id: string | number | null) => void;
   onAssignDriver?: (vehicleId: string | number, driver: Driver | null) => void;
   gasStations?: POI[];
-  selectedVehicleId?: string | number | null;
-  onVehicleSelect?: (id: string | number | null) => void;
   isGasStationLayerVisible?: boolean;
   onToggleGasStationLayer?: () => void;
 }
@@ -68,10 +68,10 @@ export function FleetDashboard({
   pickedStopCoords,
   onAddStopSubmit,
   drivers,
+  selectedVehicleId,
+  onSelectVehicle,
   onAssignDriver,
   gasStations = [],
-  selectedVehicleId,
-  onVehicleSelect,
   isGasStationLayerVisible = true,
   onToggleGasStationLayer,
 }: FleetDashboardProps) {
@@ -81,12 +81,10 @@ export function FleetDashboard({
   );
 
   // Local state for vehicle detail sheet (independent from parent selectedVehicleId)
-  const [selectedVehicleIdLocal, setSelectedVehicleIdLocal] = useState<
-    string | number | null
-  >(null);
+  // Removed selectedVehicleIdLocal, now using selectedVehicleId from props
 
   const handleRowClick = (vehicle: FleetVehicle) => {
-    setSelectedVehicleIdLocal(vehicle.id);
+    onSelectVehicle?.(vehicle.id);
   };
 
   const kpis = useMemo(() => {
@@ -512,18 +510,15 @@ export function FleetDashboard({
       />
 
       {/* Vehicle Detail Sheet - Independent from dashboard state - Overlay Position */}
-      {selectedVehicleIdLocal && (
+      {selectedVehicleId && (
         <div className="absolute inset-0 z-50 pointer-events-auto">
           <VehicleDetailSheet
-            vehicle={
-              vehicles.find((v) => v.id === selectedVehicleIdLocal) || null
-            }
+            vehicle={vehicles.find((v) => v.id === selectedVehicleId) || null}
             metrics={
-              vehicles.find((v) => v.id === selectedVehicleIdLocal)?.metrics ||
-              null
+              vehicles.find((v) => v.id === selectedVehicleId)?.metrics || null
             }
-            alerts={vehicleAlerts[selectedVehicleIdLocal] || []}
-            onClose={() => setSelectedVehicleIdLocal(null)}
+            alerts={vehicleAlerts[selectedVehicleId] || []}
+            onClose={() => onSelectVehicle?.(null)}
             addStopToVehicle={addStopToVehicle}
             startRouting={startRouting}
             isAddStopOpen={isAddStopOpen}

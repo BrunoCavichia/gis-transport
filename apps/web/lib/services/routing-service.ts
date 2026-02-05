@@ -34,7 +34,51 @@ export class RoutingService {
     const startTime = options.startTime || new Date().toISOString();
     const zones = options.zones || [];
 
+    console.log(
+      `[Optimize] Iniciando optimización con ${vehicles.length} vehículos, ${jobs.length} jobs, ${zones.length} zonas`,
+    );
+    if (zones.length > 0) {
+      console.log(
+        "[Optimize] Zonas recibidas:",
+        zones.map((z) => ({
+          id: z.id,
+          name: z.name,
+          type: z.type,
+          requiredTags: z.requiredTags,
+          hasCoordinates: !!z.coordinates && z.coordinates.length > 0,
+        })),
+      );
+    }
+
     // 1. Snapping
+    console.log(
+      "[Optimize] Jobs:",
+      jobs.map((j) => ({
+        id: j.id,
+        label: j.label,
+        position: j.position,
+        assignedVehicleId: j.assignedVehicleId,
+      })),
+    );
+
+    // Verificar si los jobs están dentro de zonas LEZ
+    console.log("[Optimize] Verificando si jobs están dentro de zonas...");
+    jobs.forEach((job, idx) => {
+      console.log(
+        `[Optimize] Verificando Job "${job.label}" en posición [${job.position[0].toFixed(4)}, ${job.position[1].toFixed(4)}]`,
+      );
+      zones.forEach((zone) => {
+        if (zone.coordinates && zone.coordinates.length > 0) {
+          const isInside = this.isPointInZone(job.position, zone.coordinates);
+          if (isInside) {
+            console.log(
+              `[Optimize] ⚠️⚠️⚠️ Job "${job.label}" está DENTRO de zona "${zone.name}" (${zone.type})`,
+            );
+          }
+        }
+      });
+    });
+
     const allCoords = [
       ...vehicles.map((v) => v.position),
       ...jobs.map((j) => j.position),
@@ -42,8 +86,29 @@ export class RoutingService {
     const snappedLocations = await this.snapCoordinates(allCoords);
 
     // 2. Profiles Mapping
-    const vehicleProfiles = vehicles.map((v) => {
+    console.log("[Optimize] Mapeando perfiles de vehículos...");
+    const vehicleProfiles = vehicles.map((v, idx) => {
+      console.log(`[Profile] Procesando vehículo ${idx}:`, {
+        id: v.id,
+        label: v.label,
+        typeLabel: v.type.label,
+        tags: v.type.tags,
+      });
       const forbidden = this.getForbiddenZonesForVehicle(v.type.tags, zones);
+      console.log(
+        `[Profile] Vehículo ${idx} (${v.type.label || v.label}) - Tags: [${v.type.tags.join(", ")}] - Zonas prohibidas: ${forbidden.length}`,
+      );
+      if (forbidden.length > 0) {
+        console.log(
+          `[Profile] Zonas prohibidas para vehículo ${idx}:`,
+          forbidden.map((z) => ({
+            id: z.id,
+            name: z.name,
+            type: z.type,
+            requiredTags: z.requiredTags,
+          })),
+        );
+      }
       return forbidden.map((z) => z.coordinates);
     });
 
@@ -75,17 +140,80 @@ export class RoutingService {
       vehicleToProfile,
     );
 
+    // 3.5. Validar rutas asignadas - detectar si VROOM asignó jobs prohibidos por falta de alternativas
+    console.log("[Optimize] Validando asignaciones de VROOM...");
+    const invalidAssignments: { vehicleIdx: number; jobLabels: string[] }[] =
+      [];
+
+    vroomResult.routes.forEach((route) => {
+      const vIdx = route.vehicle;
+      const profile = vehicleToProfile[vIdx];
+
+      // Si este vehículo tiene zonas prohibidas
+      if (profile.avoidPolygons.length > 0) {
+        const assignedJobSteps = route.steps.filter((s) => s.type === "job");
+        const forbiddenJobsAssigned: string[] = [];
+
+        assignedJobSteps.forEach((step) => {
+          const jobIdx = (step.id as number) - vehicles.length;
+          const job = jobs[jobIdx];
+
+          if (job) {
+            // Verificar si este job está en zona prohibida para este vehículo
+            const isInForbiddenZone = profile.avoidPolygons.some((poly) =>
+              this.isPointInZone(job.position, poly),
+            );
+
+            if (isInForbiddenZone) {
+              console.log(
+                `[Optimize] ❌ ASIGNACIÓN INVÁLIDA: Vehículo ${vIdx} (${vehicles[vIdx].type.label}) no puede hacer "${job.label}" (en zona LEZ prohibida)`,
+              );
+              forbiddenJobsAssigned.push(job.label);
+            }
+          }
+        });
+
+        if (forbiddenJobsAssigned.length > 0) {
+          invalidAssignments.push({
+            vehicleIdx: vIdx,
+            jobLabels: forbiddenJobsAssigned,
+          });
+        }
+      }
+    });
+
+    // NO eliminar rutas asignadas inválidas - mantener jobs asignados pero sin polygon
+    // Solo marcar para no pintar rutas visuales cuando hay violaciones legales
+    if (invalidAssignments.length > 0) {
+      console.log(
+        "[Optimize] ⚠️ Manteniendo asignaciones inválidas pero sin pintar polygons (violaciones legales):",
+        invalidAssignments,
+      );
+    }
+
     // 4. Data Processing
-    const unassignedJobs = this.processUnassignedJobs(
+    const baseUnassignedJobs = this.processUnassignedJobs(
       vroomResult,
       jobs,
       vehicles.length,
     );
+
+    // NO agregar jobs inválidos a unassignedJobs - mantener asignados pero sin polygon
+    // const forcedAssignmentErrors = invalidAssignments.flatMap(inv =>
+    //   inv.jobLabels.map(jobLabel => ({
+    //     id: jobs.find(j => j.label === jobLabel)?.id.toString() || jobLabel,
+    //     description: jobLabel,
+    //     reason: `El vehículo ${vehicles[inv.vehicleIdx].type.label || vehicles[inv.vehicleIdx].label} no tiene etiqueta medioambiental válida para entrar a la zona LEZ`
+    //   }))
+    // );
+
+    const unassignedJobs = baseUnassignedJobs; // [...baseUnassignedJobs, ...forcedAssignmentErrors];
     const notices = this.generateNotices(
       vroomResult,
       vehicles,
       jobs,
       vehicleToProfile,
+      invalidAssignments,
     );
 
     // 5. Individual Routing
@@ -95,6 +223,7 @@ export class RoutingService {
       vehicleToProfile,
       vehicles,
       jobs,
+      invalidAssignments,
     );
 
     // 6. Weather Analysis
@@ -153,7 +282,7 @@ export class RoutingService {
       return {
         id: originalJob?.id.toString() || u.id.toString(),
         description: originalJob?.label || `Job ${jobIdx + 1}`,
-        reason: "Restrictions or unreachable location",
+        reason: "No suitable vehicle available or unreachable location",
       };
     });
   }
@@ -163,6 +292,7 @@ export class RoutingService {
     vehicles: FleetVehicle[],
     jobs: FleetJob[],
     vehicleToProfile: { avoidPolygons: LatLon[][] }[],
+    invalidAssignments: { vehicleIdx: number; jobLabels: string[] }[] = [],
   ) {
     const notices: {
       title: string;
@@ -170,30 +300,66 @@ export class RoutingService {
       type: "info" | "warning";
     }[] = [];
 
+    // Para cada vehículo, verificar si tiene zonas prohibidas y jobs dentro de ellas
     vehicles.forEach((v, idx) => {
-      const assignedRoute = vroomResult.routes.find((r) => r.vehicle === idx);
-      const jobSteps =
-        assignedRoute?.steps.filter((s) => s.type === "job") || [];
       const profile = vehicleToProfile[idx];
 
-      if (jobSteps.length === 0 && profile.avoidPolygons.length > 0) {
-        const forbiddenJobNames = jobs
-          .filter((job) =>
-            profile.avoidPolygons.some((poly) =>
-              this.isPointInPolygon(job.position, poly),
-            ),
-          )
-          .map((job) => job.label);
+      // Si el vehículo tiene zonas prohibidas (no tiene etiqueta válida)
+      if (profile.avoidPolygons.length > 0) {
+        // Encontrar jobs que están dentro de las zonas prohibidas
+        const forbiddenJobs = jobs.filter((job) =>
+          profile.avoidPolygons.some((poly) =>
+            this.isPointInZone(job.position, poly),
+          ),
+        );
 
-        if (forbiddenJobNames.length > 0) {
-          const label = v.type.label;
-          notices.push({
-            title: `Vehicle: ${label}`,
-            message: `The vehicle "${label}" was bypassed for: ${forbiddenJobNames.join(", ")} due to environmental restrictions.`,
-            type: "info",
-          });
+        if (forbiddenJobs.length > 0) {
+          const forbiddenJobNames = forbiddenJobs.map((job) => job.label);
+          const label = v.type.label || v.label || `Vehículo ${idx + 1}`;
+
+          // Verificar si este vehículo tiene jobs asignados en la ruta
+          const assignedRoute = vroomResult.routes.find(
+            (r) => r.vehicle === idx,
+          );
+          const assignedJobIds =
+            assignedRoute?.steps
+              .filter((s) => s.type === "job")
+              .map((s) => s.id) || [];
+
+          // Si no tiene ningún job asignado de los prohibidos, mostrar aviso
+          // Pero no mostrar si ya hay un error de asignación inválida para este vehículo
+          const hasInvalidAssignment = invalidAssignments.some(
+            (inv) => inv.vehicleIdx === idx,
+          );
+          const hasNoForbiddenAssigned = !forbiddenJobs.some((fj) =>
+            assignedJobIds.includes(vehicles.length + jobs.indexOf(fj)),
+          );
+
+          if (
+            hasNoForbiddenAssigned &&
+            forbiddenJobs.length > 0 &&
+            !hasInvalidAssignment
+          ) {
+            notices.push({
+              title: `Vehículo: ${label}`,
+              message: `El vehículo "${label}" no puede realizar: ${forbiddenJobNames.join(", ")} debido a restricciones medioambientales (zona LEZ).`,
+              type: "warning",
+            });
+          }
         }
       }
+    });
+
+    // Agregar notices para asignaciones inválidas (cuando VROOM no tuvo alternativa)
+    invalidAssignments.forEach((inv) => {
+      const vehicle = vehicles[inv.vehicleIdx];
+      const label =
+        vehicle.type.label || vehicle.label || `Vehículo ${inv.vehicleIdx + 1}`;
+      notices.push({
+        title: `Error: Vehículo ${label}`,
+        message: `El vehículo "${label}" NO puede realizar: ${inv.jobLabels.join(", ")} porque no tiene etiqueta medioambiental válida para entrar a la zona LEZ. Necesita agregar otro vehículo con etiqueta válida (0, ECO, B, C).`,
+        type: "warning",
+      });
     });
 
     return notices;
@@ -205,11 +371,24 @@ export class RoutingService {
     vehicleToProfile: { name: string; avoidPolygons: LatLon[][] }[],
     originalVehicles: FleetVehicle[],
     originalJobs: FleetJob[],
+    invalidAssignments: { vehicleIdx: number; jobLabels: string[] }[] = [],
   ): Promise<VehicleRoute[]> {
     const results: VehicleRoute[] = [];
+    const invalidVehicleIndices = new Set(
+      invalidAssignments.map((inv) => inv.vehicleIdx),
+    );
 
     for (const route of vroomResult.routes) {
       const vIdx = route.vehicle;
+
+      // Saltar rutas inválidas (violaciones legales) - no pintar polygons
+      if (invalidVehicleIndices.has(vIdx)) {
+        console.log(
+          `[CalculateRoutes] ⚠️ Saltando ruta para vehículo ${vIdx} (violación legal - no se pinta polygon)`,
+        );
+        continue;
+      }
+
       const profile = vehicleToProfile[vIdx];
       const waypoints = route.steps
         .filter((s) => typeof s.location_index === "number")
@@ -220,33 +399,17 @@ export class RoutingService {
       const vehicle = originalVehicles[vIdx];
       const color = ROUTE_COLORS[vIdx % ROUTE_COLORS.length];
 
-      // LEZ Pre-check
-      const hasForbiddenWaypoint = waypoints.some((wp) =>
-        profile.avoidPolygons.some((poly) => this.isPointInPolygon(wp, poly)),
+      const vehicleRoute = await this.fetchOrsRoute(
+        vehicle.id,
+        waypoints,
+        profile.avoidPolygons,
+        color,
+        route.steps,
+        originalJobs,
+        originalVehicles.length,
       );
 
-      if (hasForbiddenWaypoint) {
-        results.push(
-          this.createErrorRoute(
-            vehicle.id,
-            color,
-            `Vehicle "${vehicle.type.label}" cannot enter LEZ zones.`,
-          ),
-        );
-        continue;
-      }
-
-      results.push(
-        await this.fetchOrsRoute(
-          vehicle.id,
-          waypoints,
-          profile.avoidPolygons,
-          color,
-          route.steps,
-          originalJobs,
-          originalVehicles.length,
-        ),
-      );
+      results.push(vehicleRoute);
     }
     return results;
   }
@@ -268,7 +431,6 @@ export class RoutingService {
       instructions: false,
       preference: "recommended",
       radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS),
-      ...(avoid_polygons && { options: { avoid_polygons } }),
     };
 
     try {
@@ -305,7 +467,7 @@ export class RoutingService {
       return this.createErrorRoute(
         vehicleId,
         color,
-        "Route failed due to restrictions or reachability.",
+        "Error al calcular la ruta.",
       );
     }
   }
@@ -346,15 +508,35 @@ export class RoutingService {
     if (!res.ok) throw new Error(`ORS Matrix failed: ${await res.text()}`);
 
     const data: OrsMatrixResponse = await res.json();
-    const isLocForbidden = locations.map((loc) =>
-      avoidPolygons.some((poly) => this.isPointInPolygon(loc, poly)),
-    );
+
+    // Determinar qué ubicaciones están dentro de zonas prohibidas para este perfil
+    const isLocForbidden = locations.map((loc, idx) => {
+      const isForbidden = avoidPolygons.some((poly) =>
+        this.isPointInZone(loc, poly),
+      );
+      if (isForbidden) {
+        console.log(
+          `[Matrix] ⚠️ Ubicación ${idx} (${loc[0].toFixed(4)}, ${loc[1].toFixed(4)}) está en zona prohibida`,
+        );
+      }
+      return isForbidden;
+    });
+
+    const forbiddenCount = isLocForbidden.filter(Boolean).length;
+    if (forbiddenCount > 0) {
+      console.log(
+        `[Matrix] ${forbiddenCount} ubicaciones están en zonas prohibidas para este perfil`,
+      );
+    }
 
     return Array.from({ length: locations.length }, (_, i) =>
       Array.from({ length: locations.length }, (_, j) => {
         if (i === j) return 0;
-        if (isLocForbidden[i] || isLocForbidden[j])
+
+        // Si cualquiera de los dos puntos está en zona prohibida, costo infinito
+        if (isLocForbidden[i] || isLocForbidden[j]) {
           return ROUTING_CONFIG.UNREACHABLE_COST;
+        }
 
         const d = data.distances?.[i]?.[j];
         const t = data.durations?.[i]?.[j];
@@ -364,7 +546,7 @@ export class RoutingService {
 
         return Math.round(
           d * ROUTING_CONFIG.COST_PER_METER +
-          t * ROUTING_CONFIG.COST_PER_SECOND,
+            t * ROUTING_CONFIG.COST_PER_SECOND,
         );
       }),
     );
@@ -376,11 +558,14 @@ export class RoutingService {
     matrices: Record<string, number[][]>,
     vehicleToProfile: { name: string }[],
   ): Promise<VroomResult> {
-    console.log('[Vroom] Vehicles mapping:', vehicles.map((v, idx) => ({
-      idx,
-      id: v.id,
-      label: v.label,
-    })));
+    console.log(
+      "[Vroom] Vehicles mapping:",
+      vehicles.map((v, idx) => ({
+        idx,
+        id: v.id,
+        label: v.label,
+      })),
+    );
 
     // Generate all possible vehicle skills (all indices + 1)
     const allSkills = vehicles.map((_, idx) => idx + 1);
@@ -398,8 +583,8 @@ export class RoutingService {
       jobs: jobs.map((job, jidx) => {
         const vehicleIdx = job.assignedVehicleId
           ? vehicles.findIndex(
-            (v) => String(v.id) === String(job.assignedVehicleId),
-          )
+              (v) => String(v.id) === String(job.assignedVehicleId),
+            )
           : -1;
 
         const isPinned = vehicleIdx !== -1;
@@ -436,8 +621,14 @@ export class RoutingService {
       ),
     };
 
-    console.log('[Vroom] Full payload vehicles:', JSON.stringify(payload.vehicles, null, 2));
-    console.log('[Vroom] Full payload jobs:', JSON.stringify(payload.jobs, null, 2));
+    console.log(
+      "[Vroom] Full payload vehicles:",
+      JSON.stringify(payload.vehicles, null, 2),
+    );
+    console.log(
+      "[Vroom] Full payload jobs:",
+      JSON.stringify(payload.jobs, null, 2),
+    );
 
     const res = await fetch(VROOM_URL, {
       method: "POST",
@@ -449,11 +640,14 @@ export class RoutingService {
 
     const vroomResult = await res.json();
 
-    console.log('[Vroom] Response routes:', vroomResult.routes.map((r: any) => ({
-      vehicle: r.vehicle,
-      steps: r.steps.length,
-      jobSteps: r.steps.filter((s: any) => s.type === 'job').length,
-    })));
+    console.log(
+      "[Vroom] Response routes:",
+      vroomResult.routes.map((r: any) => ({
+        vehicle: r.vehicle,
+        steps: r.steps.length,
+        jobSteps: r.steps.filter((s: any) => s.type === "job").length,
+      })),
+    );
 
     return vroomResult;
   }
@@ -516,19 +710,119 @@ export class RoutingService {
     return inside;
   }
 
+  /**
+   * Aplana coordenadas de MultiPolygon que pueden tener profundidad 4D
+   * [[[[[lat, lon]]]]] -> [[lat, lon], [lat, lon], ...]
+   */
+  private static flattenPolygonCoordinates(coords: any): LatLon[] {
+    // Si ya es un array de tuplas [lat, lon], devolverlo
+    if (
+      Array.isArray(coords) &&
+      coords.length > 0 &&
+      Array.isArray(coords[0]) &&
+      coords[0].length === 2 &&
+      typeof coords[0][0] === "number" &&
+      typeof coords[0][1] === "number"
+    ) {
+      return coords as LatLon[];
+    }
+
+    // Si tiene profundidad extra, aplanar recursivamente
+    if (
+      Array.isArray(coords) &&
+      coords.length > 0 &&
+      Array.isArray(coords[0])
+    ) {
+      // Tomar el primer polígono si es MultiPolygon
+      return this.flattenPolygonCoordinates(coords[0]);
+    }
+
+    return coords as LatLon[];
+  }
+
+  /**
+   * Verifica si un punto está dentro de una zona (maneja MultiPolygon)
+   */
+  private static isPointInZone(point: LatLon, zoneCoords: any): boolean {
+    try {
+      // Si es un array de polígonos (MultiPolygon), verificar cada uno
+      if (Array.isArray(zoneCoords) && zoneCoords.length > 0) {
+        // Caso 1: Array de arrays de arrays (MultiPolygon con profundidad 4D)
+        if (Array.isArray(zoneCoords[0]) && Array.isArray(zoneCoords[0][0])) {
+          // Iterar sobre cada polígono
+          for (const polyGroup of zoneCoords) {
+            if (Array.isArray(polyGroup)) {
+              for (const poly of polyGroup) {
+                const flatPoly = this.flattenPolygonCoordinates(poly);
+                if (
+                  flatPoly.length >= 3 &&
+                  this.isPointInPolygon(point, flatPoly)
+                ) {
+                  return true;
+                }
+              }
+            }
+          }
+        } else {
+          // Caso 2: Array simple de coordenadas
+          const flatPoly = this.flattenPolygonCoordinates(zoneCoords);
+          if (flatPoly.length >= 3) {
+            return this.isPointInPolygon(point, flatPoly);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[isPointInZone] Error checking point:", e);
+    }
+    return false;
+  }
+
   private static getForbiddenZonesForVehicle(
     vehicleTags: string[],
     allZones: Zone[],
   ): Zone[] {
+    console.log(
+      `[ForbiddenZones] Evaluando ${allZones.length} zonas para vehículo con tags: [${vehicleTags.join(", ")}]`,
+    );
+
     return allZones.filter((zone) => {
       const type = (zone.type || "").toUpperCase();
-      if (zone.requiredTags?.length)
-        return !zone.requiredTags.some((tag) => vehicleTags.includes(tag));
-      if (type === "PEDESTRIAN") return true;
-      return (
+
+      // Si la zona tiene requiredTags, verificar si el vehículo tiene alguna
+      if (zone.requiredTags && zone.requiredTags.length > 0) {
+        const hasRequiredTag = zone.requiredTags.some((tag) =>
+          vehicleTags.includes(tag),
+        );
+        const isForbidden = !hasRequiredTag;
+        if (isForbidden) {
+          console.log(
+            `[ForbiddenZones] Zona "${zone.name || zone.id}" (${type}) - PROHIBIDA - Requiere: [${zone.requiredTags.join(", ")}], Vehículo tiene: [${vehicleTags.join(", ")}]`,
+          );
+        }
+        return isForbidden;
+      }
+
+      // Zonas peatonales siempre prohibidas
+      if (type === "PEDESTRIAN") {
+        console.log(
+          `[ForbiddenZones] Zona "${zone.name || zone.id}" - PROHIBIDA (peatonal)`,
+        );
+        return true;
+      }
+
+      // Para zonas LEZ/RESTRICTED/ENVIRONMENTAL sin requiredTags específicos,
+      // prohibir si el vehículo NO tiene ningún tag
+      if (
         ["RESTRICTED", "LEZ", "ENVIRONMENTAL"].includes(type) &&
         vehicleTags.length === 0
-      );
+      ) {
+        console.log(
+          `[ForbiddenZones] Zona "${zone.name || zone.id}" (${type}) - PROHIBIDA - Vehículo sin etiquetas`,
+        );
+        return true;
+      }
+
+      return false;
     });
   }
 
@@ -550,7 +844,6 @@ export class RoutingService {
       instructions: false,
       preference: "recommended",
       radiuses: orsWaypoints.map(() => ROUTING_CONFIG.DEFAULT_RADIUS),
-      ...(avoid_polygons && { options: { avoid_polygons } }),
     };
 
     try {

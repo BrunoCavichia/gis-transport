@@ -13,8 +13,9 @@ import type {
 } from "@gis/shared";
 import { InteractionMode as LocalInteractionMode } from "@/lib/types";
 import { VEHICLE_TYPES } from "@/lib/types";
-import { generateVehicleAlerts } from "@/lib/utils";
+import { generateVehicleAlerts, cn } from "@/lib/utils";
 import type { Alert } from "@/lib/utils";
+import { Truck } from "lucide-react";
 import { useFleet } from "@/hooks/use-fleet";
 import { useCustomPOI } from "@/hooks/use-custom-poi";
 import { useRouting } from "@/hooks/use-routing";
@@ -25,6 +26,8 @@ import { MAP_CENTER } from "@/lib/config";
 import { AddJobDialog } from "@/components/add-job-dialog";
 import { AddCustomPOIDialog } from "@/components/add-custom-poi-dialog";
 import { useDrivers } from "@/hooks/use-drivers";
+import { useDriverManagement } from "@/hooks/use-driver-management";
+import { useGISState } from "@/hooks/use-gis-state";
 import { DriverDetailsSheet } from "@/components/driver-details-sheet";
 import { VehicleDetailSheet } from "@/components/vehicle-details-panel";
 
@@ -34,49 +37,7 @@ const MapContainer = dynamic(() => import("@/components/map-container"), {
 
 const DEFAULT_CENTER: [number, number] = MAP_CENTER;
 export function GISMap() {
-  const [layers, setLayers] = useState<LayerVisibility>({
-    gasStations: false,
-    evStations: false,
-    cityZones: true,
-    route: true,
-  });
-
-  const [, setWeather] = useState<WeatherData | null>(null);
-  const [dynamicEVStations, setDynamicEVStations] = useState<POI[]>([]);
-  const [dynamicGasStations, setDynamicGasStations] = useState<POI[]>([]);
-
-  // Log when gas stations update
-  useEffect(() => {
-    console.log(
-      "[GISMap] dynamicGasStations updated:",
-      dynamicGasStations.length,
-    );
-  }, [dynamicGasStations]);
-  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
-  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>(
-    VEHICLE_TYPES[0],
-  );
-  const [fleetMode, setFleetMode] = useState(false);
-  const [showCustomPOIs, setShowCustomPOIs] = useState(true);
-  const [interactionMode, setInteractionMode] =
-    useState<LocalInteractionMode>(null);
-
-  const [pickedPOICoords, setPickedPOICoords] = useState<
-    [number, number] | null
-  >(null);
-  const [isAddCustomPOIOpen, setIsAddCustomPOIOpen] = useState(false);
-  const [pickedJobCoords, setPickedJobCoords] = useState<
-    [number, number] | null
-  >(null);
-  const [pickedStopCoords, setPickedStopCoords] = useState<
-    [number, number] | null
-  >(null);
-  const [isAddJobOpen, setIsAddJobOpen] = useState(false);
-  const [isAddStopOpen, setIsAddStopOpen] = useState(false);
-  const [activeZones, setActiveZones] = useState<Zone[]>([]);
-  const [selectedDriver, _setSelectedDriver] = useState<Driver | null>(null);
-  const [isDriverDetailsOpen, setIsDriverDetailsOpen] = useState(false);
-  const [isVehicleDetailsOpen, setIsVehicleDetailsOpen] = useState(false);
+  const { state, dispatch } = useGISState();
 
   const { addAlertLog } = useAlertLogs();
 
@@ -107,187 +68,97 @@ export function GISMap() {
     updateDriver,
     fetchDrivers,
     addDriver,
-    optimisticUpdateDriver,
   } = useDrivers();
 
-  // Fetch drivers SOLO UNA VEZ al mount
-  const hasFetchedRef = useRef(false);
-  useEffect(() => {
-    if (!hasFetchedRef.current) {
-      hasFetchedRef.current = true;
-      fetchDrivers();
-    }
-  }, []); // VACÍO - solo corre UNA VEZ
-
-  const handleAssignDriver = useCallback(
-    async (vehicleId: string | number, newDriver: Driver | null) => {
-      try {
-        // Find the vehicle to get its current driver
-        const vehicle = fleetVehicles.find(
-          (v) => String(v.id) === String(vehicleId),
-        );
-        if (!vehicle) {
-          console.error("Vehicle not found:", vehicleId);
-          await fetchDrivers(); // Refresh to get latest state
-          return;
-        }
-
-        // VALIDATION: If assigning a new driver, verify they are marked as available
-        if (newDriver) {
-          if (!newDriver.isAvailable) {
-            console.error("Cannot assign driver: driver is not available", {
-              driverId: newDriver.id,
-              driverName: newDriver.name,
-              isAvailable: newDriver.isAvailable,
-              currentVehicleId: newDriver.currentVehicleId,
-            });
-            await fetchDrivers(); // Refresh to get latest state
-            return;
-          }
-        }
-
-        // Optimistic update: Update frontend fleet state immediately
-        assignDriverToVehicle(vehicleId, newDriver);
-
-        // 1. Release the OLD driver (check both sources: vehicle.driver and drivers array)
-        // First check vehicle.driver (the source of truth for vehicle state)
-        const vehicleCurrentDriver = vehicle.driver;
-        // Also check drivers array by currentVehicleId (in case of stale state)
-        const driverFromArray = drivers.find(
-          (d) => d.currentVehicleId === String(vehicleId),
-        );
-
-        // Determine which driver(s) need to be released
-        const driversToRelease: Driver[] = [];
-
-        if (vehicleCurrentDriver) {
-          driversToRelease.push(vehicleCurrentDriver);
-        }
-
-        // Also release driver from array if different from vehicle's driver
-        if (
-          driverFromArray &&
-          (!vehicleCurrentDriver ||
-            driverFromArray.id !== vehicleCurrentDriver.id)
-        ) {
-          driversToRelease.push(driverFromArray);
-        }
-
-        // Release all old drivers
-        for (const oldDriver of driversToRelease) {
-          // Skip if this is the same as the new driver (shouldn't happen but safety check)
-          if (newDriver && oldDriver.id === newDriver.id) continue;
-
-          optimisticUpdateDriver(oldDriver.id, {
-            isAvailable: true,
-            currentVehicleId: undefined,
-          });
-
-          await updateDriver(oldDriver.id, {
-            isAvailable: true,
-            currentVehicleId: undefined,
-          });
-        }
-
-        // 2. Assign the NEW driver if provided
-        if (newDriver) {
-          optimisticUpdateDriver(newDriver.id, {
-            isAvailable: false,
-            currentVehicleId: String(vehicleId),
-          });
-
-          await updateDriver(newDriver.id, {
-            isAvailable: false,
-            currentVehicleId: String(vehicleId),
-          });
-        }
-
-        // Final sync with server to ensure data consistency
-        await fetchDrivers();
-      } catch (error) {
-        console.error("Error assigning driver:", error);
-        // Refresh drivers to recover from any inconsistent state
-        await fetchDrivers();
-      }
-    },
-    [
-      assignDriverToVehicle,
-      updateDriver,
-      drivers,
-      optimisticUpdateDriver,
-      fetchDrivers,
-      fleetVehicles,
-    ],
-  );
-
-  // Reconciliation: Auto-release drivers assigned to non-existent vehicles
-  // Using useRef to track previous driver/vehicle IDs to avoid unnecessary reconciliation
-  const prevOhpanedCheckRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    // Only run if data is loaded
-    if (isLoadingVehicles || isLoadingDrivers || !drivers.length) return;
-
-    // Create set of valid vehicle IDs for O(1) lookup
-    const validVehicleIds = new Set(fleetVehicles.map((v) => String(v.id)));
-
-    const orphanedDrivers = drivers.filter(
-      (d) =>
-        !d.isAvailable && // Currently marked as busy
-        d.currentVehicleId && // Has a vehicle assignment
-        !validVehicleIds.has(String(d.currentVehicleId)), // But vehicle doesn't exist in current fleet
-    );
-
-    // Get IDs of current orphaned drivers
-    const currentOrphanedIds = new Set(orphanedDrivers.map((d) => d.id));
-
-    // Only process if there are NEW orphaned drivers (not in previous check)
-    const newOrphanedDrivers = orphanedDrivers.filter(
-      (d) => !prevOhpanedCheckRef.current.has(d.id),
-    );
-
-    if (newOrphanedDrivers.length > 0) {
-      newOrphanedDrivers.forEach((driver) => {
-        // 1. Optimistic local update
-        optimisticUpdateDriver(driver.id, {
-          isAvailable: true,
-
-          currentVehicleId: undefined,
-        });
-
-        // 2. Persistent server update
-        updateDriver(driver.id, {
-          isAvailable: true,
-          currentVehicleId: undefined,
-        }).catch((err) =>
-          console.error("Failed to reconcile driver:", driver.id, err),
-        );
-      });
-    }
-
-    // Update the ref for next check
-    prevOhpanedCheckRef.current = currentOrphanedIds;
-  }, [
+  const { handleAssignDriver } = useDriverManagement({
     fleetVehicles,
     drivers,
     isLoadingVehicles,
     isLoadingDrivers,
-    optimisticUpdateDriver,
-    updateDriver,
-  ]);
-  const interactionModeRef = useRef(interactionMode);
-  const selectedVehicleRef = useRef(selectedVehicle);
+    assignDriverToVehicle,
+  });
+
+  const setLayers = useCallback(
+    (
+      updater: LayerVisibility | ((prev: LayerVisibility) => LayerVisibility),
+    ) => {
+      if (typeof updater === "function") {
+        dispatch({ type: "SET_LAYERS", payload: updater(state.layers) });
+      } else {
+        dispatch({ type: "SET_LAYERS", payload: updater });
+      }
+    },
+    [dispatch, state.layers],
+  );
+
+  // Popup data for vehicle hover
+  const [vehiclePopupData, setVehiclePopupData] = useState<{
+    vehicleId: string;
+    vehicleName: string;
+    pixelPosition: { x: number; y: number };
+  } | null>(null);
+
+  // Ref for hover timeout to prevent flickering
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Refs for stable map click handler
+  const interactionModeRef = useRef(state.interactionMode);
+  const selectedVehicleRef = useRef(state.selectedVehicle);
   const selectedVehicleIdRef = useRef(selectedVehicleId);
   const addVehicleAtRef = useRef(addVehicleAt);
   const addJobAtRef = useRef(addJobAt);
 
+  // Handle vehicle hover - show popup
+  const handleVehicleHover = useCallback(
+    (vehicleId: string, pixelPosition: { x: number; y: number }) => {
+      // Don't show popup if panel is already open
+      if (state.isVehicleDetailsOpen) return;
+
+      // Clear any pending hide timeout
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+
+      const vehicle = fleetVehicles.find((v) => String(v.id) === vehicleId);
+      if (vehicle) {
+        const vehicleName =
+          vehicle.label || vehicle.type.label || `Vehículo ${vehicle.id}`;
+        setVehiclePopupData({
+          vehicleId,
+          vehicleName,
+          pixelPosition,
+        });
+      }
+    },
+    [fleetVehicles, state.isVehicleDetailsOpen],
+  );
+
+  // Handle vehicle hover out - hide popup with delay
+  const handleVehicleHoverOut = useCallback(() => {
+    // Use a small delay to allow mouse to move to popup
+    hoverTimeoutRef.current = setTimeout(() => {
+      setVehiclePopupData(null);
+    }, 150);
+  }, []);
+
+  // Handle vehicle click - select and open panel
+  const handleVehicleClick = useCallback(
+    (vehicleId: string) => {
+      setVehiclePopupData(null); // Close popup
+      setSelectedVehicleId(vehicleId);
+      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: true });
+    },
+    [setSelectedVehicleId],
+  );
+
   // Sync refs for stable map click handler
   useEffect(() => {
-    interactionModeRef.current = interactionMode;
-  }, [interactionMode]);
+    interactionModeRef.current = state.interactionMode;
+  }, [state.interactionMode]);
   useEffect(() => {
-    selectedVehicleRef.current = selectedVehicle;
-  }, [selectedVehicle]);
+    selectedVehicleRef.current = state.selectedVehicle;
+  }, [state.selectedVehicle]);
   useEffect(() => {
     selectedVehicleIdRef.current = selectedVehicleId;
   }, [selectedVehicleId]);
@@ -317,7 +188,7 @@ export function GISMap() {
     fleetVehicles,
     fleetJobs,
     customPOIs,
-    activeZones,
+    activeZones: state.activeZones,
     removeJob,
     setLayers,
   });
@@ -395,22 +266,23 @@ export function GISMap() {
     clearFleet();
     clearRoute();
     setSelectedVehicleId(null);
-    setInteractionMode(null);
-    setPickedPOICoords(null);
-    setPickedJobCoords(null);
-    setSelectedVehicle(VEHICLE_TYPES[0]);
+    dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+    dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
+    dispatch({ type: "SET_PICKED_JOB_COORDS", payload: null });
+    dispatch({ type: "SET_SELECTED_VEHICLE", payload: VEHICLE_TYPES[0] });
   }, [clearFleet, clearRoute, setSelectedVehicleId]);
 
-  const toggleLayer = useCallback((layer: keyof LayerVisibility) => {
-    setLayers((prev) => {
-      const newState = { ...prev, [layer]: !prev[layer] };
-      if (layer === "evStations" && !newState.evStations)
-        setDynamicEVStations([]);
-      if (layer === "gasStations" && !newState.gasStations)
-        setDynamicGasStations([]);
-      return newState;
-    });
-  }, []);
+  const toggleLayer = useCallback(
+    (layer: keyof LayerVisibility) => {
+      const newLayers = { ...state.layers, [layer]: !state.layers[layer] };
+      dispatch({ type: "SET_LAYERS", payload: newLayers });
+      if (layer === "evStations" && !newLayers.evStations)
+        dispatch({ type: "SET_DYNAMIC_EV_STATIONS", payload: [] });
+      if (layer === "gasStations" && !newLayers.gasStations)
+        dispatch({ type: "SET_DYNAMIC_GAS_STATIONS", payload: [] });
+    },
+    [state.layers],
+  );
 
   const handleMapClick = useCallback((coords: [number, number]) => {
     if (
@@ -429,27 +301,27 @@ export function GISMap() {
 
     switch (mode) {
       case "pick-poi":
-        setPickedPOICoords(coords);
-        setInteractionMode(null);
-        setIsAddCustomPOIOpen(true);
+        dispatch({ type: "SET_PICKED_POI_COORDS", payload: coords });
+        dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+        dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: true });
         break;
       case "pick-job":
-        setPickedJobCoords(coords);
-        setInteractionMode(null);
-        setIsAddJobOpen(true);
+        dispatch({ type: "SET_PICKED_JOB_COORDS", payload: coords });
+        dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+        dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: true });
         break;
       case "add-vehicle":
         doAddVehicle(coords, vehicle);
-        setInteractionMode(null);
+        dispatch({ type: "SET_INTERACTION_MODE", payload: null });
         break;
       case "add-job":
         doAddJob(coords); // No vehicle assignment for regular jobs
-        setInteractionMode(null);
+        dispatch({ type: "SET_INTERACTION_MODE", payload: null });
         break;
       case "pick-stop":
-        setPickedStopCoords(coords);
-        setInteractionMode(null);
-        setIsAddStopOpen(true);
+        dispatch({ type: "SET_PICKED_STOP_COORDS", payload: coords });
+        dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+        dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: true });
         break;
       default:
         break;
@@ -457,44 +329,109 @@ export function GISMap() {
   }, []);
 
   const handleAddVehicle = useCallback(
-    () => setInteractionMode("add-vehicle"),
+    () => dispatch({ type: "SET_INTERACTION_MODE", payload: "add-vehicle" }),
     [],
   );
 
   const handleAddJob = useCallback(() => {
-    setPickedJobCoords(null);
-    setIsAddJobOpen(true);
+    dispatch({ type: "SET_PICKED_JOB_COORDS", payload: null });
+    dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: true });
   }, []);
 
   const handleAddJobDirectly = useCallback(
     (coords: [number, number], label: string) => {
-      setPickedJobCoords(null);
+      dispatch({ type: "SET_PICKED_JOB_COORDS", payload: null });
       addJobAt(coords, label); // No vehicle assignment
     },
     [addJobAt],
   );
 
   const handleStartPicking = useCallback(() => {
-    setInteractionMode("pick-poi");
-    setIsAddCustomPOIOpen(false);
+    dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-poi" });
+    dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
   }, []);
 
   const handleStartPickingJob = useCallback(() => {
-    setInteractionMode("pick-job");
-    setIsAddJobOpen(false);
+    dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-job" });
+    dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: false });
   }, []);
 
   const handleStartPickingStop = useCallback(() => {
-    setInteractionMode("pick-stop");
-    setIsAddStopOpen(false);
+    dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-stop" });
+    dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: false });
   }, []);
 
-  const handleSetSelectedVehicleId = useCallback(
+  const handleSelectVehicleIdOnly = useCallback(
     (id: string | number | null) => {
       setSelectedVehicleId(id ? String(id) : null);
-      setIsVehicleDetailsOpen(!!id);
     },
     [setSelectedVehicleId],
+  );
+
+  // Open panel from popup
+  const handleOpenVehiclePanel = useCallback(() => {
+    if (vehiclePopupData) {
+      setSelectedVehicleId(vehiclePopupData.vehicleId);
+      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: true });
+      setVehiclePopupData(null);
+    }
+  }, [vehiclePopupData, setSelectedVehicleId]);
+
+  const handleZonesUpdate = useCallback(
+    (zones: Zone[]) => dispatch({ type: "SET_ACTIVE_ZONES", payload: zones }),
+    [dispatch],
+  );
+
+  const handleSetMapCenter = useCallback(
+    (center: [number, number]) =>
+      dispatch({ type: "SET_MAP_CENTER", payload: center }),
+    [dispatch],
+  );
+
+  const handleSetWeather = useCallback(
+    (weather: WeatherData | null) =>
+      dispatch({ type: "SET_WEATHER", payload: weather }),
+    [dispatch],
+  );
+
+  const handleSetDynamicEVStations = useCallback(
+    (stations: POI[]) =>
+      dispatch({ type: "SET_DYNAMIC_EV_STATIONS", payload: stations }),
+    [dispatch],
+  );
+
+  const handleSetDynamicGasStations = useCallback(
+    (stations: POI[]) =>
+      dispatch({ type: "SET_DYNAMIC_GAS_STATIONS", payload: stations }),
+    [dispatch],
+  );
+
+  const handleSetSelectedVehicle = useCallback(
+    (vehicle: VehicleType) =>
+      dispatch({ type: "SET_SELECTED_VEHICLE", payload: vehicle }),
+    [dispatch],
+  );
+
+  const handleSetFleetMode = useCallback(
+    (mode: boolean) => dispatch({ type: "SET_FLEET_MODE", payload: mode }),
+    [dispatch],
+  );
+
+  const handleSetShowCustomPOIs = useCallback(
+    (show: boolean) =>
+      dispatch({ type: "SET_SHOW_CUSTOM_POIS", payload: show }),
+    [dispatch],
+  );
+
+  const handleSetIsAddCustomPOIOpen = useCallback(
+    (open: boolean) =>
+      dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: open }),
+    [dispatch],
+  );
+
+  const handleSetIsAddJobOpen = useCallback(
+    (open: boolean) => dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: open }),
+    [dispatch],
   );
 
   const handleRemoveVehicle = useCallback(
@@ -538,14 +475,14 @@ export function GISMap() {
   );
 
   const handleCancelAddMode = useCallback(() => {
-    setInteractionMode(null);
+    dispatch({ type: "SET_INTERACTION_MODE", payload: null });
   }, []);
 
   const handleAddJobSubmit = useCallback(
     (coords: [number, number], label: string) => {
       addJobAt(coords, label); // No vehicle assignment
-      setIsAddJobOpen(false);
-      setPickedJobCoords(null);
+      dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: false });
+      dispatch({ type: "SET_PICKED_JOB_COORDS", payload: null });
     },
     [addJobAt],
   );
@@ -553,43 +490,46 @@ export function GISMap() {
   const handleAddCustomPOISubmit = useCallback(
     (name: string, coords: [number, number], desc?: string) => {
       addCustomPOI(name, coords, desc);
-      setIsAddCustomPOIOpen(false);
-      setPickedPOICoords(null);
+      dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
+      dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
     },
     [addCustomPOI],
   );
 
   const handleOpenAddJobChange = useCallback(
     (open: boolean) => {
-      setIsAddJobOpen(open);
+      dispatch({ type: "SET_IS_ADD_JOB_OPEN", payload: open });
       if (!open) {
-        setPickedJobCoords(null);
-        if (interactionMode === "pick-job") setInteractionMode(null);
+        dispatch({ type: "SET_PICKED_JOB_COORDS", payload: null });
+        if (state.interactionMode === "pick-job")
+          dispatch({ type: "SET_INTERACTION_MODE", payload: null });
       }
     },
-    [interactionMode],
+    [state.interactionMode],
   );
 
   const handleOpenAddCustomPOIChange = useCallback(
     (open: boolean) => {
-      setIsAddCustomPOIOpen(open);
+      dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: open });
       if (!open) {
-        setPickedPOICoords(null);
-        if (interactionMode === "pick-poi") setInteractionMode(null);
+        dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
+        if (state.interactionMode === "pick-poi")
+          dispatch({ type: "SET_INTERACTION_MODE", payload: null });
       }
     },
-    [interactionMode],
+    [state.interactionMode],
   );
 
   const handleOpenAddStopChange = useCallback(
     (open: boolean) => {
-      setIsAddStopOpen(open);
+      dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: open });
       if (!open) {
-        setPickedStopCoords(null);
-        if (interactionMode === "pick-stop") setInteractionMode(null);
+        dispatch({ type: "SET_PICKED_STOP_COORDS", payload: null });
+        if (state.interactionMode === "pick-stop")
+          dispatch({ type: "SET_INTERACTION_MODE", payload: null });
       }
     },
-    [interactionMode],
+    [interactionModeRef],
   );
 
   const handleAddStopSubmit = useCallback(
@@ -601,24 +541,24 @@ export function GISMap() {
         // The setTimeout allows state updates to complete before routing
         setTimeout(() => startRouting(), 500);
       }
-      setIsAddStopOpen(false);
-      setPickedStopCoords(null);
+      dispatch({ type: "SET_IS_ADD_STOP_OPEN", payload: false });
+      dispatch({ type: "SET_PICKED_STOP_COORDS", payload: null });
     },
     [addStopToVehicle, selectedVehicleId, startRouting],
   );
 
   // Memoize computed addMode to prevent object recreation
   const computedAddMode =
-    interactionMode === "add-vehicle"
+    state.interactionMode === "add-vehicle"
       ? "vehicle"
-      : interactionMode === "add-job"
+      : state.interactionMode === "add-job"
         ? "job"
         : null;
 
   // Memoize customPOIs list to send to MapContainer (only non-empty if showCustomPOIs)
   const displayedCustomPOIs = useMemo(
-    () => (showCustomPOIs ? customPOIs : []),
-    [showCustomPOIs, customPOIs],
+    () => (state.showCustomPOIs ? customPOIs : []),
+    [state.showCustomPOIs, customPOIs],
   );
 
   // Memoize hasRoute to avoid object recreation
@@ -627,18 +567,18 @@ export function GISMap() {
   return (
     <div className="relative flex h-full w-full">
       <Sidebar
-        layers={layers}
-        setMapCenter={setMapCenter}
+        layers={state.layers}
+        setMapCenter={handleSetMapCenter}
         toggleLayer={toggleLayer}
-        selectedVehicle={selectedVehicle}
-        setSelectedVehicle={setSelectedVehicle}
-        fleetMode={fleetMode}
-        setFleetMode={setFleetMode}
+        selectedVehicle={state.selectedVehicle}
+        setSelectedVehicle={handleSetSelectedVehicle}
+        fleetMode={state.fleetMode}
+        setFleetMode={handleSetFleetMode}
         clearFleet={clearAll}
         fleetVehicles={fleetVehicles}
         fleetJobs={fleetJobs}
         selectedVehicleId={selectedVehicleId}
-        setSelectedVehicleId={handleSetSelectedVehicleId}
+        setSelectedVehicleId={handleSelectVehicleIdOnly}
         vehicleAlerts={vehicleAlerts}
         addVehicle={handleAddVehicle}
         addJob={handleAddJob}
@@ -653,78 +593,80 @@ export function GISMap() {
         customPOIs={customPOIs}
         removeCustomPOI={removeCustomPOI}
         clearAllCustomPOIs={clearAllCustomPOIs}
-        showCustomPOIs={showCustomPOIs}
-        setShowCustomPOIs={setShowCustomPOIs}
-        isAddCustomPOIOpen={isAddCustomPOIOpen}
-        setIsAddCustomPOIOpen={setIsAddCustomPOIOpen}
-        isAddJobOpen={isAddJobOpen}
+        showCustomPOIs={state.showCustomPOIs}
+        setShowCustomPOIs={handleSetShowCustomPOIs}
+        isAddCustomPOIOpen={state.isAddCustomPOIOpen}
+        setIsAddCustomPOIOpen={handleSetIsAddCustomPOIOpen}
+        isAddJobOpen={state.isAddJobOpen}
         drivers={drivers}
         isLoadingDrivers={isLoadingDrivers}
         fetchDrivers={fetchDrivers}
         addDriver={addDriver}
         onAssignDriver={handleAssignDriver}
-        setIsAddJobOpen={setIsAddJobOpen}
+        setIsAddJobOpen={handleSetIsAddJobOpen}
         isLoadingVehicles={isLoadingVehicles}
         fetchVehicles={fetchVehicles}
         isTracking={isTracking}
         toggleTracking={toggleTracking}
         hasRoute={hasRoute}
-        isAddStopOpen={isAddStopOpen}
+        isAddStopOpen={state.isAddStopOpen}
         setIsAddStopOpen={handleOpenAddStopChange}
         onStartPickingStop={handleStartPickingStop}
-        pickedStopCoords={pickedStopCoords}
+        pickedStopCoords={state.pickedStopCoords}
         onAddStopSubmit={handleAddStopSubmit}
-        gasStations={dynamicGasStations}
-        isGasStationLayerVisible={layers.gasStations}
+        gasStations={state.dynamicGasStations}
+        isGasStationLayerVisible={state.layers.gasStations}
         onToggleGasStationLayer={() => toggleLayer("gasStations")}
       />
       <div className="relative flex-1">
         <MapContainer
-          layers={layers}
+          layers={state.layers}
           toggleLayer={toggleLayer}
           routeData={routeData}
           setRouteData={setRouteData}
-          setWeather={setWeather}
+          setWeather={handleSetWeather}
           isRouting={isCalculatingRoute}
           routePoints={routePoints}
           setRoutePoints={setRoutePoints}
-          dynamicEVStations={dynamicEVStations}
-          setDynamicEVStations={setDynamicEVStations}
-          dynamicGasStations={dynamicGasStations}
-          setDynamicGasStations={setDynamicGasStations}
-          mapCenter={mapCenter}
-          setMapCenter={setMapCenter}
-          selectedVehicle={selectedVehicle}
+          dynamicEVStations={state.dynamicEVStations}
+          setDynamicEVStations={handleSetDynamicEVStations}
+          dynamicGasStations={state.dynamicGasStations}
+          setDynamicGasStations={handleSetDynamicGasStations}
+          mapCenter={state.mapCenter}
+          setMapCenter={handleSetMapCenter}
+          selectedVehicle={state.selectedVehicle}
           customPOIs={displayedCustomPOIs}
           fleetVehicles={fleetVehicles}
           fleetJobs={fleetJobs}
           selectedVehicleId={selectedVehicleId}
           vehicleAlerts={vehicleAlerts}
           onMapClick={handleMapClick}
-          pickedPOICoords={pickedPOICoords}
-          pickedJobCoords={pickedJobCoords}
-          onZonesUpdate={setActiveZones}
-          isInteracting={!!interactionMode || isCalculatingRoute}
+          pickedPOICoords={state.pickedPOICoords}
+          pickedJobCoords={state.pickedJobCoords}
+          onZonesUpdate={handleZonesUpdate}
+          isInteracting={!!state.interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
           onVehicleLabelUpdate={updateVehicleLabel}
-          onVehicleSelect={handleSetSelectedVehicleId}
+          onVehicleSelect={handleVehicleClick}
+          onVehicleHover={handleVehicleHover}
+          onVehicleHoverOut={handleVehicleHoverOut}
         />
 
         <AddJobDialog
-          isOpen={isAddJobOpen}
+          isOpen={state.isAddJobOpen}
           onOpenChange={handleOpenAddJobChange}
           onSubmit={handleAddJobSubmit}
-          mapCenter={mapCenter}
+          mapCenter={state.mapCenter}
           onStartPicking={handleStartPickingJob}
-          pickedCoords={pickedJobCoords}
+          pickedCoords={state.pickedJobCoords}
         />
         <AddCustomPOIDialog
-          isOpen={isAddCustomPOIOpen}
+          isOpen={state.isAddCustomPOIOpen}
           onOpenChange={handleOpenAddCustomPOIChange}
           onSubmit={handleAddCustomPOISubmit}
-          mapCenter={mapCenter}
+          mapCenter={state.mapCenter}
           onStartPicking={handleStartPicking}
-          pickedCoords={pickedPOICoords}
+          pickedCoords={state.pickedPOICoords}
         />
 
         <RouteErrorAlert
@@ -737,17 +679,21 @@ export function GISMap() {
         />
 
         <DriverDetailsSheet
-          driver={selectedDriver}
-          isOpen={isDriverDetailsOpen}
-          onOpenChange={setIsDriverDetailsOpen}
-          onClose={() => setIsDriverDetailsOpen(false)}
+          driver={state.selectedDriver}
+          isOpen={state.isDriverDetailsOpen}
+          onOpenChange={(open) =>
+            dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: open })
+          }
+          onClose={() =>
+            dispatch({ type: "SET_IS_DRIVER_DETAILS_OPEN", payload: false })
+          }
         />
 
         <VehicleDetailSheet
           vehicle={selectedVehicleObject}
-          isOpen={isVehicleDetailsOpen}
+          isOpen={state.isVehicleDetailsOpen}
           onClose={() => {
-            setIsVehicleDetailsOpen(false);
+            dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: false });
             setSelectedVehicleId(null);
           }}
           drivers={drivers}
@@ -764,6 +710,40 @@ export function GISMap() {
             updateVehicleType(vehicleId, vehicleType);
           }}
         />
+
+        {/* Vehicle Hover Popup */}
+        {vehiclePopupData && (
+          <div
+            className="fixed z-50 bg-card/95 backdrop-blur-sm rounded-md shadow-md border border-border/50 px-2 py-1 pointer-events-auto"
+            style={{
+              left: `${vehiclePopupData.pixelPosition.x}px`,
+              top: `${vehiclePopupData.pixelPosition.y - 45}px`,
+              transform: "translate(-50%, -100%)",
+            }}
+            onMouseEnter={() => {
+              // Clear hide timeout when hovering over popup
+              if (hoverTimeoutRef.current) {
+                clearTimeout(hoverTimeoutRef.current);
+                hoverTimeoutRef.current = null;
+              }
+            }}
+            onMouseLeave={() => {
+              setVehiclePopupData(null);
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-medium text-foreground truncate max-w-[100px]">
+                {vehiclePopupData.vehicleName}
+              </span>
+              <button
+                onClick={handleOpenVehiclePanel}
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/90 text-white hover:bg-primary transition-colors"
+              >
+                ▶
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -194,22 +194,38 @@ export class PrismaGisRepository implements IGisRepository {
   }
 
   async addDriver(data: any): Promise<any> {
+    const driverData: any = {
+      name: data.name,
+      licenseType: data.licenseType,
+      licenseNumber: data.licenseNumber,
+      imageUrl: data.imageUrl,
+      isAvailable: true,
+      onTimeDeliveryRate: 100,
+    };
+
+    // Only include phoneNumber if it has a non-empty value
+    if (data.phoneNumber && data.phoneNumber.trim()) {
+      driverData.phoneNumber = data.phoneNumber.trim();
+    }
+
     return this.prisma.driver.create({
-      data: {
-        name: data.name,
-        licenseType: data.licenseType,
-        licenseNumber: data.licenseNumber,
-        imageUrl: data.imageUrl,
-        isAvailable: true,
-        onTimeDeliveryRate: 100,
-      },
+      data: driverData,
     });
   }
 
   async updateDriver(id: string, data: any): Promise<any> {
+    const updateData: any = { ...data };
+
+    // Handle phoneNumber specially - don't update if it's an empty string
+    if (updateData.phoneNumber === "") {
+      delete updateData.phoneNumber;
+    } else if (updateData.phoneNumber && updateData.phoneNumber.trim()) {
+      updateData.phoneNumber = updateData.phoneNumber.trim();
+    }
+
     return this.prisma.driver.update({
       where: { id },
-      data,
+      data: updateData,
     });
   }
 

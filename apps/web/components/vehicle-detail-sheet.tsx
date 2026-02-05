@@ -107,7 +107,7 @@ export function VehicleDetailSheet({
         } finally {
           setIsLoadingAddress(false);
         }
-      }, 10000); // Debounce geocoding for 10s to respect API limits
+      }, 5000);
 
       return () => {
         if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
@@ -272,7 +272,7 @@ export function VehicleDetailSheet({
               <div className="flex items-center gap-2 bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/20">
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
                 <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
-                  Sistema de alerta activo
+                  Monitorear flota
                 </span>
               </div>
             </div>

@@ -30,10 +30,7 @@ import type {
   FleetVehicle,
   LayerVisibility,
   POI,
-  RouteData,
-  RouteWeather,
   VehicleType,
-  Zone,
 } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
 import { JobsList, VehiclesList } from "@/components/sidebar-items";
@@ -227,10 +224,6 @@ const FleetTab = memo(
     isTracking,
     toggleTracking,
     hasRoute,
-    onStartPickingStop,
-    onAddStopSubmit,
-    isAddStopOpen,
-    setIsAddStopOpen,
   }: FleetTabProps) => {
     const [searchQuery, setSearchQuery] = useState("");
     const [expandedGroups, setExpandedGroups] = useState({
@@ -594,8 +587,6 @@ export const Sidebar = memo(
     isLoadingDrivers = false,
     fetchDrivers,
     addDriver,
-    isGasStationLayerVisible = false,
-    onToggleGasStationLayer,
   }: SidebarProps) {
     // Local state for sidebar visibility
     const [activeTab, setActiveTabState] = useState<SidebarTab>("fleet");
@@ -755,7 +746,7 @@ export const Sidebar = memo(
                 gasStations={gasStations}
                 vehicleAlerts={vehicleAlerts}
                 selectedVehicleId={selectedVehicleId}
-                onVehicleSelect={setSelectedVehicleId}
+                onSelectVehicle={setSelectedVehicleId}
                 isGasStationLayerVisible={layers.gasStations}
                 onToggleGasStationLayer={() => toggleLayer("gasStations")}
                 isTracking={isTracking}

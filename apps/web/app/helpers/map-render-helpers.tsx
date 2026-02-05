@@ -32,6 +32,11 @@ interface RenderVehiclesProps {
   onUpdateType?: (vehicleId: string, type: VehicleType) => void;
   onUpdateLabel?: (vehicleId: string, label: string) => void;
   onSelect?: (vehicleId: string) => void;
+  onHover?: (
+    vehicleId: string,
+    pixelPosition: { x: number; y: number },
+  ) => void;
+  onHoverOut?: () => void;
   zoom: number;
   vehicleAlerts?: Record<string | number, any[]>;
 }
@@ -89,11 +94,7 @@ export function renderPOIs({
 
     // NORMAL or DETAILED: Use Marker with the passed icon and premium popup
     return (
-      <Marker
-        key={`${type}-${station.id}`}
-        position={pos}
-        icon={icon}
-      >
+      <Marker key={`${type}-${station.id}`} position={pos} icon={icon}>
         <Tooltip direction="top" offset={[0, -20]} opacity={0.8}>
           <span className="font-semibold text-[10px]">{station.name}</span>
         </Tooltip>
@@ -119,7 +120,9 @@ export function renderPOIs({
                 <div className="grid grid-cols-2 gap-2">
                   {station.prices.gasoline95 && (
                     <div className="flex flex-col bg-slate-50 p-1.5 rounded border border-slate-100">
-                      <span className="text-[9px] text-slate-400 font-bold">G95 E5</span>
+                      <span className="text-[9px] text-slate-400 font-bold">
+                        G95 E5
+                      </span>
                       <span className="text-sm font-black text-slate-700">
                         {station.prices.gasoline95.toFixed(3)}
                         <span className="text-[10px] ml-0.5">€</span>
@@ -128,7 +131,9 @@ export function renderPOIs({
                   )}
                   {station.prices.diesel && (
                     <div className="flex flex-col bg-slate-50 p-1.5 rounded border border-slate-100">
-                      <span className="text-[9px] text-slate-400 font-bold">DIESEL A</span>
+                      <span className="text-[9px] text-slate-400 font-bold">
+                        DIESEL A
+                      </span>
                       <span className="text-sm font-black text-slate-700">
                         {station.prices.diesel.toFixed(3)}
                         <span className="text-[10px] ml-0.5">€</span>
@@ -137,7 +142,9 @@ export function renderPOIs({
                   )}
                   {station.prices.gasoline98 && (
                     <div className="flex flex-col bg-slate-50 p-1.5 rounded border border-slate-100">
-                      <span className="text-[9px] text-slate-400 font-bold">G98 E5</span>
+                      <span className="text-[9px] text-slate-400 font-bold">
+                        G98 E5
+                      </span>
                       <span className="text-sm font-black text-slate-700">
                         {station.prices.gasoline98.toFixed(3)}
                         <span className="text-[10px] ml-0.5">€</span>
@@ -146,7 +153,9 @@ export function renderPOIs({
                   )}
                   {station.prices.dieselPremium && (
                     <div className="flex flex-col bg-slate-50 p-1.5 rounded border border-slate-100">
-                      <span className="text-[9px] text-slate-400 font-bold">DIESEL+</span>
+                      <span className="text-[9px] text-slate-400 font-bold">
+                        DIESEL+
+                      </span>
                       <span className="text-sm font-black text-slate-700">
                         {station.prices.dieselPremium.toFixed(3)}
                         <span className="text-[10px] ml-0.5">€</span>
@@ -170,8 +179,12 @@ export function renderPOIs({
                 </div>
                 <div className="bg-green-50 p-2 rounded-lg border border-green-100">
                   <div className="flex justify-between items-center">
-                    <span className="text-[11px] font-semibold text-green-700">Conectores:</span>
-                    <span className="text-xs font-black text-green-800">{station.connectors || 1}</span>
+                    <span className="text-[11px] font-semibold text-green-700">
+                      Conectores:
+                    </span>
+                    <span className="text-xs font-black text-green-800">
+                      {station.connectors || 1}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -187,9 +200,9 @@ export function renderVehicleMarkers({
   vehicles,
   selectedVehicleId,
   createVehicleIcon,
-  onUpdateType,
-  onUpdateLabel,
   onSelect,
+  onHover,
+  onHoverOut,
   zoom,
   vehicleAlerts = {},
 }: RenderVehiclesProps) {
@@ -213,14 +226,20 @@ export function renderVehicleMarkers({
           radius={5}
           pathOptions={{
             fillColor: color,
-            fillOpacity: isDimmed
-              ? THEME.map.hierarchy.dimmedOpacity
-              : 1,
+            fillOpacity: isDimmed ? THEME.map.hierarchy.dimmedOpacity : 1,
             color: "white",
             weight: 1.5,
           }}
           eventHandlers={{
             click: () => onSelect?.(String(vehicle.id)),
+            mouseover: (e) => {
+              const map = e.target._map;
+              if (map) {
+                const point = map.latLngToContainerPoint(e.latlng);
+                onHover?.(String(vehicle.id), { x: point.x, y: point.y });
+              }
+            },
+            mouseout: () => onHoverOut?.(),
           }}
         />
       );
@@ -237,25 +256,16 @@ export function renderVehicleMarkers({
         opacity={opacity}
         eventHandlers={{
           click: () => onSelect?.(String(vehicle.id)),
+          mouseover: (e) => {
+            const map = e.target._map;
+            if (map) {
+              const point = map.latLngToContainerPoint(e.latlng);
+              onHover?.(String(vehicle.id), { x: point.x, y: point.y });
+            }
+          },
+          mouseout: () => onHoverOut?.(),
         }}
-      >
-        <Tooltip
-          direction="top"
-          offset={THEME.map.popups.vehicleTooltipOffset}
-          opacity={THEME.map.popups.tooltipOpacity}
-          permanent={isSelected && lod === "DETAILED"}
-        >
-          <span
-            className="font-medium"
-            style={{
-              fontSize: THEME.map.popups.fontSize,
-              fontWeight: isSelected ? "bold" : "normal",
-            }}
-          >
-            {vehicle.label || vehicle.type.label}
-          </span>
-        </Tooltip>
-      </Marker>
+      />
     );
   });
 }
@@ -335,8 +345,6 @@ export function renderJobMarkers({
       ? createMapIcon(IconComponent, routeColor, iconSize, 15, { opacity: 1 })
       : icon;
 
-    const showPermanentLabel = lod === "DETAILED" && !!assignedTo && !isJobDimmed;
-
     return (
       <Marker
         key={`job-${job.id}`}
@@ -398,7 +406,7 @@ export function renderJobMarkers({
                   borderRadius: "2px",
                 }}
               >
-                ⚠️ Unassigned
+                Trabajo no asignado.
               </div>
             )}
           </div>

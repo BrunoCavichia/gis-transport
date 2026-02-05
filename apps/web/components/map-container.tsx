@@ -73,6 +73,11 @@ interface MapContainerProps {
   onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
   onVehicleLabelUpdate?: (vehicleId: string, label: string) => void;
   onVehicleSelect?: (vehicleId: string) => void;
+  onVehicleHover?: (
+    vehicleId: string,
+    pixelPosition: { x: number; y: number },
+  ) => void;
+  onVehicleHoverOut?: () => void;
   toggleLayer?: (layer: keyof LayerVisibility) => void;
 }
 
@@ -102,12 +107,13 @@ export default function MapContainer({
   onVehicleTypeChange,
   onVehicleLabelUpdate,
   onVehicleSelect,
+  onVehicleHover,
+  onVehicleHoverOut,
 }: MapContainerProps) {
   const [mounted, setMounted] = useState(false);
   const [dynamicZones, setDynamicZones] = useState<Zone[]>([]);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [, setViewportBounds] = useState<L.LatLngBounds | null>(null);
-  // Force re-render when gas stations change
 
   const { loading, wrapAsync } = useLoadingLayers();
   const poiCache = usePOICache();
@@ -250,6 +256,8 @@ export default function MapContainer({
           onUpdateType={onVehicleTypeChange}
           onUpdateLabel={onVehicleLabelUpdate}
           onSelect={onVehicleSelect}
+          onHover={onVehicleHover}
+          onHoverOut={onVehicleHoverOut}
           zoom={zoom}
         />
 

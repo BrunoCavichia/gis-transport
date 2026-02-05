@@ -534,6 +534,7 @@ export type GisOptimizationContext = z.infer<
 
 // Generic API Response Interface
 export interface IGisResponse<T = unknown> {
+  timestamp: string;
   success: boolean;
   data?: T;
   error?: {
@@ -542,4 +543,19 @@ export interface IGisResponse<T = unknown> {
     details?: string;
   };
 }
+
+// Additional API Schemas
+export const WeatherIncomingBodySchema = z.object({
+  startTime: z.string().optional(),
+  vehicleRoutes: z.array(VehicleRouteSchema).optional(),
+  vehicles: z.array(FleetVehicleSchema).optional(),
+  jobs: z.array(FleetJobSchema).optional(),
+  locations: z.array(LatLonSchema).optional(),
+  matrix: z.array(z.array(z.number())).optional(),
+});
+export type WeatherIncomingBody = z.infer<typeof WeatherIncomingBodySchema>;
+
+export const GisDataContextSchema = z.record(z.string(), z.any());
+export type GisDataContext = z.infer<typeof GisDataContextSchema>;
+
 export * from "./overpass-client";

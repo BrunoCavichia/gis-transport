@@ -142,6 +142,16 @@ export function useRouting({
         jobCount: allFleetJobs.length,
         vehicleIds: vehicles.map((v) => v.id),
         jobIds: allFleetJobs.map((j) => j.id),
+        zoneCount: zones.length,
+        zones:
+          zones.length > 0
+            ? zones.map((z) => ({
+                id: z.id,
+                name: z.name,
+                type: z.type,
+                requiredTags: z.requiredTags,
+              }))
+            : "No zones",
       });
 
       const res = await fetch("/api/gis/optimize", {

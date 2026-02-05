@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  AlertTriangle,
-  AlertCircle,
-  Info,
-  Wind,
-  Cloud,
-  CloudRain,
-} from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, Cloud } from "lucide-react";
 import type { Alert } from "@/lib/utils";
 import { getAlertStyles } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -60,7 +53,7 @@ export function VehicleAlertPanel({
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </div>
             <span className="text-xs font-bold text-emerald-700">
-              Sin alertas activas - Sistema operativo
+              Sin alertas activas
             </span>
           </div>
         ) : (

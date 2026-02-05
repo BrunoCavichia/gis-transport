@@ -165,19 +165,26 @@ export function VehicleDetailSheet({
       )}
     >
       {/* Header */}
-      <div className="px-6 py-4 border-b-2 border-border/40 flex items-center justify-between shrink-0 bg-gradient-to-b from-primary/5 to-transparent">
-        <div>
-          <h2 className="text-xl font-black italic tracking-tighter text-foreground leading-none">
-            DETALLES DEL VEHÍCULO
-          </h2>
-          <p className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-[0.2em] mt-1 ml-0.5">
-            Editar y gestionar información
-          </p>
+      <div className="px-5 py-4 border-b border-border/40 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Truck className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-foreground leading-none">
+              Detalles del Vehículo
+            </h2>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {vehicle.licensePlate ||
+                vehicle.label ||
+                `Vehículo #${vehicle.id}`}
+            </p>
+          </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-xl"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
           onClick={onClose}
         >
           <X className="h-4 w-4" />
@@ -186,17 +193,14 @@ export function VehicleDetailSheet({
 
       {/* Content - Scrollable */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
-        {/* Primary Editable Fields Card */}
-        <Card className="bg-card border-2 border-border/40 rounded-2xl p-0 overflow-hidden">
-          <div className="p-5 space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
-                <Truck className="h-7 w-7 text-primary/30" />
-              </div>
-              <div className="flex-1">
-                {/* License Plate - Primary Field */}
-                <div className="mb-3">
-                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+        {/* Basic Information */}
+        <Card className="bg-card border border-border/40 rounded-xl p-0 overflow-hidden">
+          <div className="p-4 space-y-3">
+            <div className="space-y-3">
+              {/* License Plate */}
+              <div className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
+                <div className="flex-1">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase">
                     Matrícula
                   </Label>
                   {editingLicensePlate ? (
@@ -213,40 +217,42 @@ export function VehicleDetailSheet({
                             setEditingLicensePlate(false);
                           }
                         }}
-                        className="h-8 text-sm font-mono uppercase tracking-wider flex-1"
+                        className="h-7 text-sm font-mono uppercase flex-1"
                         placeholder="0000 ABC"
                         autoFocus
                       />
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8"
+                        className="h-7 w-7"
                         onClick={handleSaveLicensePlate}
                       >
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-[15px] font-black tracking-tight text-foreground">
-                        {vehicle.licensePlate || "Sin matrícula"}
-                      </p>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 opacity-60 hover:opacity-100"
-                        onClick={() => setEditingLicensePlate(true)}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <p className="text-sm font-bold text-foreground mt-1">
+                      {vehicle.licensePlate || "Sin matrícula"}
+                    </p>
                   )}
                 </div>
+                {!editingLicensePlate && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground"
+                    onClick={() => setEditingLicensePlate(true)}
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
 
-                {/* Vehicle Alias - Secondary Field */}
-                <div>
-                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                    Alias del Vehículo
+              {/* Alias */}
+              <div className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
+                <div className="flex-1">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase">
+                    Alias
                   </Label>
                   {editingAlias ? (
                     <div className="flex items-center gap-2 mt-1">
@@ -260,229 +266,189 @@ export function VehicleDetailSheet({
                             setEditingAlias(false);
                           }
                         }}
-                        className="h-8 text-sm flex-1"
+                        className="h-7 text-sm flex-1"
                         placeholder="Nombre..."
                         autoFocus
                       />
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8"
+                        className="h-7 w-7"
                         onClick={handleSaveAlias}
                       >
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[13px] font-bold text-foreground">
-                        {vehicle.label || "Sin alias"}
-                      </span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 opacity-60 hover:opacity-100"
-                        onClick={() => setEditingAlias(true)}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <p className="text-sm font-bold text-foreground mt-1">
+                      {vehicle.label || "Sin alias"}
+                    </p>
                   )}
                 </div>
-
-                <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground/70 uppercase mt-2">
-                  <span>{vehicle.type.label}</span>
-                  <span className="h-1 w-1 rounded-full bg-border" />
-                  <Badge
-                    variant={
-                      metrics?.status === "active" ? "outline" : "secondary"
-                    }
-                    className="text-[8px] uppercase font-black px-2 h-4"
+                {!editingAlias && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground"
+                    onClick={() => setEditingAlias(true)}
                   >
-                    {metrics?.status === "active" ? "Activo" : "Inactivo"}
-                  </Badge>
-                </div>
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Type and Status */}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  {vehicle.type.label}
+                </span>
+                <Badge
+                  variant={
+                    metrics?.status === "active" ? "default" : "secondary"
+                  }
+                  className="text-[10px] font-medium"
+                >
+                  {metrics?.status === "active" ? "Activo" : "Inactivo"}
+                </Badge>
               </div>
             </div>
+          </div>
+        </Card>
 
-            {/* Vehicle Metrics Grid */}
-            {metrics && (
-              <div className="grid grid-cols-2 gap-3 pt-4 border-t border-border/30">
+        {/* Metrics */}
+        {metrics && (
+          <Card className="bg-card border border-border/40 rounded-xl p-0 overflow-hidden">
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3">
                 {/* Speed */}
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                <div className="p-3 bg-muted/20 rounded-lg">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase mb-1">
                     Velocidad
                   </p>
-                  <p className="text-lg font-black text-foreground">
-                    {metrics.speed}{" "}
-                    <span className="text-xs text-muted-foreground">km/h</span>
+                  <p className="text-xl font-bold text-foreground">
+                    {metrics.speed}
+                    <span className="text-xs text-muted-foreground ml-1">
+                      km/h
+                    </span>
                   </p>
                 </div>
 
                 {/* Health */}
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                    Salud
+                <div className="p-3 bg-muted/20 rounded-lg">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase mb-1">
+                    Estado
                   </p>
                   <div className="flex items-center gap-2">
                     <p
                       className={cn(
-                        "text-lg font-black",
+                        "text-xl font-bold",
                         isHealthy ? "text-green-600" : "text-red-600",
                       )}
                     >
                       {metrics.health}%
                     </p>
-                    <Activity
-                      className={cn(
-                        "h-4 w-4",
-                        isHealthy ? "text-green-500" : "text-red-500",
-                      )}
-                    />
                   </div>
                 </div>
 
-                {/* Fuel / Battery */}
+                {/* Fuel */}
                 {metrics.fuelLevel !== undefined && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                      Combustible
-                    </p>
-                    <div className="space-y-1.5">
-                      <p className="text-sm font-black text-foreground">
+                  <div className="p-3 bg-muted/20 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase">
+                        Combustible
+                      </p>
+                      <span className="text-xs font-bold text-foreground">
                         {metrics.fuelLevel}%
-                      </p>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-500 rounded-full transition-all"
-                          style={{ width: `${metrics.fuelLevel}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {metrics.batteryLevel !== undefined && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                      Batería
-                    </p>
-                    <div className="space-y-1.5">
-                      <p className="text-sm font-black text-foreground">
-                        {metrics.batteryLevel}%
-                      </p>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500 rounded-full transition-all"
-                          style={{ width: `${metrics.batteryLevel}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Environmental Label Selector */}
-        <Card className="bg-card border-2 border-border/40 rounded-2xl p-0 overflow-hidden">
-          <div className="p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-12 w-12 rounded-xl bg-muted/30 flex items-center justify-center shrink-0">
-                <Tag className="h-6 w-6 text-muted-foreground/60" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wide mb-1">
-                  Etiqueta Actual
-                </p>
-                <Badge
-                  className={cn(
-                    currentTag.color,
-                    "text-white font-black px-3 py-1",
-                  )}
-                >
-                  {currentTag.label}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-border/30">
-              <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wide mb-3">
-                Cambiar Etiqueta
-              </p>
-              <div className="grid grid-cols-5 gap-2">
-                {ENVIRONMENTAL_TAGS.map((tag) => {
-                  const isSelected = currentTag.id === tag.id;
-                  return (
-                    <Button
-                      key={tag.id}
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        "h-10 text-xs font-bold px-2 rounded-lg transition-all relative",
-                        isSelected
-                          ? cn(
-                              tag.color,
-                              "text-white border-0 shadow-md dark:text-white",
-                            )
-                          : "border border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5",
-                      )}
-                      onClick={() => {
-                        if (onChangeEnvironmentalTag && !isSelected) {
-                          onChangeEnvironmentalTag(vehicle.id, tag.id);
-                        }
-                      }}
-                    >
-                      <span className="drop-shadow-sm">
-                        {tag.id === "none" ? "—" : tag.label}
                       </span>
-                      {isSelected && (
-                        <Check className="h-3 w-3 absolute top-0.5 right-0.5 drop-shadow-sm" />
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </Card>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-500 rounded-full transition-all"
+                        style={{ width: `${metrics.fuelLevel}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
-        {/* Vehicle Metrics */}
-        {metrics && (
-          <Card className="bg-card border-2 border-border/40 rounded-2xl p-0 overflow-hidden">
-            <div className="p-5">
-              <h3 className="text-[11px] font-black text-muted-foreground/50 uppercase tracking-widest mb-4">
-                Métricas en Tiempo Real
-              </h3>
-              <div className="space-y-3">
-                {/* Status */}
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-                  <span className="text-xs font-bold text-foreground">
-                    {metrics?.movementState === "on_route"
-                      ? "En Ruta"
-                      : metrics?.movementState === "moving"
-                        ? "En Movimiento"
-                        : "Parado"}
-                  </span>
-                </div>
+                {/* Battery */}
+                {metrics.batteryLevel !== undefined && (
+                  <div className="p-3 bg-muted/20 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase">
+                        Batería
+                      </p>
+                      <span className="text-xs font-bold text-foreground">
+                        {metrics.batteryLevel}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full transition-all"
+                        style={{ width: `${metrics.batteryLevel}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
         )}
 
+        {/* Environmental Label */}
+        <Card className="bg-card border border-border/40 rounded-xl p-0 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">
+                  Etiqueta Ambiental
+                </span>
+              </div>
+              <Badge className={cn(currentTag.color, "text-white font-bold")}>
+                {currentTag.label}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {ENVIRONMENTAL_TAGS.map((tag) => {
+                const isSelected = currentTag.id === tag.id;
+                return (
+                  <Button
+                    key={tag.id}
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-9 text-xs font-bold px-1 rounded-lg transition-all",
+                      isSelected
+                        ? cn(tag.color, "text-black ring-2 ")
+                        : "hover:bg-muted",
+                    )}
+                    onClick={() => {
+                      if (onChangeEnvironmentalTag && !isSelected) {
+                        onChangeEnvironmentalTag(vehicle.id, tag.id);
+                      }
+                    }}
+                  >
+                    {tag.id === "none" ? "—" : tag.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+
         {/* Driver Section */}
-        <Card className="bg-card border-2 border-border/40 rounded-2xl p-0 overflow-hidden hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 transition-all group h-fit">
-          <div className="p-5">
-            <h3 className="text-[11px] font-black text-muted-foreground/50 uppercase tracking-widest mb-4">
-              Conductor Asignado
-            </h3>
+        <Card className="bg-card border border-border/40 rounded-xl p-0 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">
+                Conductor
+              </span>
+            </div>
             {driver ? (
-              <div className="space-y-4">
-                {/* Current Driver Info */}
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="h-16 w-16 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg">
+                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                     {driver.imageUrl ? (
                       <img
                         src={driver.imageUrl}
@@ -490,123 +456,75 @@ export function VehicleDetailSheet({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <Users className="h-8 w-8 text-primary/30" />
+                      <Users className="h-6 w-6 text-primary" />
                     )}
                   </div>
-                  <div className="flex-1">
-                    <h4 className="text-base font-black tracking-tight text-foreground mb-1">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold text-foreground truncate">
                       {driver.name}
                     </h4>
-                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground/70 uppercase">
-                      <span>{driver.licenseType || "Cat. B"}</span>
-                      {driver.licenseNumber && (
-                        <>
-                          <span className="h-1 w-1 rounded-full bg-border" />
-                          <span className="font-mono text-[10px]">
-                            {driver.licenseNumber}
-                          </span>
-                        </>
+                    <div className="space-y-0.5 mt-1">
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium">Licencia:</span>{" "}
+                        {driver.licenseType || "Cat. B"}
+                        {driver.licenseNumber && ` (${driver.licenseNumber})`}
+                      </p>
+                      {driver.phoneNumber && (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium">Teléfono:</span>{" "}
+                          {driver.phoneNumber}
+                        </p>
                       )}
                     </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700"
+                    className="h-8 w-8 text-red-500 hover:text-red-700"
                     onClick={handleUnassignDriver}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
 
-                {/* Driver Details Grid */}
-                <div className="space-y-3 pt-4 border-t border-border/30">
-                  {/* Phone Number */}
-                  <div>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide mb-1">
-                      Teléfono
-                    </p>
-                    {driver.phoneNumber ? (
-                      <a
-                        href={`tel:${driver.phoneNumber}`}
-                        className="text-sm text-blue-600 hover:underline font-mono font-bold"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {driver.phoneNumber}
-                      </a>
-                    ) : (
-                      <p className="text-sm text-muted-foreground font-mono">
-                        No disponible
-                      </p>
-                    )}
-                  </div>
-
-                  {/* License Number */}
-                  {driver.licenseNumber && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide mb-1">
-                        Número de Licencia
-                      </p>
-                      <p className="text-sm font-mono font-black text-foreground">
-                        {driver.licenseNumber}
-                      </p>
+                {driver.onTimeDeliveryRate !== undefined && (
+                  <div className="p-3 bg-muted/20 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                        Puntualidad
+                      </span>
+                      <span className="text-xs font-bold text-foreground">
+                        {driver.onTimeDeliveryRate}%
+                      </span>
                     </div>
-                  )}
-
-                  {/* Performance - On Time Delivery Rate */}
-                  {driver.onTimeDeliveryRate !== undefined && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">
-                          Puntualidad
-                        </p>
-                        <span className="text-sm font-black text-foreground">
-                          {driver.onTimeDeliveryRate}%
-                        </span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all",
-                            driver.onTimeDeliveryRate >= 90
-                              ? "bg-emerald-500"
-                              : driver.onTimeDeliveryRate >= 75
-                                ? "bg-orange-500"
-                                : "bg-red-500",
-                          )}
-                          style={{ width: `${driver.onTimeDeliveryRate}%` }}
-                        />
-                      </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          driver.onTimeDeliveryRate >= 90
+                            ? "bg-emerald-500"
+                            : driver.onTimeDeliveryRate >= 75
+                              ? "bg-orange-500"
+                              : "bg-red-500",
+                        )}
+                        style={{ width: `${driver.onTimeDeliveryRate}%` }}
+                      />
                     </div>
-                  )}
-
-                  {/* Availability Status */}
-                  <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-xl border border-border/30">
-                    <div
-                      className={cn(
-                        "h-2 w-2 rounded-full shrink-0",
-                        driver.isAvailable ? "bg-emerald-500" : "bg-gray-500",
-                      )}
-                    />
-                    <span className="text-xs font-bold text-foreground">
-                      {driver.isAvailable ? "Disponible" : "No disponible"}
-                    </span>
                   </div>
-                </div>
+                )}
 
-                {/* Change Driver Option */}
                 {availableDrivers.length > 0 && (
-                  <div className="pt-3 border-t border-border/30">
-                    <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wide mb-2">
-                      Cambiar Conductor
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Cambiar a:
                     </p>
-                    <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+                    <div className="flex flex-wrap gap-2">
                       {availableDrivers.slice(0, 6).map((d: Driver) => (
                         <Button
                           key={d.id}
                           variant="outline"
                           size="sm"
-                          className="h-7 text-[10px] font-bold px-2 rounded-lg hover:bg-primary/10 hover:text-primary hover:border-primary/40"
+                          className="h-8 text-xs font-medium px-3 rounded-lg hover:bg-primary hover:text-white"
                           onClick={() => handleAssignDriver(d)}
                         >
                           {d.name.split(" ")[0]}
@@ -617,56 +535,52 @@ export function VehicleDetailSheet({
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-4 text-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-muted/30 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-muted-foreground/40" />
-                </div>
-                <p className="text-sm font-bold text-muted-foreground/60">
-                  Sin conductor asignado
-                </p>
-
-                {/* Driver Selection */}
-                <div className="w-full pt-3 border-t border-border/30">
-                  <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wide mb-2">
-                    Asignar Conductor
+              <div>
+                <div className="p-3 bg-muted/20 rounded-lg text-center mb-3">
+                  <p className="text-sm text-muted-foreground">
+                    Sin conductor asignado
                   </p>
-                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
-                    {availableDrivers.length > 0 ? (
-                      availableDrivers.map((d: Driver) => (
+                </div>
+                {availableDrivers.length > 0 ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Asignar conductor:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {availableDrivers.map((d: Driver) => (
                         <Button
                           key={d.id}
                           variant="outline"
                           size="sm"
-                          className="h-7 text-[10px] font-bold px-2 rounded-lg hover:bg-primary/10 hover:text-primary hover:border-primary/40"
+                          className="h-8 text-xs font-medium px-3 rounded-lg hover:bg-primary hover:text-white"
                           onClick={() => handleAssignDriver(d)}
                         >
                           {d.name.split(" ")[0]}
                         </Button>
-                      ))
-                    ) : (
-                      <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest text-center py-2 w-full">
-                        No hay conductores disponibles
-                      </p>
-                    )}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <p className="text-xs text-orange-500 text-center py-2">
+                    No hay conductores disponibles
+                  </p>
+                )}
               </div>
             )}
           </div>
         </Card>
 
-        {/* Health Warning */}
         {metrics && !isHealthy && (
-          <Card className="bg-red-50 dark:bg-red-950/20 rounded-2xl p-0 overflow-hidden border-2 border-red-200/50 dark:border-red-900/50">
-            <div className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+          <Card className="bg-red-50 dark:bg-red-950/20 rounded-xl p-0 overflow-hidden border border-red-200 dark:border-red-900">
+            <div className="p-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-black text-red-700 dark:text-red-400 uppercase tracking-wide mb-1">
+                  <p className="text-xs font-bold text-red-700 dark:text-red-400">
                     Alerta de salud
                   </p>
                   <p className="text-xs text-red-600/80 dark:text-red-400/70">
-                    El vehículo presenta problemas. Salud al {metrics.health}%.
+                    Salud al {metrics.health}%
                   </p>
                 </div>
               </div>
