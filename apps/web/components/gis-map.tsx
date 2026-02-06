@@ -184,6 +184,21 @@ export function GISMap() {
     clearAllCustomPOIs,
   } = useCustomPOI();
 
+  // Combine API zones with custom zones for routing
+  const combinedActiveZones = useMemo(() => {
+    const customZones = customPOIs
+      .filter(poi => poi.entityType === "zone" && poi.coordinates)
+      .map(zone => ({
+        id: zone.id,
+        name: zone.name,
+        coordinates: zone.coordinates,
+        type: zone.zoneType || "LEZ",
+        description: zone.description,
+        requiredTags: zone.requiredTags,
+      }));
+    return [...state.activeZones, ...customZones];
+  }, [state.activeZones, customPOIs]);
+
   const {
     routeData,
     setRouteData,
@@ -200,7 +215,7 @@ export function GISMap() {
     fleetVehicles,
     fleetJobs,
     customPOIs,
-    activeZones: state.activeZones,
+    activeZones: combinedActiveZones,
     removeJob,
     setLayers,
   });

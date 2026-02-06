@@ -14,6 +14,7 @@ import {
 import { THEME } from "@/lib/theme";
 import { ORS_URL, VROOM_URL, SNAP_URL, ROUTING_CONFIG } from "@/lib/config";
 import { WeatherService } from "./weather-service";
+import { getForbiddenZones } from "@/lib/helpers/zone-access-helper";
 
 const { route: ROUTE_COLORS } = THEME.colors;
 
@@ -785,45 +786,21 @@ export class RoutingService {
       `[ForbiddenZones] Evaluando ${allZones.length} zonas para vehículo con tags: [${vehicleTags.join(", ")}]`,
     );
 
-    return allZones.filter((zone) => {
-      const type = (zone.type || "").toUpperCase();
+    const forbidden = getForbiddenZones(vehicleTags, allZones);
 
-      // Si la zona tiene requiredTags, verificar si el vehículo tiene alguna
-      if (zone.requiredTags && zone.requiredTags.length > 0) {
-        const hasRequiredTag = zone.requiredTags.some((tag) =>
-          vehicleTags.includes(tag),
-        );
-        const isForbidden = !hasRequiredTag;
-        if (isForbidden) {
-          console.log(
-            `[ForbiddenZones] Zona "${zone.name || zone.id}" (${type}) - PROHIBIDA - Requiere: [${zone.requiredTags.join(", ")}], Vehículo tiene: [${vehicleTags.join(", ")}]`,
-          );
-        }
-        return isForbidden;
-      }
+    if (forbidden.length > 0) {
+      console.log(
+        `[ForbiddenZones] Found ${forbidden.length} forbidden zones:`,
+        forbidden.map((z) => ({
+          id: z.id,
+          name: z.name,
+          type: z.type,
+          requiredTags: z.requiredTags,
+        })),
+      );
+    }
 
-      // Zonas peatonales siempre prohibidas
-      if (type === "PEDESTRIAN") {
-        console.log(
-          `[ForbiddenZones] Zona "${zone.name || zone.id}" - PROHIBIDA (peatonal)`,
-        );
-        return true;
-      }
-
-      // Para zonas LEZ/RESTRICTED/ENVIRONMENTAL sin requiredTags específicos,
-      // prohibir si el vehículo NO tiene ningún tag
-      if (
-        ["RESTRICTED", "LEZ", "ENVIRONMENTAL"].includes(type) &&
-        vehicleTags.length === 0
-      ) {
-        console.log(
-          `[ForbiddenZones] Zona "${zone.name || zone.id}" (${type}) - PROHIBIDA - Vehículo sin etiquetas`,
-        );
-        return true;
-      }
-
-      return false;
-    });
+    return forbidden;
   }
 
   /**

@@ -35,6 +35,7 @@ import {
   renderJobMarkers,
   renderCustomPOIs,
 } from "@/app/helpers/map-render-helpers";
+import { canVehicleTypeAccessZone } from "@/lib/helpers/zone-access-helper";
 // Modular Imports
 import { FitBounds } from "./map/FitBounds";
 import { MapCenterHandler } from "./map/MapCenterHandler";
@@ -135,14 +136,12 @@ export default function MapContainer({
 
   const canAccessZone = useCallback(
     (zone: Zone): boolean => {
-      if (!zone.requiredTags || zone.requiredTags.length === 0) return true;
       const vehicleToUse = selectedVehicleId
-        ? fleetVehicles?.find((v) => v.id === selectedVehicleId)
-        : { type: selectedVehicle };
+        ? fleetVehicles?.find((v) => v.id === selectedVehicleId)?.type
+        : selectedVehicle;
 
-      return zone.requiredTags.some((tag) =>
-        vehicleToUse?.type.tags.includes(tag),
-      );
+      if (!vehicleToUse) return false;
+      return canVehicleTypeAccessZone(vehicleToUse, zone);
     },
     [selectedVehicle, fleetVehicles, selectedVehicleId],
   );
