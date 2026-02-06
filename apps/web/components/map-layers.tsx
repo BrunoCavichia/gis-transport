@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from "react";
 import { Polygon, Popup, Marker, Tooltip } from "react-leaflet";
+import { Edit2 } from "lucide-react";
 import { THEME } from "@/lib/theme";
 import type { Zone, RouteWeather } from "@gis/shared";
 
@@ -10,6 +11,7 @@ interface ZoneLayerProps {
   visible: boolean;
   isInteracting: boolean;
   canAccessZone: (zone: Zone) => boolean;
+  onEditZone?: (zoneId: string) => void;
 }
 
 // Helper functions moved outside component to avoid recreation
@@ -43,6 +45,7 @@ export const ZoneLayer = memo(
     visible,
     isInteracting,
     canAccessZone,
+    onEditZone,
   }: ZoneLayerProps) {
     // Memoize zone processing to avoid recalculation on every render
     const processedZones = useMemo(() => {
@@ -55,6 +58,7 @@ export const ZoneLayer = memo(
           const isLEZ =
             normalizedType === "LEZ" || normalizedType === "ENVIRONMENTAL";
           const zType = isLEZ ? "LEZ" : "RESTRICTED";
+          const isCustom = (zone as any).isCustom === true;
 
           // Normalize and debug coordinates
           const rawCoords = zone.coordinates;
@@ -72,25 +76,62 @@ export const ZoneLayer = memo(
             return null;
           }
 
-          const style = isLEZ
-            ? {
-                color: hasAccess ? THEME.colors.success : THEME.colors.danger,
-                fillColor: hasAccess
-                  ? THEME.colors.success
-                  : THEME.colors.danger,
-                fillOpacity: hasAccess
-                  ? 0.2 // Higher opacity for visibility
-                  : 0.3,
-                weight: 2, // Thicker lines
-                dashArray: undefined,
-              }
-            : {
-                color: THEME.colors.danger,
-                fillColor: THEME.colors.danger,
-                fillOpacity: 0.25,
-                weight: 2,
-                dashArray: THEME.map.polygons.restricted.dashArray,
+          // Modern styling for custom zones
+          let style;
+          if (isCustom) {
+            if (isLEZ) {
+              // Custom LEZ zones with modern purple gradient styling
+              const config = THEME.map.polygons.customZone.lez;
+              style = {
+                color: config.primaryColor,
+                fillColor: config.primaryColor,
+                fillOpacity: config.fillOpacity,
+                weight: config.weight,
+                dashArray: config.dashArray,
               };
+            } else if (hasAccess) {
+              // Custom accessible zones with modern cyan gradient styling
+              const config = THEME.map.polygons.customZone.accessible;
+              style = {
+                color: config.primaryColor,
+                fillColor: config.primaryColor,
+                fillOpacity: config.fillOpacity,
+                weight: config.weight,
+                dashArray: config.dashArray,
+              };
+            } else {
+              // Custom restricted zones with modern red gradient styling
+              const config = THEME.map.polygons.customZone.restricted;
+              style = {
+                color: config.primaryColor,
+                fillColor: config.primaryColor,
+                fillOpacity: config.fillOpacity,
+                weight: config.weight,
+                dashArray: config.dashArray,
+              };
+            }
+          } else {
+            // API zones keep existing styling
+            style = isLEZ
+              ? {
+                  color: hasAccess ? THEME.colors.success : THEME.colors.danger,
+                  fillColor: hasAccess
+                    ? THEME.colors.success
+                    : THEME.colors.danger,
+                  fillOpacity: hasAccess
+                    ? 0.2 // Higher opacity for visibility
+                    : 0.3,
+                  weight: 2, // Thicker lines
+                  dashArray: undefined,
+                }
+              : {
+                  color: THEME.colors.danger,
+                  fillColor: THEME.colors.danger,
+                  fillOpacity: 0.25,
+                  weight: 2,
+                  dashArray: THEME.map.polygons.restricted.dashArray,
+                };
+          }
 
           return {
             key: `${zone.id}-${idx}`,
@@ -99,6 +140,7 @@ export const ZoneLayer = memo(
             style,
             hasAccess,
             zType,
+            isCustom,
           };
         })
         .filter(Boolean);
@@ -115,7 +157,7 @@ export const ZoneLayer = memo(
         {processedZones.map((processedZone) => {
           if (!processedZone) return null;
 
-          const { key, zone, normalizedCoords, style, hasAccess, zType } =
+          const { key, zone, normalizedCoords, style, hasAccess, zType, isCustom } =
             processedZone;
 
           return (
@@ -132,19 +174,33 @@ export const ZoneLayer = memo(
                   autoClose={false}
                   className="zone-popup"
                 >
-                  <div style={{ fontSize: THEME.map.popups.fontSize }}>
-                    <strong>{zone.name}</strong>
-                    {zType === "LEZ" && (
-                      <div
-                        style={{
-                          color: hasAccess
-                            ? THEME.colors.success
-                            : THEME.colors.danger,
-                          marginTop: 4,
+                  <div style={{ fontSize: THEME.map.popups.fontSize }} className="flex items-center justify-between gap-2">
+                    <div>
+                      <strong>{zone.name}</strong>
+                      {zType === "LEZ" && (
+                        <div
+                          style={{
+                            color: hasAccess
+                              ? THEME.colors.success
+                              : THEME.colors.danger,
+                            marginTop: 4,
+                          }}
+                        >
+                          {hasAccess ? "Access OK" : "Restricted"}
+                        </div>
+                      )}
+                    </div>
+                    {isCustom && onEditZone && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditZone(zone.id);
                         }}
+                        className="p-1.5 hover:bg-muted rounded transition-colors"
+                        title="Editar zona"
                       >
-                        {hasAccess ? "Access OK" : "Restricted"}
-                      </div>
+                        <Edit2 size={16} className="text-primary" />
+                      </button>
                     )}
                   </div>
                 </Popup>
@@ -160,7 +216,8 @@ export const ZoneLayer = memo(
       prev.zones === next.zones &&
       prev.visible === next.visible &&
       prev.isInteracting === next.isInteracting &&
-      prev.canAccessZone === next.canAccessZone
+      prev.canAccessZone === next.canAccessZone &&
+      prev.onEditZone === next.onEditZone
     );
   },
 );

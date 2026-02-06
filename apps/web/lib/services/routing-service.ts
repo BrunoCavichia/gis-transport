@@ -14,7 +14,7 @@ import {
 import { THEME } from "@/lib/theme";
 import { ORS_URL, VROOM_URL, SNAP_URL, ROUTING_CONFIG } from "@/lib/config";
 import { WeatherService } from "./weather-service";
-import { getForbiddenZones } from "@/lib/helpers/zone-access-helper";
+import { getForbiddenZones, getZoneForbiddenReason } from "@/lib/helpers/zone-access-helper";
 
 const { route: ROUTE_COLORS } = THEME.colors;
 
@@ -783,7 +783,7 @@ export class RoutingService {
     allZones: Zone[],
   ): Zone[] {
     console.log(
-      `[ForbiddenZones] Evaluando ${allZones.length} zonas para vehículo con tags: [${vehicleTags.join(", ")}]`,
+      `[ForbiddenZones] Evaluando ${allZones.length} zonas para vehículo con tags: [${vehicleTags.join(", ") || "NONE"}]`,
     );
 
     const forbidden = getForbiddenZones(vehicleTags, allZones);
@@ -791,13 +791,19 @@ export class RoutingService {
     if (forbidden.length > 0) {
       console.log(
         `[ForbiddenZones] Found ${forbidden.length} forbidden zones:`,
-        forbidden.map((z) => ({
-          id: z.id,
-          name: z.name,
-          type: z.type,
-          requiredTags: z.requiredTags,
-        })),
+        forbidden.map((z) => {
+          const reason = getZoneForbiddenReason(vehicleTags, z);
+          return {
+            id: z.id,
+            name: z.name,
+            type: z.type,
+            requiredTags: z.requiredTags || [],
+            reason,
+          };
+        }),
       );
+    } else {
+      console.log("[ForbiddenZones] No forbidden zones for this vehicle");
     }
 
     return forbidden;

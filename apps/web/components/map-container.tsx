@@ -76,6 +76,7 @@ interface MapContainerProps {
   onRemoveZonePoint?: (index: number) => void; // Callback to remove a specific zone point
   onUpdateZonePoint?: (index: number, newCoords: [number, number]) => void; // Callback to update a zone point position
   onZonesUpdate?: (zones: Zone[]) => void;
+  onEditZone?: (zoneId: string) => void; // Callback to edit a zone
   isInteracting?: boolean;
   onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
   onVehicleLabelUpdate?: (vehicleId: string, label: string) => void;
@@ -115,6 +116,7 @@ export default function MapContainer({
   onRemoveZonePoint,
   onUpdateZonePoint,
   onZonesUpdate,
+  onEditZone,
   isInteracting = false,
   onVehicleTypeChange,
   onVehicleLabelUpdate,
@@ -187,6 +189,7 @@ export default function MapContainer({
         type: zone.zoneType || "LEZ",
         description: zone.description,
         requiredTags: zone.requiredTags,
+        isCustom: true,
       }));
   }, [customPOIs]);
 
@@ -257,6 +260,7 @@ export default function MapContainer({
           visible={!!layers.cityZones}
           isInteracting={isInteracting}
           canAccessZone={canAccessZone}
+          onEditZone={onEditZone}
         />
 
         {/* Custom Zones Layer - renders custom zones with same behavior as LEZ */}
@@ -265,6 +269,7 @@ export default function MapContainer({
           visible={true}
           isInteracting={isInteracting}
           canAccessZone={canAccessZone}
+          onEditZone={onEditZone}
         />
 
         {/* Zone Drawing Preview - shows polygon being created */}

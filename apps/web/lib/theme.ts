@@ -73,6 +73,45 @@ export const THEME = {
         weight: 0.5,
         dashArray: "4,4",
       },
+      customZone: {
+        // Modern gradient-like effect for custom zones
+        accessible: {
+          // Modern teal/cyan gradient effect
+          primaryColor: "#06b6d4",
+          secondaryColor: "#0891B2",
+          fillOpacity: 0.15,
+          weight: 2.5,
+          dashArray: undefined,
+          shadowColor: "rgba(6, 182, 212, 0.3)",
+          shadowWeight: 4,
+          hoverOpacity: 0.25,
+          hoverWeight: 3,
+        },
+        restricted: {
+          // Modern red/orange gradient effect
+          primaryColor: "#ef4444",
+          secondaryColor: "#dc2626",
+          fillOpacity: 0.18,
+          weight: 2.5,
+          dashArray: "6,4",
+          shadowColor: "rgba(239, 68, 68, 0.4)",
+          shadowWeight: 4,
+          hoverOpacity: 0.3,
+          hoverWeight: 3,
+        },
+        lez: {
+          // Modern purple/violet for LEZ zones
+          primaryColor: "#a855f7",
+          secondaryColor: "#9333ea",
+          fillOpacity: 0.12,
+          weight: 2.5,
+          dashArray: undefined,
+          shadowColor: "rgba(168, 85, 247, 0.25)",
+          shadowWeight: 3,
+          hoverOpacity: 0.22,
+          hoverWeight: 3,
+        },
+      },
     },
     routes: {
       padding: [80, 80] as [number, number],

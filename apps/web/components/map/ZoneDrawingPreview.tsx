@@ -39,6 +39,10 @@ export const ZoneDrawingPreview = memo(
 
     const handleMarkerDragEnd = (index: number, event: any) => {
       const newLatLng = event.target.getLatLng();
+      if (!newLatLng) {
+        console.warn(`[ZoneDrawingPreview] Failed to get coordinates for point ${index}`);
+        return;
+      }
       const newCoords: [number, number] = [newLatLng.lat, newLatLng.lng];
       if (onUpdatePoint) {
         onUpdatePoint(index, newCoords);
@@ -48,39 +52,49 @@ export const ZoneDrawingPreview = memo(
     return (
       <>
         {/* Draw markers for each point */}
-        {points.map((point, index) => (
-          <Marker 
-            key={`point-${index}`} 
-            position={point} 
-            icon={isEditing ? editingPointIcon : pointIcon}
-            draggable={isEditing}
-            eventHandlers={{
-              ...(isEditing ? {
-                click: () => {
-                  if (onRemovePoint) {
-                    onRemovePoint(index);
-                  }
-                },
-                dragend: (event) => handleMarkerDragEnd(index, event),
-              } : {}),
-            }}
-          >
-            {isEditing && (
-              <Popup>
-                <div className="text-xs font-semibold whitespace-nowrap">
-                  <div className="mb-1">Punto {index + 1}</div>
-                  <div className="text-[10px] text-gray-500 mb-2">Arrastra para mover</div>
-                  <button
-                    onClick={() => onRemovePoint?.(index)}
-                    className="block w-full px-2 py-1 text-red-600 hover:bg-red-50 rounded text-[11px] font-medium"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </Popup>
-            )}
-          </Marker>
-        ))}
+        {points.map((point, index) => {
+          // Skip invalid points
+          if (!point || !Array.isArray(point) || point.length < 2 || 
+              typeof point[0] !== 'number' || typeof point[1] !== 'number' ||
+              isNaN(point[0]) || isNaN(point[1])) {
+            console.warn(`[ZoneDrawingPreview] Skipping invalid point at index ${index}:`, point);
+            return null;
+          }
+
+          return (
+            <Marker 
+              key={`point-${index}`} 
+              position={point} 
+              icon={isEditing ? editingPointIcon : pointIcon}
+              draggable={isEditing}
+              eventHandlers={{
+                ...(isEditing ? {
+                  click: () => {
+                    if (onRemovePoint) {
+                      onRemovePoint(index);
+                    }
+                  },
+                  dragend: (event) => handleMarkerDragEnd(index, event),
+                } : {}),
+              }}
+            >
+              {isEditing && (
+                <Popup>
+                  <div className="text-xs font-semibold whitespace-nowrap">
+                    <div className="mb-1">Punto {index + 1}</div>
+                    <div className="text-[10px] text-gray-500 mb-2">Arrastra para mover</div>
+                    <button
+                      onClick={() => onRemovePoint?.(index)}
+                      className="block w-full px-2 py-1 text-red-600 hover:bg-red-50 rounded text-[11px] font-medium"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </Popup>
+              )}
+            </Marker>
+          );
+        })}
 
         {/* Draw lines connecting the points */}
         {points.length > 1 && (

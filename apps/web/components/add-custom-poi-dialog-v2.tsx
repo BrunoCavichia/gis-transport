@@ -27,6 +27,7 @@ import {
 import { AddressSearch } from "@/components/address-search";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { VEHICLE_TYPES } from "@/lib/types";
 
 const MapPreview = dynamic(() => import("@/components/map-preview"), {
   ssr: false,
@@ -95,9 +96,8 @@ export function AddCustomPOIDialogV2({
   const [longitude, setLongitude] = useState("");
 
   // Zone fields
-  const [zoneType, setZoneType] = useState("LEZ");
+  const [zoneType] = useState("CUSTOM");
   const [requiredTags, setRequiredTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
 
   // Common fields
   const [label, setLabel] = useState("");
@@ -119,9 +119,7 @@ export function AddCustomPOIDialogV2({
       setMode("zone");
       setLabel(editingZoneData.name);
       setDescription(editingZoneData.description || "");
-      setZoneType(editingZoneData.zoneType || "LEZ");
       setRequiredTags(editingZoneData.requiredTags || []);
-      setTagInput("");
     }
   }, [editingZoneData]);
 
@@ -140,9 +138,7 @@ export function AddCustomPOIDialogV2({
     setLabel("");
     setDescription("");
     setError("");
-    setZoneType("LEZ");
     setRequiredTags([]);
-    setTagInput("");
   }, []);
 
   const handleCancel = useCallback(() => {
@@ -221,7 +217,7 @@ export function AddCustomPOIDialogV2({
 
       onSubmitZone(
         label,
-        [coordinates], // Wrap in array for Leaflet Polygon format
+        [[coordinates]], // Wrap in double array for MultiPolygon 4D format (matches API zones)
         description,
         zoneType,
         requiredTags.length > 0 ? requiredTags : undefined,
@@ -242,16 +238,10 @@ export function AddCustomPOIDialogV2({
     ],
   );
 
-  const handleAddTag = useCallback(() => {
-    const tag = tagInput.trim().toLowerCase();
-    if (tag && !requiredTags.includes(tag)) {
-      setRequiredTags((prev) => [...prev, tag]);
-      setTagInput("");
-    }
-  }, [tagInput, requiredTags]);
-
-  const handleRemoveTag = useCallback((tag: string) => {
-    setRequiredTags((prev) => prev.filter((t) => t !== tag));
+  const handleToggleTag = useCallback((tag: string) => {
+    setRequiredTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
   }, []);
 
   return (
@@ -582,53 +572,44 @@ export function AddCustomPOIDialogV2({
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Tipo de Zona</Label>
-                    <select
-                      value={zoneType}
-                      onChange={(e) => setZoneType(e.target.value)}
-                      className="w-full h-11 rounded-md border border-border bg-muted/30 hover:bg-background focus:bg-background px-3 text-sm transition-all"
-                    >
-                      <option value="LEZ">Zona de Bajas Emisiones (LEZ)</option>
-                      <option value="RESTRICTED">Zona Restringida</option>
-                      <option value="CUSTOM">Zona Personalizada</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Etiquetas de Vehículos Requeridas (Opcional)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyPress={(e) =>
-                          e.key === "Enter" && (e.preventDefault(), handleAddTag())
-                        }
-                        placeholder="Ej: eco, zero, 0"
-                        className="h-10 bg-muted/30 border-border/50 focus:bg-background transition-all"
-                      />
-                      <Button type="button" onClick={handleAddTag} size="sm" className="font-semibold">
-                        Agregar
-                      </Button>
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Etiquetas Ambientales Permitidas</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Solo los vehículos con al menos una de estas etiquetas podrán acceder a la zona.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(() => {
+                        // Derive unique tags with labels from VEHICLE_TYPES
+                        const TAG_LABELS: Record<string, string> = {
+                          "0": "Zero Emisiones (0)",
+                          eco: "ECO",
+                          zero: "ZERO",
+                          b: "Etiqueta B",
+                          c: "Etiqueta C",
+                        };
+                        const uniqueTags = Array.from(
+                          new Set(VEHICLE_TYPES.flatMap((v) => v.tags)),
+                        );
+                        return uniqueTags.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => handleToggleTag(tag)}
+                            className={`h-10 px-3 rounded-lg border text-sm font-semibold transition-all ${
+                              requiredTags.includes(tag)
+                                ? "bg-primary/15 border-primary/40 text-primary ring-1 ring-primary/20"
+                                : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:border-border"
+                            }`}
+                          >
+                            {TAG_LABELS[tag] || tag}
+                          </button>
+                        ));
+                      })()}
                     </div>
                     {requiredTags.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {requiredTags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 bg-primary/10 rounded-lg text-xs font-semibold border border-primary/20 flex items-center gap-1"
-                          >
-                            {tag}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveTag(tag)}
-                              className="hover:text-red-600 ml-1"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
+                      <p className="text-xs text-primary font-medium mt-1">
+                        {requiredTags.length} etiqueta{requiredTags.length > 1 ? "s" : ""} seleccionada{requiredTags.length > 1 ? "s" : ""}
+                      </p>
                     )}
                   </div>
 

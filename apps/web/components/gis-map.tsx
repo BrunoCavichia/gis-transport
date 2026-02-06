@@ -455,8 +455,16 @@ export function GISMap() {
       if (Array.isArray(coords) && coords.length > 0) {
         const firstCoord = coords[0];
         if (Array.isArray(firstCoord) && Array.isArray(firstCoord[0])) {
-          // 3D coords format: [[[lat, lon], ...], ...]
-          points = coords[0] as [number, number][];
+          // Could be 3D or 4D, need to check depth of firstCoord[0]
+          const secondLevelCoord = firstCoord[0];
+          if (Array.isArray(secondLevelCoord) && Array.isArray(secondLevelCoord[0])) {
+            // 4D coords format (MultiPolygon): [[[[lat, lon], ...], ...]]]
+            // coords[0] = 3D, coords[0][0] = 2D (the actual points array)
+            points = coords[0][0] as [number, number][];
+          } else {
+            // 3D coords format: [[[lat, lon], ...], ...]
+            points = coords[0] as [number, number][];
+          }
         } else if (Array.isArray(firstCoord)) {
           // 2D coords format: [[lat, lon], ...]
           points = coords as [number, number][];
@@ -880,6 +888,7 @@ export function GISMap() {
           onRemoveZonePoint={handleRemoveZonePoint}
           onUpdateZonePoint={handleUpdateZonePoint}
           onZonesUpdate={handleZonesUpdate}
+          onEditZone={handleEditZone}
           isInteracting={!!state.interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
           onVehicleLabelUpdate={updateVehicleLabel}
