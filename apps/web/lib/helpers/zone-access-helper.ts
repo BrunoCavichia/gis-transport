@@ -1,7 +1,7 @@
 /**
  * Zone Access Helper - Centralized logic for zone access validation
  * Used by both visualization (map-container) and routing (routing-service)
- * 
+ *
  * UNIFIED LOGIC: Both LEZ zones and custom zones with requiredTags use the same rules:
  * - Rule 1: If zone requires specific tags, vehicle must have at least one
  * - Rule 2: If zone restricts access (LEZ/CUSTOM types), vehicle must have tags
@@ -15,7 +15,10 @@ import type { Zone, VehicleType, FleetVehicle } from "@gis/shared";
  * @param zone The zone to check
  * @returns true if the zone is forbidden, false if allowed
  */
-export function isZoneForbiddenForVehicle(vehicleTags: string[], zone: Zone): boolean {
+export function isZoneForbiddenForVehicle(
+  vehicleTags: string[],
+  zone: Zone,
+): boolean {
   const type = (zone.type || "").toUpperCase();
   const hasRequiredTags = zone.requiredTags && zone.requiredTags.length > 0;
 
@@ -52,7 +55,10 @@ export function isZoneForbiddenForVehicle(vehicleTags: string[], zone: Zone): bo
  * @param zone The zone to check
  * @returns true if vehicle can access the zone, false if forbidden
  */
-export function canVehicleAccessZone(vehicleTags: string[], zone: Zone): boolean {
+export function canVehicleAccessZone(
+  vehicleTags: string[],
+  zone: Zone,
+): boolean {
   return !isZoneForbiddenForVehicle(vehicleTags, zone);
 }
 
@@ -62,7 +68,10 @@ export function canVehicleAccessZone(vehicleTags: string[], zone: Zone): boolean
  * @param zone The zone to check
  * @returns true if vehicle type can access the zone
  */
-export function canVehicleTypeAccessZone(vehicleType: VehicleType, zone: Zone): boolean {
+export function canVehicleTypeAccessZone(
+  vehicleType: VehicleType,
+  zone: Zone,
+): boolean {
   return canVehicleAccessZone(vehicleType.tags, zone);
 }
 
@@ -72,7 +81,10 @@ export function canVehicleTypeAccessZone(vehicleType: VehicleType, zone: Zone): 
  * @param zone The zone to check
  * @returns true if vehicle can access the zone
  */
-export function canFleetVehicleAccessZone(vehicle: FleetVehicle, zone: Zone): boolean {
+export function canFleetVehicleAccessZone(
+  vehicle: FleetVehicle,
+  zone: Zone,
+): boolean {
   return canVehicleAccessZone(vehicle.type.tags, zone);
 }
 
@@ -82,10 +94,11 @@ export function canFleetVehicleAccessZone(vehicle: FleetVehicle, zone: Zone): bo
  * @param zones All available zones
  * @returns Array of zones that are forbidden for this vehicle
  */
-export function getForbiddenZones(vehicleTags: string[], zones: Zone[]): Zone[] {
-  return zones.filter((zone) =>
-    isZoneForbiddenForVehicle(vehicleTags, zone),
-  );
+export function getForbiddenZones(
+  vehicleTags: string[],
+  zones: Zone[],
+): Zone[] {
+  return zones.filter((zone) => isZoneForbiddenForVehicle(vehicleTags, zone));
 }
 
 /**
@@ -94,10 +107,11 @@ export function getForbiddenZones(vehicleTags: string[], zones: Zone[]): Zone[] 
  * @param zones All available zones
  * @returns Array of zones that are accessible for this vehicle
  */
-export function getAccessibleZones(vehicleTags: string[], zones: Zone[]): Zone[] {
-  return zones.filter((zone) =>
-    canVehicleAccessZone(vehicleTags, zone),
-  );
+export function getAccessibleZones(
+  vehicleTags: string[],
+  zones: Zone[],
+): Zone[] {
+  return zones.filter((zone) => canVehicleAccessZone(vehicleTags, zone));
 }
 
 /**
@@ -106,7 +120,10 @@ export function getAccessibleZones(vehicleTags: string[], zones: Zone[]): Zone[]
  * @param zone The zone to check
  * @returns Reason if forbidden, empty string if accessible
  */
-export function getZoneForbiddenReason(vehicleTags: string[], zone: Zone): string {
+export function getZoneForbiddenReason(
+  vehicleTags: string[],
+  zone: Zone,
+): string {
   const type = (zone.type || "").toUpperCase();
   const hasRequiredTags = zone.requiredTags && zone.requiredTags.length > 0;
 

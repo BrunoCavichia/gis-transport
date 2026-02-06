@@ -109,11 +109,11 @@ export class OverpassClient {
   ): Promise<RoadInfo> {
     // Use a smaller radius (50m) to be more specific about the current location
     // and reduce load on Overpass API
-    const query = `[out:json][timeout:8];
+    const query = `[out:json][timeout:5];
             way(around:50,${lat},${lon})[highway][highway!~"footway|path|cycleway|service"];
             out tags 1;`;
 
-    const data = await this.query(query, { timeout: 8000 });
+    const data = await this.query(query, { timeout: 6000 });
     const elements = data.elements || [];
     if (elements.length === 0) return {};
 
@@ -124,6 +124,27 @@ export class OverpassClient {
     if (bestWay?.tags?.maxspeed) {
       const match = bestWay.tags.maxspeed.match(/\d+/);
       if (match) maxSpeed = parseInt(match[0]);
+    }
+
+    // Fallback: infer speed limit from highway classification when no explicit maxspeed tag
+    if (!maxSpeed && bestWay?.tags?.highway) {
+      const highwaySpeedDefaults: Record<string, number> = {
+        motorway: 120,
+        motorway_link: 80,
+        trunk: 100,
+        trunk_link: 60,
+        primary: 90,
+        primary_link: 50,
+        secondary: 70,
+        secondary_link: 40,
+        tertiary: 50,
+        tertiary_link: 30,
+        unclassified: 40,
+        residential: 30,
+        living_street: 20,
+        track: 30,
+      };
+      maxSpeed = highwaySpeedDefaults[bestWay.tags.highway] ?? 50;
     }
 
     return {

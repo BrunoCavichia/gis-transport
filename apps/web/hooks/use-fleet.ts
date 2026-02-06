@@ -114,7 +114,6 @@ export function useFleet(
     }
   }, []); // Empty deps = stable reference
 
-
   // Function to add a vehicle at specific coordinates
   const addVehicleAt = useCallback(
     (position: [number, number], type: VehicleType) => {
@@ -222,7 +221,17 @@ export function useFleet(
   const updateVehicleMetrics = useCallback(
     (vehicleId: string | number, metrics: VehicleMetrics) => {
       setFleetVehicles((prev) =>
-        prev.map((v) => (v.id === vehicleId ? { ...v, metrics } : v)),
+        prev.map((v) => {
+          if (v.id !== vehicleId) return v;
+          // Preserve maxSpeed from previous poll when current poll doesn't include it.
+          // Address is always sent fresh by the API, so we don't preserve it.
+          const merged = {
+            ...v.metrics,
+            ...metrics,
+            maxSpeed: metrics.maxSpeed ?? v.metrics?.maxSpeed,
+          };
+          return { ...v, metrics: merged };
+        }),
       );
     },
     [],
@@ -258,7 +267,9 @@ export function useFleet(
   const updateVehicleLicensePlate = useCallback(
     (vehicleId: string | number, newLicensePlate: string) => {
       setFleetVehicles((prev) =>
-        prev.map((v) => (v.id === vehicleId ? { ...v, licensePlate: newLicensePlate } : v)),
+        prev.map((v) =>
+          v.id === vehicleId ? { ...v, licensePlate: newLicensePlate } : v,
+        ),
       );
     },
     [],
@@ -270,7 +281,9 @@ export function useFleet(
   const assignDriverToVehicle = useCallback(
     (vehicleId: string | number, driver: Driver | null) => {
       setFleetVehicles((prev) =>
-        prev.map((v) => (v.id === vehicleId ? { ...v, driver: driver || undefined } : v)),
+        prev.map((v) =>
+          v.id === vehicleId ? { ...v, driver: driver || undefined } : v,
+        ),
       );
     },
     [],

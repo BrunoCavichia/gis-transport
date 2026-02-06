@@ -27,6 +27,7 @@ export function useLiveTracking({
   const updateVehiclePositionRef = useRef(updateVehiclePosition);
   const updateVehicleMetricsRef = useRef(updateVehicleMetrics);
   const selectedVehicleIdRef = useRef(selectedVehicleId);
+  const fleetVehiclesRef = useRef(fleetVehicles);
 
   // Keep refs in sync
   useEffect(() => {
@@ -44,6 +45,9 @@ export function useLiveTracking({
   useEffect(() => {
     selectedVehicleIdRef.current = selectedVehicleId;
   }, [selectedVehicleId]);
+  useEffect(() => {
+    fleetVehiclesRef.current = fleetVehicles;
+  }, [fleetVehicles]);
 
   const fetchPositions = useCallback(async () => {
     const updatePos = updateVehiclePositionRef.current;
@@ -105,10 +109,12 @@ export function useLiveTracking({
       const simulationData: Record<string, any> = {};
       routeData.vehicleRoutes.forEach((route: any) => {
         if (route.vehicleId && route.coordinates) {
-          const v = fleetVehicles.find(fv => String(fv.id) === String(route.vehicleId));
+          const v = fleetVehiclesRef.current.find(
+            (fv) => String(fv.id) === String(route.vehicleId),
+          );
           simulationData[route.vehicleId] = {
             coordinates: route.coordinates,
-            typeId: v?.type.id || "eco"
+            typeId: v?.type.id || "eco",
           };
         }
       });
@@ -119,7 +125,8 @@ export function useLiveTracking({
         body: JSON.stringify({ routes: simulationData, action: "update" }),
       }).catch((err) => console.error("Failed to update simulation:", err));
     }
-  }, [isTracking, routeData, fleetVehicles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTracking, routeData]);
 
   // STABLE callback - uses refs
   const toggleTracking = useCallback(() => {
@@ -139,10 +146,12 @@ export function useLiveTracking({
         const simulationData: Record<string, any> = {};
         routes.vehicleRoutes.forEach((route: any) => {
           if (route.vehicleId && route.coordinates) {
-            const v = fleetVehicles.find(fv => String(fv.id) === String(route.vehicleId));
+            const v = fleetVehiclesRef.current.find(
+              (fv) => String(fv.id) === String(route.vehicleId),
+            );
             simulationData[route.vehicleId] = {
               coordinates: route.coordinates,
-              typeId: v?.type.id || "eco"
+              typeId: v?.type.id || "eco",
             };
           }
         });

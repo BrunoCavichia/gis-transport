@@ -157,8 +157,15 @@ export const ZoneLayer = memo(
         {processedZones.map((processedZone) => {
           if (!processedZone) return null;
 
-          const { key, zone, normalizedCoords, style, hasAccess, zType, isCustom } =
-            processedZone;
+          const {
+            key,
+            zone,
+            normalizedCoords,
+            style,
+            hasAccess,
+            zType,
+            isCustom,
+          } = processedZone;
 
           return (
             <Polygon
@@ -174,7 +181,10 @@ export const ZoneLayer = memo(
                   autoClose={false}
                   className="zone-popup"
                 >
-                  <div style={{ fontSize: THEME.map.popups.fontSize }} className="flex items-center justify-between gap-2">
+                  <div
+                    style={{ fontSize: THEME.map.popups.fontSize }}
+                    className="flex items-center justify-between gap-2"
+                  >
                     <div>
                       <strong>{zone.name}</strong>
                       {zType === "LEZ" && (

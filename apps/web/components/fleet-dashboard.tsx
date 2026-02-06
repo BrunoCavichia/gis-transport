@@ -23,8 +23,8 @@ import {
   Route,
   Package,
 } from "lucide-react";
-import { VehicleDetailSheet } from "./vehicle-detail-sheet";
 import { AddGasStationDialog } from "./add-gas-station-dialog";
+import { VehicleDetailSheet } from "./vehicle-detail-sheet";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -80,11 +80,13 @@ export function FleetDashboard({
     [vehicles, selectedVehicleId],
   );
 
-  // Local state for vehicle detail sheet (independent from parent selectedVehicleId)
-  // Removed selectedVehicleIdLocal, now using selectedVehicleId from props
+  // Local state for vehicle detail sheet inside dashboard (independent from gis-map panels)
+  const [dashboardVehicleId, setDashboardVehicleId] = useState<
+    string | number | null
+  >(null);
 
   const handleRowClick = (vehicle: FleetVehicle) => {
-    onSelectVehicle?.(vehicle.id);
+    setDashboardVehicleId(vehicle.id);
   };
 
   const kpis = useMemo(() => {
@@ -509,16 +511,17 @@ export function FleetDashboard({
         }}
       />
 
-      {/* Vehicle Detail Sheet - Independent from dashboard state - Overlay Position */}
-      {selectedVehicleId && (
+      {/* Vehicle Detail Sheet - Local dashboard state, independent from gis-map panels */}
+      {dashboardVehicleId && (
         <div className="absolute inset-0 z-50 pointer-events-auto">
           <VehicleDetailSheet
-            vehicle={vehicles.find((v) => v.id === selectedVehicleId) || null}
+            vehicle={vehicles.find((v) => v.id === dashboardVehicleId) || null}
             metrics={
-              vehicles.find((v) => v.id === selectedVehicleId)?.metrics || null
+              vehicles.find((v) => v.id === dashboardVehicleId)?.metrics || null
             }
-            alerts={vehicleAlerts[selectedVehicleId] || []}
-            onClose={() => onSelectVehicle?.(null)}
+            jobs={jobs}
+            alerts={vehicleAlerts[dashboardVehicleId] || []}
+            onClose={() => setDashboardVehicleId(null)}
             addStopToVehicle={addStopToVehicle}
             startRouting={startRouting}
             isAddStopOpen={isAddStopOpen}

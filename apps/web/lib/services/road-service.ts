@@ -6,10 +6,11 @@ export class RoadService {
     { data: RoadInfo; timestamp: number }
   >();
   private static pendingRequests = new Map<string, Promise<RoadInfo>>();
-  private static failedRequests = new Map<string, number>(); // Track failed requests to implement backoff
+  private static failureCount = new Map<string, number>();
+  private static failureBackoffUntil = new Map<string, number>(); // timestamp when backoff expires
   private static CACHE_TTL = 3600000; // 1 hour
   private static FAILURE_BACKOFF = 60000; // 1 minute before retrying a failed location
-  private static MAX_FAILURES = 3; // Max failures before giving up temporarily
+  private static MAX_FAILURES = 2; // Max failures before backing off
 
   /**
    * Gets the max speed for a given location using Overpass API
@@ -17,7 +18,6 @@ export class RoadService {
    */
   static async getMaxSpeed(lat: number, lon: number): Promise<RoadInfo> {
     // Grid-based cache key (approx 110m precision at 3 decimals)
-    // This is better for moving vehicles to hit the same cache entry
     const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}`;
 
     // Check cache
@@ -26,10 +26,9 @@ export class RoadService {
       return cached.data;
     }
 
-    // Check if this location recently failed - implement backoff
-    const lastFailure = this.failedRequests.get(cacheKey);
-    if (lastFailure && Date.now() - lastFailure < this.FAILURE_BACKOFF) {
-      // Return empty response without making API call (prevent hammering)
+    // Check if this location is in backoff period
+    const backoffUntil = this.failureBackoffUntil.get(cacheKey);
+    if (backoffUntil && Date.now() < backoffUntil) {
       return {};
     }
 
@@ -40,25 +39,35 @@ export class RoadService {
 
     const promise = OverpassClient.fetchAroundRoadInfo(lat, lon)
       .then((info) => {
-        // Clear failure backoff on success
-        this.failedRequests.delete(cacheKey);
+        // Clear failure tracking on success
+        this.failureCount.delete(cacheKey);
+        this.failureBackoffUntil.delete(cacheKey);
         this.speedCache.set(cacheKey, { data: info, timestamp: Date.now() });
         this.pendingRequests.delete(cacheKey);
         return info;
       })
       .catch((err) => {
-        // Track failure and implement backoff
-        const failureCount = (this.failedRequests.get(cacheKey) || 0) as any;
-        if (typeof failureCount === "number") {
-          if (failureCount >= this.MAX_FAILURES) {
-            // Give up for a while after max failures
-            this.failedRequests.set(cacheKey, Date.now());
-          }
-        }
-        this.failedRequests.set(cacheKey, Date.now());
         this.pendingRequests.delete(cacheKey);
-        console.error("[RoadService] Failed to fetch speed limit:", err);
-        return {};
+
+        // Track consecutive failures
+        const count = (this.failureCount.get(cacheKey) || 0) + 1;
+        this.failureCount.set(cacheKey, count);
+
+        if (count >= this.MAX_FAILURES) {
+          // Enter backoff period
+          this.failureBackoffUntil.set(
+            cacheKey,
+            Date.now() + this.FAILURE_BACKOFF,
+          );
+          this.failureCount.delete(cacheKey);
+        }
+
+        // Only log non-abort errors (aborts are expected under load)
+        const isAbort = err?.name === "AbortError" || err?.code === 20;
+        if (!isAbort) {
+          console.error("[RoadService] Failed to fetch speed limit:", err);
+        }
+        return {} as RoadInfo;
       });
 
     this.pendingRequests.set(cacheKey, promise);

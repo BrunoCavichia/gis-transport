@@ -77,12 +77,10 @@ export function VehicleDetailSheet({
   const geocodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { getVehicleLogs, clearVehicleLogs } = useAlertLogs();
 
-  // Filter jobs assigned to this vehicle
-  const assignedJobs = useMemo(() => {
-    return jobs
-      .filter((j) => String(j.assignedVehicleId) === String(vehicle?.id))
-      .sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-  }, [jobs, vehicle?.id]);
+  // Filter jobs assigned to this vehicle — computed every render for guaranteed reactivity
+  const assignedJobs = jobs
+    .filter((j) => String(j.assignedVehicleId) === String(vehicle?.id))
+    .sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
   useEffect(() => {
     // Reset local address state when vehicle changes
@@ -130,12 +128,13 @@ export function VehicleDetailSheet({
 
   const speed = metrics?.speed || 0;
   const maxSpeed = metrics?.maxSpeed;
+  const displaySpeedLimit = maxSpeed || (speed > 0 ? 60 : undefined);
   const energyLevel =
     (isElectric ? metrics?.batteryLevel : metrics?.fuelLevel) ?? 100;
   const movement = metrics?.movementState || "stopped";
 
   // Check if vehicle is speeding
-  const isOverSpeeding = maxSpeed ? speed > maxSpeed : false;
+  const isOverSpeeding = displaySpeedLimit ? speed > displaySpeedLimit : false;
 
   // Check if there are any critical alerts
   const hasCriticalAlerts = alerts.some((a) => a.severity === "critical");
@@ -261,22 +260,11 @@ export function VehicleDetailSheet({
                   )}
                 >
                   <span className="text-base font-black text-zinc-900 leading-none">
-                    {maxSpeed || "--"}
+                    {displaySpeedLimit || "--"}
                   </span>
                 </div>
               </div>
             </div>
-
-            {/* Status Section - Fixed position at bottom */}
-            <div className="mt-3 relative z-10">
-              <div className="flex items-center gap-2 bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/20">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" />
-                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tight">
-                  Monitorear flota
-                </span>
-              </div>
-            </div>
-
             <Zap
               className={cn(
                 "absolute -top-4 -right-4 h-20 w-20 opacity-[0.02] rotate-12",

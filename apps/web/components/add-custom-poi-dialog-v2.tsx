@@ -1,7 +1,14 @@
 "use client";
 
 import { MAP_CENTER } from "@/lib/config";
-import { useState, useEffect, useMemo, useCallback, memo, FormEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  memo,
+  FormEvent,
+} from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -385,7 +392,9 @@ export function AddCustomPOIDialogV2({
                     <div className="absolute top-3 right-3 flex gap-2">
                       <div className="px-2 py-1 bg-background/90 backdrop-blur-md rounded-lg border border-border/50 shadow-sm flex items-center gap-1.5">
                         <MapIcon className="h-3 w-3 text-primary" />
-                        <span className="text-[10px] font-bold">Vista Previa</span>
+                        <span className="text-[10px] font-bold">
+                          Vista Previa
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -431,7 +440,10 @@ export function AddCustomPOIDialogV2({
                 >
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="poi-label" className="text-sm font-semibold">
+                      <Label
+                        htmlFor="poi-label"
+                        className="text-sm font-semibold"
+                      >
                         Nombre del POI
                       </Label>
                       <Input
@@ -446,7 +458,10 @@ export function AddCustomPOIDialogV2({
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="poi-desc" className="text-sm font-semibold">
+                      <Label
+                        htmlFor="poi-desc"
+                        className="text-sm font-semibold"
+                      >
                         Descripción (Opcional)
                       </Label>
                       <Input
@@ -497,7 +512,8 @@ export function AddCustomPOIDialogV2({
                     >
                       {isLoading ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Agregando...
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />{" "}
+                          Agregando...
                         </>
                       ) : (
                         "Finalizar y Crear"
@@ -527,7 +543,10 @@ export function AddCustomPOIDialogV2({
                         Puntos Recopilados
                       </p>
                       <p className="text-sm font-bold text-foreground/80">
-                        {zonePoints.length} <span className="text-xs font-semibold text-muted-foreground">{zonePoints.length < 3 ? `/ 3 mínimo` : "/ Listo"}</span>
+                        {zonePoints.length}{" "}
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {zonePoints.length < 3 ? `/ 3 mínimo` : "/ Listo"}
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -550,7 +569,9 @@ export function AddCustomPOIDialogV2({
                   </Button>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Nombre de la Zona</Label>
+                    <Label className="text-sm font-semibold">
+                      Nombre de la Zona
+                    </Label>
                     <Input
                       value={label}
                       onChange={(e) => setLabel(e.target.value)}
@@ -561,7 +582,9 @@ export function AddCustomPOIDialogV2({
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Descripción (Opcional)</Label>
+                    <Label className="text-sm font-semibold">
+                      Descripción (Opcional)
+                    </Label>
                     <Textarea
                       value={description}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -573,9 +596,12 @@ export function AddCustomPOIDialogV2({
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Etiquetas Ambientales Permitidas</Label>
+                    <Label className="text-sm font-semibold">
+                      Etiquetas Ambientales Permitidas
+                    </Label>
                     <p className="text-xs text-muted-foreground">
-                      Solo los vehículos con al menos una de estas etiquetas podrán acceder a la zona.
+                      Solo los vehículos con al menos una de estas etiquetas
+                      podrán acceder a la zona.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {(() => {
@@ -608,7 +634,9 @@ export function AddCustomPOIDialogV2({
                     </div>
                     {requiredTags.length > 0 && (
                       <p className="text-xs text-primary font-medium mt-1">
-                        {requiredTags.length} etiqueta{requiredTags.length > 1 ? "s" : ""} seleccionada{requiredTags.length > 1 ? "s" : ""}
+                        {requiredTags.length} etiqueta
+                        {requiredTags.length > 1 ? "s" : ""} seleccionada
+                        {requiredTags.length > 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
@@ -621,7 +649,12 @@ export function AddCustomPOIDialogV2({
                   )}
 
                   <DialogFooter className="pt-2">
-                    <Button type="button" variant="ghost" onClick={handleCancel} className="text-muted-foreground hover:text-foreground">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleCancel}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
                       Cancelar
                     </Button>
                     <Button
@@ -641,15 +674,21 @@ export function AddCustomPOIDialogV2({
                 <div className="space-y-6 animate-in fade-in duration-300 py-6">
                   <div className="p-6 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border-2 border-primary/30 text-center">
                     <div className="mb-3 flex justify-center">
-                      <div className={isEditingZone ? "animate-bounce" : "animate-pulse"}>
+                      <div
+                        className={
+                          isEditingZone ? "animate-bounce" : "animate-pulse"
+                        }
+                      >
                         <Pentagon className="h-12 w-12 text-primary" />
                       </div>
                     </div>
                     <p className="text-lg font-bold text-foreground mb-2">
-                      {isEditingZone ? "Ajustando Polígono" : "Dibujando en Progreso"}
+                      {isEditingZone
+                        ? "Ajustando Polígono"
+                        : "Dibujando en Progreso"}
                     </p>
                     <p className="text-sm text-muted-foreground mb-4">
-                      {isEditingZone 
+                      {isEditingZone
                         ? "Haz clic en los puntos para eliminarlos o arrástralos para ajustarlos"
                         : "Revisa la barra flotante en la parte inferior del mapa para finalizar tu zona."}
                     </p>
@@ -662,22 +701,38 @@ export function AddCustomPOIDialogV2({
 
                   <div className="space-y-3 text-center">
                     <p className="text-xs text-muted-foreground font-semibold">
-                      {isEditingZone ? "Controles de Edición:" : "Atajos de Teclado:"}
+                      {isEditingZone
+                        ? "Controles de Edición:"
+                        : "Atajos de Teclado:"}
                     </p>
-                    <div className={`grid ${isEditingZone ? "grid-cols-2" : "grid-cols-3"} gap-2 text-xs`}>
+                    <div
+                      className={`grid ${isEditingZone ? "grid-cols-2" : "grid-cols-3"} gap-2 text-xs`}
+                    >
                       {!isEditingZone && (
                         <>
                           <div className="p-2 rounded bg-secondary/50 border border-border/30">
-                            <p className="font-mono font-bold text-foreground">Esc</p>
-                            <p className="text-muted-foreground text-[10px]">Cancelar</p>
+                            <p className="font-mono font-bold text-foreground">
+                              Esc
+                            </p>
+                            <p className="text-muted-foreground text-[10px]">
+                              Cancelar
+                            </p>
                           </div>
                           <div className="p-2 rounded bg-secondary/50 border border-border/30">
-                            <p className="font-mono font-bold text-foreground">Ctrl+Z</p>
-                            <p className="text-muted-foreground text-[10px]">Deshacer</p>
+                            <p className="font-mono font-bold text-foreground">
+                              Ctrl+Z
+                            </p>
+                            <p className="text-muted-foreground text-[10px]">
+                              Deshacer
+                            </p>
                           </div>
                           <div className="p-2 rounded bg-secondary/50 border border-border/30">
-                            <p className="font-mono font-bold text-foreground">Enter</p>
-                            <p className="text-muted-foreground text-[10px]">Confirmar</p>
+                            <p className="font-mono font-bold text-foreground">
+                              Enter
+                            </p>
+                            <p className="text-muted-foreground text-[10px]">
+                              Confirmar
+                            </p>
                           </div>
                         </>
                       )}
@@ -685,11 +740,15 @@ export function AddCustomPOIDialogV2({
                         <>
                           <div className="p-2 rounded bg-blue-500/10 border border-blue-500/30">
                             <p className="font-bold text-blue-600">Arrastra</p>
-                            <p className="text-muted-foreground text-[10px]">Mover puntos</p>
+                            <p className="text-muted-foreground text-[10px]">
+                              Mover puntos
+                            </p>
                           </div>
                           <div className="p-2 rounded bg-red-500/10 border border-red-500/30">
                             <p className="font-bold text-red-600">Clic</p>
-                            <p className="text-muted-foreground text-[10px]">Eliminar punto</p>
+                            <p className="text-muted-foreground text-[10px]">
+                              Eliminar punto
+                            </p>
                           </div>
                         </>
                       )}

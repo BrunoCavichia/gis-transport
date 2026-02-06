@@ -17,7 +17,7 @@ function migrateData(stored: any): CustomPOI[] {
   if (stored.version !== undefined) {
     return stored.data || [];
   }
-  
+
   // Old format - array of POIs without version
   if (Array.isArray(stored)) {
     // Migrate old POIs to new format with entityType
@@ -27,7 +27,7 @@ function migrateData(stored: any): CustomPOI[] {
       position: poi.position,
     }));
   }
-  
+
   return [];
 }
 
@@ -81,7 +81,7 @@ export function useCustomPOI() {
       setCustomPOIs((prev) => [...prev, newPOI]);
       return newPOI;
     },
-    [customPOIs.length]
+    [customPOIs.length],
   );
 
   const addCustomZone = useCallback(
@@ -90,7 +90,7 @@ export function useCustomPOI() {
       coordinates: any,
       description?: string,
       zoneType: string = "LEZ",
-      requiredTags?: string[]
+      requiredTags?: string[],
     ) => {
       const zoneName = name.trim() || `Custom Zone ${customPOIs.length + 1}`;
       const newZone: CustomPOI = {
@@ -107,7 +107,7 @@ export function useCustomPOI() {
       setCustomPOIs((prev) => [...prev, newZone]);
       return newZone;
     },
-    [customPOIs.length]
+    [customPOIs.length],
   );
 
   const removeCustomPOI = useCallback((id: string) => {
@@ -115,14 +115,15 @@ export function useCustomPOI() {
   }, []);
 
   const updateCustomPOI = useCallback(
-    (id: string, updates: Partial<Omit<CustomPOI, "id" | "type" | "createdAt">>) => {
+    (
+      id: string,
+      updates: Partial<Omit<CustomPOI, "id" | "type" | "createdAt">>,
+    ) => {
       setCustomPOIs((prev) =>
-        prev.map((poi) =>
-          poi.id === id ? { ...poi, ...updates } : poi
-        )
+        prev.map((poi) => (poi.id === id ? { ...poi, ...updates } : poi)),
       );
     },
-    []
+    [],
   );
 
   const clearAllCustomPOIs = useCallback(() => {
@@ -132,19 +133,21 @@ export function useCustomPOI() {
   const togglePOISelectionForFleet = useCallback((id: string) => {
     setCustomPOIs((prev) =>
       prev.map((poi) =>
-        poi.id === id ? { ...poi, selectedForFleet: !poi.selectedForFleet } : poi
-      )
+        poi.id === id
+          ? { ...poi, selectedForFleet: !poi.selectedForFleet }
+          : poi,
+      ),
     );
   }, []);
 
   // Get only point POIs
   const getPointPOIs = useCallback(() => {
-    return customPOIs.filter(poi => poi.entityType === "point");
+    return customPOIs.filter((poi) => poi.entityType === "point");
   }, [customPOIs]);
 
   // Get only zone POIs
   const getZonePOIs = useCallback(() => {
-    return customPOIs.filter(poi => poi.entityType === "zone");
+    return customPOIs.filter((poi) => poi.entityType === "zone");
   }, [customPOIs]);
 
   return {

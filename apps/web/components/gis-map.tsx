@@ -29,7 +29,8 @@ import { useDrivers } from "@/hooks/use-drivers";
 import { useDriverManagement } from "@/hooks/use-driver-management";
 import { useGISState } from "@/hooks/use-gis-state";
 import { DriverDetailsSheet } from "@/components/driver-details-sheet";
-import { VehicleDetailSheet } from "@/components/vehicle-details-panel";
+import { VehicleDetailSheet } from "@/components/vehicle-detail-sheet";
+import { VehicleDetailsPanel } from "@/components/vehicle-details-panel";
 
 const MapContainer = dynamic(() => import("@/components/map-container"), {
   ssr: false,
@@ -95,6 +96,11 @@ export function GISMap() {
   const [vehiclePopupData, setVehiclePopupData] = useState<{
     vehicleId: string;
     vehicleName: string;
+    licensePlate: string;
+    status: string;
+    speed: number;
+    vehicleType: string;
+    driverName: string | null;
     pixelPosition: { x: number; y: number };
   } | null>(null);
 
@@ -136,9 +142,18 @@ export function GISMap() {
       if (vehicle) {
         const vehicleName =
           vehicle.label || vehicle.type.label || `Vehículo ${vehicle.id}`;
+        const metrics = vehicle.metrics;
         setVehiclePopupData({
           vehicleId,
           vehicleName,
+          licensePlate: vehicle.licensePlate || "",
+          status: metrics?.movementState || "stopped",
+          speed: metrics?.speed || 0,
+          vehicleType:
+            vehicle.type.id.includes("electric") || vehicle.type.id === "zero"
+              ? "EV"
+              : "ICE",
+          driverName: vehicle.driver?.name || null,
           pixelPosition,
         });
       }
@@ -159,7 +174,7 @@ export function GISMap() {
     (vehicleId: string) => {
       setVehiclePopupData(null); // Close popup
       setSelectedVehicleId(vehicleId);
-      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: true });
+      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: false });
     },
     [setSelectedVehicleId],
   );
@@ -195,8 +210,8 @@ export function GISMap() {
   // Combine API zones with custom zones for routing
   const combinedActiveZones = useMemo(() => {
     const customZones = customPOIs
-      .filter(poi => poi.entityType === "zone" && poi.coordinates)
-      .map(zone => ({
+      .filter((poi) => poi.entityType === "zone" && poi.coordinates)
+      .map((zone) => ({
         id: zone.id,
         name: zone.name,
         coordinates: zone.coordinates,
@@ -422,6 +437,8 @@ export function GISMap() {
   const handleSelectVehicleIdOnly = useCallback(
     (id: string | number | null) => {
       setSelectedVehicleId(id ? String(id) : null);
+      // Close the route management panel when selecting from sidebar
+      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: false });
     },
     [setSelectedVehicleId],
   );
@@ -430,10 +447,22 @@ export function GISMap() {
   const handleOpenVehiclePanel = useCallback(() => {
     if (vehiclePopupData) {
       setSelectedVehicleId(vehiclePopupData.vehicleId);
-      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: true });
+      dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: false });
       setVehiclePopupData(null);
     }
   }, [vehiclePopupData, setSelectedVehicleId]);
+
+  // Handle environmental tag change from vehicle details panel
+  const handleChangeEnvironmentalTag = useCallback(
+    (vehicleId: string | number, tagId: string) => {
+      const vehicleTypeId = tagId === "none" ? "noLabel" : tagId;
+      const vehicleType = VEHICLE_TYPES.find((t) => t.id === vehicleTypeId);
+      if (vehicleType) {
+        updateVehicleType(vehicleId, vehicleType);
+      }
+    },
+    [updateVehicleType],
+  );
 
   const handleZonesUpdate = useCallback(
     (zones: Zone[]) => dispatch({ type: "SET_ACTIVE_ZONES", payload: zones }),
@@ -442,22 +471,27 @@ export function GISMap() {
 
   const handleEditZone = useCallback(
     (zoneId: string) => {
-      const zoneToEdit = customPOIs.find(poi => poi.id === zoneId && poi.entityType === "zone");
+      const zoneToEdit = customPOIs.find(
+        (poi) => poi.id === zoneId && poi.entityType === "zone",
+      );
       if (!zoneToEdit || !zoneToEdit.coordinates) return;
 
       // Load zone points into drawing state
       dispatch({ type: "CLEAR_ZONE_POINTS" });
-      
+
       // Convert coordinates to [lat, lon] format if needed
       const coords = zoneToEdit.coordinates;
       let points: [number, number][] = [];
-      
+
       if (Array.isArray(coords) && coords.length > 0) {
         const firstCoord = coords[0];
         if (Array.isArray(firstCoord) && Array.isArray(firstCoord[0])) {
           // Could be 3D or 4D, need to check depth of firstCoord[0]
           const secondLevelCoord = firstCoord[0];
-          if (Array.isArray(secondLevelCoord) && Array.isArray(secondLevelCoord[0])) {
+          if (
+            Array.isArray(secondLevelCoord) &&
+            Array.isArray(secondLevelCoord[0])
+          ) {
             // 4D coords format (MultiPolygon): [[[[lat, lon], ...], ...]]]
             // coords[0] = 3D, coords[0][0] = 2D (the actual points array)
             points = coords[0][0] as [number, number][];
@@ -472,7 +506,7 @@ export function GISMap() {
       }
 
       // Dispatch points to state
-      points.forEach(point => {
+      points.forEach((point) => {
         dispatch({ type: "ADD_ZONE_POINT", payload: point });
       });
 
@@ -631,7 +665,7 @@ export function GISMap() {
         // Create new zone
         addCustomZone(name, coordinates, desc, zoneType, requiredTags);
       }
-      
+
       // Clean up state
       dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
       dispatch({ type: "CLEAR_ZONE_POINTS" });
@@ -660,26 +694,32 @@ export function GISMap() {
     }
   }, [state.zonePoints, dispatch]);
 
-  const handleRemoveZonePoint = useCallback((index: number) => {
-    const newPoints = state.zonePoints.filter((_, i) => i !== index);
-    dispatch({ type: "CLEAR_ZONE_POINTS" });
-    newPoints.forEach((point) => {
-      dispatch({ type: "ADD_ZONE_POINT", payload: point });
-    });
-    // Exit editing mode if less than 3 points
-    if (newPoints.length < 3) {
-      setIsEditingZone(false);
-    }
-  }, [state.zonePoints, dispatch]);
+  const handleRemoveZonePoint = useCallback(
+    (index: number) => {
+      const newPoints = state.zonePoints.filter((_, i) => i !== index);
+      dispatch({ type: "CLEAR_ZONE_POINTS" });
+      newPoints.forEach((point) => {
+        dispatch({ type: "ADD_ZONE_POINT", payload: point });
+      });
+      // Exit editing mode if less than 3 points
+      if (newPoints.length < 3) {
+        setIsEditingZone(false);
+      }
+    },
+    [state.zonePoints, dispatch],
+  );
 
-  const handleUpdateZonePoint = useCallback((index: number, newCoords: [number, number]) => {
-    const newPoints = [...state.zonePoints];
-    newPoints[index] = newCoords;
-    dispatch({ type: "CLEAR_ZONE_POINTS" });
-    newPoints.forEach((point) => {
-      dispatch({ type: "ADD_ZONE_POINT", payload: point });
-    });
-  }, [state.zonePoints, dispatch]);
+  const handleUpdateZonePoint = useCallback(
+    (index: number, newCoords: [number, number]) => {
+      const newPoints = [...state.zonePoints];
+      newPoints[index] = newCoords;
+      dispatch({ type: "CLEAR_ZONE_POINTS" });
+      newPoints.forEach((point) => {
+        dispatch({ type: "ADD_ZONE_POINT", payload: point });
+      });
+    },
+    [state.zonePoints, dispatch],
+  );
 
   const handleCancelZoneDrawing = useCallback(() => {
     if (state.zonePoints.length > 0) {
@@ -902,8 +942,12 @@ export function GISMap() {
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-card/95 border border-border/50 rounded-xl shadow-lg p-4 backdrop-blur-sm flex items-center gap-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
             {/* Compact Counter */}
             <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg">
-              <div className={`h-3 w-3 rounded-full ${state.zonePoints.length >= 3 ? "bg-green-500" : "bg-yellow-500"} animate-pulse`} />
-              <span className="text-sm font-bold text-foreground">{state.zonePoints.length}</span>
+              <div
+                className={`h-3 w-3 rounded-full ${state.zonePoints.length >= 3 ? "bg-green-500" : "bg-yellow-500"} animate-pulse`}
+              />
+              <span className="text-sm font-bold text-foreground">
+                {state.zonePoints.length}
+              </span>
             </div>
 
             {/* Divider */}
@@ -1002,39 +1046,57 @@ export function GISMap() {
           }
         />
 
-        <VehicleDetailSheet
-          vehicle={selectedVehicleObject}
-          isOpen={state.isVehicleDetailsOpen}
-          onClose={() => {
-            dispatch({ type: "SET_IS_VEHICLE_DETAILS_OPEN", payload: false });
-            setSelectedVehicleId(null);
-          }}
-          drivers={drivers}
-          onAssignDriver={handleAssignDriver}
-          onUpdateLabel={updateVehicleLabel}
-          onUpdateLicensePlate={updateVehicleLicensePlate}
-          onChangeEnvironmentalTag={(vehicleId, tagId) => {
-            // Map tag ID to VehicleType from VEHICLE_TYPES
-            // "none" maps to "noLabel" in VEHICLE_TYPES
-            const mappedId = tagId === "none" ? "noLabel" : tagId;
-            const vehicleType =
-              VEHICLE_TYPES.find((vt) => vt.id === mappedId) ||
-              VEHICLE_TYPES[4];
-            updateVehicleType(vehicleId, vehicleType);
-          }}
-        />
+        {/* Vehicle Properties Panel - opens when selected from sidebar */}
+        {selectedVehicleId && !state.isVehicleDetailsOpen && (
+          <VehicleDetailsPanel
+            vehicle={selectedVehicleObject}
+            isOpen={true}
+            onClose={() => setSelectedVehicleId(null)}
+            drivers={drivers}
+            onAssignDriver={handleAssignDriver}
+            onChangeEnvironmentalTag={handleChangeEnvironmentalTag}
+            onUpdateLabel={updateVehicleLabel}
+            onUpdateLicensePlate={updateVehicleLicensePlate}
+          />
+        )}
+
+        {/* Vehicle Route Management Panel - opens from map popup "Ver detalles" */}
+        {state.isVehicleDetailsOpen && (
+          <div className="fixed inset-0 right-0 left-auto w-80 h-full z-40 bg-background border-l border-border/50 shadow-lg overflow-hidden">
+            <VehicleDetailSheet
+              vehicle={selectedVehicleObject}
+              metrics={selectedVehicleObject?.metrics || null}
+              onClose={() => {
+                dispatch({
+                  type: "SET_IS_VEHICLE_DETAILS_OPEN",
+                  payload: false,
+                });
+                setSelectedVehicleId(null);
+              }}
+              drivers={drivers}
+              onAssignDriver={handleAssignDriver}
+              jobs={fleetJobs}
+              addStopToVehicle={addStopToVehicle}
+              startRouting={startRouting}
+              isAddStopOpen={state.isAddStopOpen}
+              setIsAddStopOpen={handleOpenAddStopChange}
+              onStartPickingStop={handleStartPickingStop}
+              pickedStopCoords={state.pickedStopCoords}
+              onAddStopSubmit={handleAddStopSubmit}
+            />
+          </div>
+        )}
 
         {/* Vehicle Hover Popup */}
         {vehiclePopupData && (
           <div
-            className="fixed z-50 bg-card/95 backdrop-blur-sm rounded-md shadow-md border border-border/50 px-2 py-1 pointer-events-auto"
+            className="fixed z-50 pointer-events-auto animate-in fade-in-0 zoom-in-95 duration-150"
             style={{
               left: `${vehiclePopupData.pixelPosition.x}px`,
-              top: `${vehiclePopupData.pixelPosition.y - 45}px`,
+              top: `${vehiclePopupData.pixelPosition.y - 12}px`,
               transform: "translate(-50%, -100%)",
             }}
             onMouseEnter={() => {
-              // Clear hide timeout when hovering over popup
               if (hoverTimeoutRef.current) {
                 clearTimeout(hoverTimeoutRef.current);
                 hoverTimeoutRef.current = null;
@@ -1044,16 +1106,85 @@ export function GISMap() {
               setVehiclePopupData(null);
             }}
           >
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-medium text-foreground truncate max-w-[100px]">
-                {vehiclePopupData.vehicleName}
-              </span>
+            <div className="bg-card/98 backdrop-blur-md rounded-lg shadow-xl border border-border/40 overflow-hidden min-w-[180px]">
+              {/* Header */}
+              <div className="px-3 py-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-foreground truncate leading-tight">
+                    {vehiclePopupData.vehicleName}
+                  </p>
+                  {vehiclePopupData.licensePlate && (
+                    <p className="text-[8px] font-mono text-muted-foreground/60 uppercase tracking-wider mt-0.5">
+                      {vehiclePopupData.licensePlate}
+                    </p>
+                  )}
+                </div>
+                <div
+                  className={`shrink-0 px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider ${
+                    vehiclePopupData.status === "on_route"
+                      ? "bg-emerald-500/15 text-emerald-600"
+                      : vehiclePopupData.status === "moving"
+                        ? "bg-blue-500/15 text-blue-600"
+                        : "bg-zinc-500/10 text-zinc-500"
+                  }`}
+                >
+                  {vehiclePopupData.status === "on_route"
+                    ? "En ruta"
+                    : vehiclePopupData.status === "moving"
+                      ? "Moviendo"
+                      : "Detenido"}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-border/30" />
+
+              {/* Info row */}
+              <div className="px-3 py-1.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                  <span className="font-bold tabular-nums">
+                    {vehiclePopupData.speed}
+                    <span className="font-normal ml-0.5">km/h</span>
+                  </span>
+                  <span className="text-border">|</span>
+                  <span className="font-medium">
+                    {vehiclePopupData.vehicleType === "EV"
+                      ? "Eléctrico"
+                      : "Combustión"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Driver */}
+              {vehiclePopupData.driverName && (
+                <>
+                  <div className="h-px bg-border/30" />
+                  <div className="px-3 py-1.5 flex items-center gap-1.5">
+                    <div className="h-3 w-3 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-[6px] font-black text-primary">
+                        {vehiclePopupData.driverName.charAt(0)}
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-muted-foreground font-medium truncate">
+                      {vehiclePopupData.driverName}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Action */}
+              <div className="h-px bg-border/30" />
               <button
                 onClick={handleOpenVehiclePanel}
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/90 text-white hover:bg-primary transition-colors"
+                className="w-full px-3 py-1.5 text-[9px] font-bold text-primary hover:bg-primary/5 transition-colors text-center uppercase tracking-wider"
               >
-                ▶
+                Ver detalles
               </button>
+            </div>
+
+            {/* Pointer triangle */}
+            <div className="flex justify-center -mt-px">
+              <div className="w-2 h-2 bg-card/98 border-b border-r border-border/40 rotate-45 -translate-y-1" />
             </div>
           </div>
         )}

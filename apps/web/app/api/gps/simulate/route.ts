@@ -13,23 +13,23 @@ declare global {
   // eslint-disable-next-line no-var
   var gpsSimulation:
     | {
-      routes: Record<string, [number, number][]>;
-      positions: Record<
-        string,
-        { coords: [number, number]; routeIndex: number }
-      >;
-      telemetry: Record<
-        string,
-        {
-          fuel?: number;
-          battery?: number;
-          distance: number;
-          isElectric: boolean;
-        }
-      >;
-      isRunning: boolean;
-      intervalId?: NodeJS.Timeout;
-    }
+        routes: Record<string, [number, number][]>;
+        positions: Record<
+          string,
+          { coords: [number, number]; routeIndex: number }
+        >;
+        telemetry: Record<
+          string,
+          {
+            fuel?: number;
+            battery?: number;
+            distance: number;
+            isElectric: boolean;
+          }
+        >;
+        isRunning: boolean;
+        intervalId?: NodeJS.Timeout;
+      }
     | undefined;
 }
 
@@ -87,7 +87,10 @@ export async function POST(req: Request) {
 
           Object.entries(global.gpsSimulation.positions).forEach(
             ([vehicleId, data]) => {
-              const route = global.gpsSimulation!.routes[vehicleId];
+              const rawRoute = global.gpsSimulation!.routes[vehicleId];
+              const route = Array.isArray(rawRoute)
+                ? rawRoute
+                : rawRoute?.coordinates;
               const tel = global.gpsSimulation!.telemetry[vehicleId];
 
               if (route && route.length > 0 && tel) {
