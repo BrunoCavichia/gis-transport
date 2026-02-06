@@ -19,6 +19,7 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,7 @@ interface SidebarProps {
   clearAllCustomPOIs?: () => void;
   showCustomPOIs?: boolean;
   setShowCustomPOIs?: (value: boolean) => void;
+  onEditZone?: (zoneId: string) => void;
   isLoadingVehicles?: boolean;
   fetchVehicles?: () => Promise<void>;
   isAddJobOpen?: boolean;
@@ -415,6 +417,7 @@ interface LayersTabProps {
   onAddPOIClick: () => void;
   removeCustomPOI?: (id: string) => void;
   clearAllCustomPOIs?: () => void;
+  onEditZone?: (zoneId: string) => void;
 }
 
 const LayersTab = memo(
@@ -425,7 +428,20 @@ const LayersTab = memo(
     onAddPOIClick,
     removeCustomPOI,
     clearAllCustomPOIs,
-  }: LayersTabProps) => (
+    onEditZone,
+  }: LayersTabProps) => {
+    // Separate points and zones
+    const pointPOIs = useMemo(
+      () => customPOIs.filter(poi => !poi.entityType || poi.entityType === "point"),
+      [customPOIs]
+    );
+
+    const zonePOIs = useMemo(
+      () => customPOIs.filter(poi => poi.entityType === "zone"),
+      [customPOIs]
+    );
+
+    return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
       <div className="p-6 pb-4 flex flex-col gap-2 border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent">
         <h2 className="text-2xl font-black italic tracking-tighter text-foreground leading-none">
@@ -480,7 +496,7 @@ const LayersTab = memo(
                 variant="outline"
                 className="text-[10px] font-black border-primary/20 text-primary h-5 bg-primary/5"
               >
-                {customPOIs.length}
+                {pointPOIs.length}
               </Badge>
             </div>
             <Button
@@ -491,9 +507,9 @@ const LayersTab = memo(
               <Plus className="h-4 w-4 mr-2 text-primary" /> Nuevo Punto de
               Gestión
             </Button>
-            {customPOIs.length > 0 && (
+            {pointPOIs.length > 0 && (
               <div className="space-y-3 mt-2">
-                {customPOIs.map((poi: CustomPOI) => (
+                {pointPOIs.map((poi: CustomPOI) => (
                   <div
                     key={poi.id}
                     className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border/40 hover:border-primary/20 hover:shadow-lg transition-all group relative overflow-hidden"
@@ -523,23 +539,102 @@ const LayersTab = memo(
                     </Button>
                   </div>
                 ))}
-                <div className="pt-4 border-t border-border/10 mt-6">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
-                    onClick={clearAllCustomPOIs}
-                  >
-                    Limpiar Todo
-                  </Button>
-                </div>
+                {(pointPOIs.length > 0 || zonePOIs.length > 0) && (
+                  <div className="pt-4 border-t border-border/10 mt-6">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
+                      onClick={clearAllCustomPOIs}
+                    >
+                      Limpiar Todo
+                    </Button>
+                  </div>
+                )}
               </div>
+            )}
+          </div>
+
+          {/* Custom Zones Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pl-1">
+              <Label className="text-[11px] font-black uppercase text-foreground/70 tracking-widest">
+                Zonas Customizadas
+              </Label>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-black border-blue-200 text-blue-600 h-5 bg-blue-50/20"
+              >
+                {zonePOIs.length}
+              </Badge>
+            </div>
+            {zonePOIs.length > 0 ? (
+              <div className="space-y-3 mt-2">
+                {zonePOIs.map((zone: CustomPOI) => (
+                  <div
+                    key={zone.id}
+                    className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border/40 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/10 transition-all group relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-4 overflow-hidden relative z-10">
+                      <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                        <Package className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[13px] font-black text-foreground truncate">
+                          {zone.name}
+                        </span>
+                        <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter mt-0.5">
+                          {zone.zoneType || "CUSTOM"} • {zone.requiredTags?.length || 0} tags
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-blue-600 rounded-lg"
+                        onClick={() => onEditZone?.(zone.id)}
+                        title="Editar zona"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-red-600 rounded-lg"
+                        onClick={() => removeCustomPOI?.(zone.id)}
+                        title="Eliminar zona"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {(pointPOIs.length > 0 || zonePOIs.length > 0) && (
+                  <div className="pt-4 border-t border-border/10 mt-6">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-10 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 transition-all border border-transparent hover:border-red-100"
+                      onClick={clearAllCustomPOIs}
+                    >
+                      Limpiar Todo
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground/60 p-4 rounded-lg bg-muted/30 text-center">
+                No tienes zonas customizadas
+              </p>
             )}
           </div>
         </div>
       </ScrollArea>
     </div>
-  ),
+    );
+  },
   (prev: LayersTabProps, next: LayersTabProps) => {
     return prev.layers === next.layers && prev.customPOIs === next.customPOIs;
   },
@@ -570,6 +665,7 @@ export const Sidebar = memo(
     removeCustomPOI,
     clearAllCustomPOIs,
     setIsAddCustomPOIOpen,
+    onEditZone,
     isLoadingVehicles = false,
     fetchVehicles,
     setIsAddJobOpen,
@@ -720,6 +816,7 @@ export const Sidebar = memo(
               onAddPOIClick={handleShowAddPOI}
               removeCustomPOI={removeCustomPOI}
               clearAllCustomPOIs={clearAllCustomPOIs}
+              onEditZone={onEditZone}
             />
           )}
           {activeTab === "drivers" &&

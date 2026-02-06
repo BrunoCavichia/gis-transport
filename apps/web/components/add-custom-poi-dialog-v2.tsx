@@ -63,6 +63,13 @@ interface AddCustomPOIDialogV2Props {
   isLoading?: boolean;
   isDrawingZone?: boolean;
   isEditingZone?: boolean;
+  editingZoneData?: {
+    id: string;
+    name: string;
+    description?: string;
+    zoneType?: string;
+    requiredTags?: string[];
+  } | null;
 }
 
 export function AddCustomPOIDialogV2({
@@ -78,6 +85,7 @@ export function AddCustomPOIDialogV2({
   isLoading = false,
   isDrawingZone = false,
   isEditingZone = false,
+  editingZoneData = null,
 }: AddCustomPOIDialogV2Props) {
   const [mode, setMode] = useState<EntityMode>("point");
   const [step, setStep] = useState(1);
@@ -104,6 +112,18 @@ export function AddCustomPOIDialogV2({
       setError("");
     }
   }, [pickedCoords, mode]);
+
+  // Pre-fill form when editing a zone
+  useEffect(() => {
+    if (editingZoneData) {
+      setMode("zone");
+      setLabel(editingZoneData.name);
+      setDescription(editingZoneData.description || "");
+      setZoneType(editingZoneData.zoneType || "LEZ");
+      setRequiredTags(editingZoneData.requiredTags || []);
+      setTagInput("");
+    }
+  }, [editingZoneData]);
 
   const parsedCoords: [number, number] | null = useMemo(() => {
     const lat = parseFloat(latitude);
@@ -245,7 +265,9 @@ export function AddCustomPOIDialogV2({
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold tracking-tight">
-                  Add Custom {mode === "point" ? "POI" : "Zone"}
+                  {editingZoneData
+                    ? "Editar Zona de Gestión"
+                    : `Add Custom ${mode === "point" ? "POI" : "Zone"}`}
                 </DialogTitle>
                 <DialogDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground/60">
                   {mode === "point" ? (
@@ -629,7 +651,7 @@ export function AddCustomPOIDialogV2({
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       ) : null}
-                      Crear Zona
+                      {editingZoneData ? "Actualizar Zona" : "Crear Zona"}
                     </Button>
                   </DialogFooter>
                 </form>

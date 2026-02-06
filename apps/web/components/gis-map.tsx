@@ -101,6 +101,13 @@ export function GISMap() {
   // Zone drawing mode state
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [isEditingZone, setIsEditingZone] = useState(false);
+  const [editingZoneData, setEditingZoneData] = useState<{
+    id: string;
+    name: string;
+    description?: string;
+    zoneType?: string;
+    requiredTags?: string[];
+  } | null>(null);
 
   // Ref for hover timeout to prevent flickering
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -182,6 +189,7 @@ export function GISMap() {
     addCustomZone,
     removeCustomPOI,
     clearAllCustomPOIs,
+    updateCustomPOI,
   } = useCustomPOI();
 
   // Combine API zones with custom zones for routing
@@ -432,6 +440,54 @@ export function GISMap() {
     [dispatch],
   );
 
+  const handleEditZone = useCallback(
+    (zoneId: string) => {
+      const zoneToEdit = customPOIs.find(poi => poi.id === zoneId && poi.entityType === "zone");
+      if (!zoneToEdit || !zoneToEdit.coordinates) return;
+
+      // Load zone points into drawing state
+      dispatch({ type: "CLEAR_ZONE_POINTS" });
+      
+      // Convert coordinates to [lat, lon] format if needed
+      const coords = zoneToEdit.coordinates;
+      let points: [number, number][] = [];
+      
+      if (Array.isArray(coords) && coords.length > 0) {
+        const firstCoord = coords[0];
+        if (Array.isArray(firstCoord) && Array.isArray(firstCoord[0])) {
+          // 3D coords format: [[[lat, lon], ...], ...]
+          points = coords[0] as [number, number][];
+        } else if (Array.isArray(firstCoord)) {
+          // 2D coords format: [[lat, lon], ...]
+          points = coords as [number, number][];
+        }
+      }
+
+      // Dispatch points to state
+      points.forEach(point => {
+        dispatch({ type: "ADD_ZONE_POINT", payload: point });
+      });
+
+      // Set interaction mode to pick-zone so the preview is visible
+      dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-zone" });
+
+      // Save all zone data for editing
+      setEditingZoneData({
+        id: zoneToEdit.id,
+        name: zoneToEdit.name,
+        description: zoneToEdit.description,
+        zoneType: zoneToEdit.zoneType,
+        requiredTags: zoneToEdit.requiredTags,
+      });
+
+      // Enter editing mode
+      setIsEditingZone(true);
+      setIsDrawingZone(true);
+      // Dialog will open after user finishes editing in handleConfirmZoneDrawing
+    },
+    [customPOIs, dispatch],
+  );
+
   const handleSetMapCenter = useCallback(
     (center: [number, number]) =>
       dispatch({ type: "SET_MAP_CENTER", payload: center }),
@@ -554,13 +610,28 @@ export function GISMap() {
       zoneType?: string,
       requiredTags?: string[],
     ) => {
-      addCustomZone(name, coordinates, desc, zoneType, requiredTags);
+      if (editingZoneData) {
+        // Update existing zone
+        updateCustomPOI(editingZoneData.id, {
+          name,
+          coordinates,
+          description: desc,
+          zoneType,
+          requiredTags,
+        });
+      } else {
+        // Create new zone
+        addCustomZone(name, coordinates, desc, zoneType, requiredTags);
+      }
+      
+      // Clean up state
       dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
       dispatch({ type: "CLEAR_ZONE_POINTS" });
       dispatch({ type: "SET_INTERACTION_MODE", payload: null });
-      setIsDrawingZone(false); // Exit drawing mode
+      setIsDrawingZone(false);
+      setEditingZoneData(null);
     },
-    [addCustomZone, dispatch],
+    [addCustomZone, updateCustomPOI, editingZoneData, dispatch],
   );
 
   const handleConfirmZoneDrawing = useCallback(() => {
@@ -610,6 +681,7 @@ export function GISMap() {
       if (!confirmCancel) return;
     }
     setIsDrawingZone(false);
+    setEditingZoneData(null);
     dispatch({ type: "CLEAR_ZONE_POINTS" });
     dispatch({ type: "SET_INTERACTION_MODE", payload: null });
   }, [state.zonePoints.length, dispatch]);
@@ -634,6 +706,7 @@ export function GISMap() {
         if (!isDrawingZone) {
           dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
           dispatch({ type: "CLEAR_ZONE_POINTS" });
+          setEditingZoneData(null);
           if (
             state.interactionMode === "pick-poi" ||
             state.interactionMode === "pick-zone"
@@ -752,6 +825,7 @@ export function GISMap() {
         clearAllCustomPOIs={clearAllCustomPOIs}
         showCustomPOIs={state.showCustomPOIs}
         setShowCustomPOIs={handleSetShowCustomPOIs}
+        onEditZone={handleEditZone}
         isAddCustomPOIOpen={state.isAddCustomPOIOpen}
         setIsAddCustomPOIOpen={handleSetIsAddCustomPOIOpen}
         isAddJobOpen={state.isAddJobOpen}
@@ -896,6 +970,7 @@ export function GISMap() {
           zonePoints={state.zonePoints}
           isDrawingZone={isDrawingZone}
           isEditingZone={isEditingZone}
+          editingZoneData={editingZoneData}
         />
 
         <RouteErrorAlert
