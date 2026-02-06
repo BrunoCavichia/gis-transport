@@ -1,7 +1,7 @@
 "use client";
 
 import { MAP_CENTER } from "@/lib/config";
-import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { useState, useEffect, useMemo, useCallback, memo, FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ import {
   Circle,
 } from "lucide-react";
 import { AddressSearch } from "@/components/address-search";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 const MapPreview = dynamic(() => import("@/components/map-preview"), {
@@ -56,11 +56,13 @@ interface AddCustomPOIDialogV2Props {
   ) => void;
   onStartPicking?: () => void;
   onStartZonePicking?: () => void;
-  onContinueZonePicking?: () => void; // New: for continuing without clearing points
+  onContinueZonePicking?: () => void;
   pickedCoords?: [number, number] | null;
   zonePoints?: [number, number][];
   mapCenter?: [number, number];
   isLoading?: boolean;
+  isDrawingZone?: boolean;
+  isEditingZone?: boolean;
 }
 
 export function AddCustomPOIDialogV2({
@@ -73,21 +75,22 @@ export function AddCustomPOIDialogV2({
   onContinueZonePicking,
   pickedCoords,
   zonePoints = [],
-  mapCenter = MAP_CENTER,
   isLoading = false,
+  isDrawingZone = false,
+  isEditingZone = false,
 }: AddCustomPOIDialogV2Props) {
   const [mode, setMode] = useState<EntityMode>("point");
   const [step, setStep] = useState(1);
-  
+
   // Point POI fields
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  
+
   // Zone fields
   const [zoneType, setZoneType] = useState("LEZ");
   const [requiredTags, setRequiredTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  
+
   // Common fields
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
@@ -133,10 +136,13 @@ export function AddCustomPOIDialogV2({
     setError("");
   }, []);
 
-  const handleModeChange = useCallback((newMode: EntityMode) => {
-    setMode(newMode);
-    handleReset();
-  }, [handleReset]);
+  const handleModeChange = useCallback(
+    (newMode: EntityMode) => {
+      setMode(newMode);
+      handleReset();
+    },
+    [handleReset],
+  );
 
   // Point POI flow
   const handleToPreview = useCallback(() => {
@@ -160,7 +166,7 @@ export function AddCustomPOIDialogV2({
   const handleBackToStep2 = useCallback(() => setStep(2), []);
 
   const handleSubmitPoint = useCallback(
-    (e: React.FormEvent) => {
+    (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       if (!parsedCoords) {
         setError("Invalid coordinates");
@@ -175,17 +181,17 @@ export function AddCustomPOIDialogV2({
 
   // Zone flow
   const handleSubmitZone = useCallback(
-    (e: React.FormEvent) => {
+    (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      
+
       if (zonePoints.length < 3) {
         setError("A zone requires at least 3 points");
         return;
       }
 
       // Convert points to Leaflet polygon format [[lat, lon], ...]
-      const coordinates = zonePoints.map(point => [point[0], point[1]]);
-      
+      const coordinates = zonePoints.map((point) => [point[0], point[1]]);
+
       // Close the polygon by adding first point at the end if not already closed
       const firstPoint = coordinates[0];
       const lastPoint = coordinates[coordinates.length - 1];
@@ -198,25 +204,34 @@ export function AddCustomPOIDialogV2({
         [coordinates], // Wrap in array for Leaflet Polygon format
         description,
         zoneType,
-        requiredTags.length > 0 ? requiredTags : undefined
+        requiredTags.length > 0 ? requiredTags : undefined,
       );
-      
+
       handleReset();
       onOpenChange(false);
     },
-    [zonePoints, label, description, zoneType, requiredTags, onSubmitZone, handleReset, onOpenChange],
+    [
+      zonePoints,
+      label,
+      description,
+      zoneType,
+      requiredTags,
+      onSubmitZone,
+      handleReset,
+      onOpenChange,
+    ],
   );
 
   const handleAddTag = useCallback(() => {
     const tag = tagInput.trim().toLowerCase();
     if (tag && !requiredTags.includes(tag)) {
-      setRequiredTags(prev => [...prev, tag]);
+      setRequiredTags((prev) => [...prev, tag]);
       setTagInput("");
     }
   }, [tagInput, requiredTags]);
 
   const handleRemoveTag = useCallback((tag: string) => {
-    setRequiredTags(prev => prev.filter(t => t !== tag));
+    setRequiredTags((prev) => prev.filter((t) => t !== tag));
   }, []);
 
   return (
@@ -247,7 +262,10 @@ export function AddCustomPOIDialogV2({
             </div>
 
             {/* Mode Selector */}
-            <Tabs value={mode} onValueChange={(v: string) => handleModeChange(v as EntityMode)}>
+            <Tabs
+              value={mode}
+              onValueChange={(v: string) => handleModeChange(v as EntityMode)}
+            >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="point" className="flex items-center gap-2">
                   <Circle className="h-3 w-3" />
@@ -299,7 +317,7 @@ export function AddCustomPOIDialogV2({
                         onChange={(e) => setLatitude(e.target.value)}
                         type="number"
                         step="any"
-                        className="h-10 text-sm font-mono"
+                        className="h-10 text-sm font-mono bg-muted/30 border-border/50 focus:bg-background transition-all"
                         disabled={isLoading}
                       />
                     </div>
@@ -312,7 +330,7 @@ export function AddCustomPOIDialogV2({
                         onChange={(e) => setLongitude(e.target.value)}
                         type="number"
                         step="any"
-                        className="h-10 text-sm font-mono"
+                        className="h-10 text-sm font-mono bg-muted/30 border-border/50 focus:bg-background transition-all"
                         disabled={isLoading}
                       />
                     </div>
@@ -348,24 +366,46 @@ export function AddCustomPOIDialogV2({
               )}
 
               {step === 2 && (
-                <div className="space-y-6 animate-in fade-in duration-300">
-                  <div className="relative h-48 w-full rounded-2xl overflow-hidden border-2 border-primary/20">
+                <div className="space-y-6 animate-in fade-in zoom-in duration-300">
+                  <div className="relative h-48 w-full rounded-2xl overflow-hidden border-2 border-primary/20 bg-muted shadow-inner group">
                     {parsedCoords && <MapPreview coords={parsedCoords} />}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                    <div className="absolute top-3 right-3 flex gap-2">
+                      <div className="px-2 py-1 bg-background/90 backdrop-blur-md rounded-lg border border-border/50 shadow-sm flex items-center gap-1.5">
+                        <MapIcon className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] font-bold">Vista Previa</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
-                    <p className="text-xs font-mono font-bold">
-                      {latitude}, {longitude}
-                    </p>
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
+                      <MapPin className="h-5 w-5 text-primary/70" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">
+                        Confirmar Coordenadas
+                      </p>
+                      <p className="text-xs font-mono font-bold text-foreground/80">
+                        {latitude}, {longitude}
+                      </p>
+                    </div>
                   </div>
 
-                  <DialogFooter>
-                    <Button variant="ghost" onClick={handleBackToStep1}>
+                  <DialogFooter className="pt-2 gap-3 flex-col sm:flex-row">
+                    <Button
+                      variant="outline"
+                      onClick={handleBackToStep1}
+                      className="flex-1 h-12 border-dashed hover:bg-muted font-medium transition-all"
+                    >
                       <ChevronLeft className="h-4 w-4 mr-2" />
-                      Back
+                      Cambiar Ubicación
                     </Button>
-                    <Button onClick={handleConfirmLocation}>
-                      Confirm
+                    <Button
+                      onClick={handleConfirmLocation}
+                      className="flex-1 h-12 font-bold shadow-lg shadow-primary/25 bg-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      Siguiente
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   </DialogFooter>
@@ -373,41 +413,83 @@ export function AddCustomPOIDialogV2({
               )}
 
               {step === 3 && (
-                <form onSubmit={handleSubmitPoint} className="space-y-6 animate-in fade-in duration-300">
-                  <div className="space-y-2">
-                    <Label>POI Name</Label>
-                    <Input
-                      value={label}
-                      onChange={(e) => setLabel(e.target.value)}
-                      placeholder="e.g., Meeting Point"
-                      className="h-11"
-                    />
+                <form
+                  onSubmit={handleSubmitPoint}
+                  className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-300"
+                >
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="poi-label" className="text-sm font-semibold">
+                        Nombre del POI
+                      </Label>
+                      <Input
+                        id="poi-label"
+                        placeholder="Ej: Restaurante A, Almacén 4..."
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
+                        className="h-12 text-base font-medium bg-muted/30 border-border/50 focus:bg-background transition-all"
+                        required
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="poi-desc" className="text-sm font-semibold">
+                        Descripción (Opcional)
+                      </Label>
+                      <Input
+                        id="poi-desc"
+                        placeholder="Detalles adicionales..."
+                        value={description}
+                        onChange={(e) => setDescription?.(e.target.value)}
+                        className="h-12 text-base font-medium bg-muted/30 border-border/50 focus:bg-background transition-all"
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Description (Optional)</Label>
-                    <Textarea
-                      value={description}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-                      placeholder="Additional details..."
-                      className="min-h-[80px]"
-                    />
+                  <div className="p-4 rounded-xl bg-muted/30 border border-border/50 flex items-center gap-4 opacity-70">
+                    <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
+                      <MapPin className="h-5 w-5 text-muted-foreground/60" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">
+                        Ubicación Bloqueada
+                      </p>
+                      <p className="text-xs font-mono font-bold text-foreground/80">
+                        {latitude}, {longitude}
+                      </p>
+                    </div>
                   </div>
 
                   {error && (
-                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 font-bold">
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 font-bold flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
                       {error}
                     </div>
                   )}
 
-                  <DialogFooter>
-                    <Button type="button" variant="ghost" onClick={handleBackToStep2}>
+                  <DialogFooter className="pt-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleBackToStep2}
+                      className="flex-1 h-12 border-dashed hover:bg-muted font-medium transition-all"
+                    >
                       <ChevronLeft className="h-4 w-4 mr-2" />
-                      Back
+                      Revisar Mapa
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Create POI
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      className="flex-1 h-12 font-bold shadow-lg shadow-primary/25 bg-primary hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Agregando...
+                        </>
+                      ) : (
+                        "Finalizar y Crear"
+                      )}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -417,113 +499,202 @@ export function AddCustomPOIDialogV2({
 
           {/* Zone Mode */}
           {mode === "zone" && (
-            <form onSubmit={handleSubmitZone} className="space-y-6 animate-in fade-in duration-300">
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                  Click on the map to add points
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Points selected: <span className="font-bold">{zonePoints.length}</span>
-                  {zonePoints.length < 3 && <span className="text-orange-600 ml-2">(minimum 3 required)</span>}
-                </p>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12 border-dashed"
-                onClick={zonePoints.length === 0 ? onStartZonePicking : onContinueZonePicking}
-                disabled={isLoading}
-              >
-                <Pentagon className="h-4 w-4 mr-2" />
-                {zonePoints.length === 0 ? "Start Drawing Zone" : "Continue Drawing"}
-              </Button>
-
-              <div className="space-y-2">
-                <Label>Zone Name</Label>
-                <Input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="e.g., Restricted Area"
-                  className="h-11"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description (Optional)</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-                  placeholder="Zone details..."
-                  className="min-h-[80px]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Zone Type</Label>
-                <select
-                  value={zoneType}
-                  onChange={(e) => setZoneType(e.target.value)}
-                  className="w-full h-11 rounded-md border border-input bg-background px-3 text-sm"
+            <>
+              {!isDrawingZone ? (
+                // Show form when not actively drawing
+                <form
+                  onSubmit={handleSubmitZone}
+                  className="space-y-6 animate-in fade-in duration-300"
                 >
-                  <option value="LEZ">Low Emission Zone (LEZ)</option>
-                  <option value="RESTRICTED">Restricted Zone</option>
-                  <option value="CUSTOM">Custom Zone</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Required Vehicle Tags (Optional)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
-                    placeholder="e.g., eco, zero, 0"
-                    className="h-10"
-                  />
-                  <Button type="button" onClick={handleAddTag} size="sm">
-                    Add
-                  </Button>
-                </div>
-                {requiredTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {requiredTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2 py-1 bg-primary/10 rounded-md text-xs font-medium flex items-center gap-1"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(tag)}
-                          className="hover:text-red-600"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
+                      <Pentagon className="h-5 w-5 text-primary/70" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 leading-none">
+                        Puntos Recopilados
+                      </p>
+                      <p className="text-sm font-bold text-foreground/80">
+                        {zonePoints.length} <span className="text-xs font-semibold text-muted-foreground">{zonePoints.length < 3 ? `/ 3 mínimo` : "/ Listo"}</span>
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 font-bold">
-                  {error}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-12 border-dashed border-primary/30 hover:border-primary/60 bg-primary/5 hover:bg-primary/10 text-primary font-bold transition-all group"
+                    onClick={
+                      zonePoints.length === 0
+                        ? onStartZonePicking
+                        : onContinueZonePicking
+                    }
+                    disabled={isLoading}
+                  >
+                    <Pentagon className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+                    {zonePoints.length === 0
+                      ? "Comenzar a Dibujar"
+                      : "Continuar Dibujando"}
+                  </Button>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Nombre de la Zona</Label>
+                    <Input
+                      value={label}
+                      onChange={(e) => setLabel(e.target.value)}
+                      placeholder="Ej: Zona Restringida, LEZ Madrid..."
+                      className="h-11 bg-muted/30 border-border/50 focus:bg-background transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Descripción (Opcional)</Label>
+                    <Textarea
+                      value={description}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                        setDescription(e.target.value)
+                      }
+                      placeholder="Detalles sobre la zona..."
+                      className="min-h-[80px] bg-muted/30 border-border/50 focus:bg-background transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Tipo de Zona</Label>
+                    <select
+                      value={zoneType}
+                      onChange={(e) => setZoneType(e.target.value)}
+                      className="w-full h-11 rounded-md border border-border bg-muted/30 hover:bg-background focus:bg-background px-3 text-sm transition-all"
+                    >
+                      <option value="LEZ">Zona de Bajas Emisiones (LEZ)</option>
+                      <option value="RESTRICTED">Zona Restringida</option>
+                      <option value="CUSTOM">Zona Personalizada</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Etiquetas de Vehículos Requeridas (Opcional)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && (e.preventDefault(), handleAddTag())
+                        }
+                        placeholder="Ej: eco, zero, 0"
+                        className="h-10 bg-muted/30 border-border/50 focus:bg-background transition-all"
+                      />
+                      <Button type="button" onClick={handleAddTag} size="sm" className="font-semibold">
+                        Agregar
+                      </Button>
+                    </div>
+                    {requiredTags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {requiredTags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-2 py-1 bg-primary/10 rounded-lg text-xs font-semibold border border-primary/20 flex items-center gap-1"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="hover:text-red-600 ml-1"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {error && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 font-bold flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                      {error}
+                    </div>
+                  )}
+
+                  <DialogFooter className="pt-2">
+                    <Button type="button" variant="ghost" onClick={handleCancel} className="text-muted-foreground hover:text-foreground">
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isLoading || zonePoints.length < 3}
+                      className="min-w-[120px] font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:hover:scale-100"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Crear Zona
+                    </Button>
+                  </DialogFooter>
+                </form>
+              ) : (
+                // Show status when actively drawing
+                <div className="space-y-6 animate-in fade-in duration-300 py-6">
+                  <div className="p-6 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border-2 border-primary/30 text-center">
+                    <div className="mb-3 flex justify-center">
+                      <div className={isEditingZone ? "animate-bounce" : "animate-pulse"}>
+                        <Pentagon className="h-12 w-12 text-primary" />
+                      </div>
+                    </div>
+                    <p className="text-lg font-bold text-foreground mb-2">
+                      {isEditingZone ? "Ajustando Polígono" : "Dibujando en Progreso"}
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {isEditingZone 
+                        ? "Haz clic en los puntos para eliminarlos o arrástralos para ajustarlos"
+                        : "Revisa la barra flotante en la parte inferior del mapa para finalizar tu zona."}
+                    </p>
+                    <div className="inline-block px-4 py-2 bg-primary/20 rounded-lg border border-primary/30">
+                      <p className="text-sm font-semibold text-primary">
+                        Puntos: {zonePoints.length} / 3+
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 text-center">
+                    <p className="text-xs text-muted-foreground font-semibold">
+                      {isEditingZone ? "Controles de Edición:" : "Atajos de Teclado:"}
+                    </p>
+                    <div className={`grid ${isEditingZone ? "grid-cols-2" : "grid-cols-3"} gap-2 text-xs`}>
+                      {!isEditingZone && (
+                        <>
+                          <div className="p-2 rounded bg-secondary/50 border border-border/30">
+                            <p className="font-mono font-bold text-foreground">Esc</p>
+                            <p className="text-muted-foreground text-[10px]">Cancelar</p>
+                          </div>
+                          <div className="p-2 rounded bg-secondary/50 border border-border/30">
+                            <p className="font-mono font-bold text-foreground">Ctrl+Z</p>
+                            <p className="text-muted-foreground text-[10px]">Deshacer</p>
+                          </div>
+                          <div className="p-2 rounded bg-secondary/50 border border-border/30">
+                            <p className="font-mono font-bold text-foreground">Enter</p>
+                            <p className="text-muted-foreground text-[10px]">Confirmar</p>
+                          </div>
+                        </>
+                      )}
+                      {isEditingZone && (
+                        <>
+                          <div className="p-2 rounded bg-blue-500/10 border border-blue-500/30">
+                            <p className="font-bold text-blue-600">Arrastra</p>
+                            <p className="text-muted-foreground text-[10px]">Mover puntos</p>
+                          </div>
+                          <div className="p-2 rounded bg-red-500/10 border border-red-500/30">
+                            <p className="font-bold text-red-600">Clic</p>
+                            <p className="text-muted-foreground text-[10px]">Eliminar punto</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
-
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={handleCancel}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading || zonePoints.length < 3}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Create Zone
-                </Button>
-              </DialogFooter>
-            </form>
+            </>
           )}
         </div>
       </DialogContent>

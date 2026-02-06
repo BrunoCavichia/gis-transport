@@ -71,6 +71,9 @@ interface MapContainerProps {
   pickedJobCoords?: [number, number] | null;
   zonePoints?: [number, number][]; // For zone drawing preview
   interactionMode?: string | null; // To know when in zone picking mode
+  isEditingZone?: boolean; // For zone editing mode
+  onRemoveZonePoint?: (index: number) => void; // Callback to remove a specific zone point
+  onUpdateZonePoint?: (index: number, newCoords: [number, number]) => void; // Callback to update a zone point position
   onZonesUpdate?: (zones: Zone[]) => void;
   isInteracting?: boolean;
   onVehicleTypeChange?: (vehicleId: string, type: VehicleType) => void;
@@ -107,6 +110,9 @@ export default function MapContainer({
   pickedJobCoords,
   zonePoints = [],
   interactionMode,
+  isEditingZone = false,
+  onRemoveZonePoint,
+  onUpdateZonePoint,
   onZonesUpdate,
   isInteracting = false,
   onVehicleTypeChange,
@@ -266,6 +272,9 @@ export default function MapContainer({
         <ZoneDrawingPreview
           points={zonePoints}
           visible={interactionMode === "pick-zone"}
+          isEditing={isEditingZone}
+          onRemovePoint={onRemoveZonePoint}
+          onUpdatePoint={onUpdateZonePoint}
         />
 
         {layers.route && routeData?.vehicleRoutes?.length ? (

@@ -81,7 +81,6 @@ export function AddressSearch({
     onSelectLocation([result.point.lat, result.point.lng], displayName);
   };
 
-
   const clearSearch = () => {
     setQuery("");
     setResults([]);
@@ -129,8 +128,9 @@ export function AddressSearch({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-foreground">
                       {result.street
-                        ? `${result.street}${result.housenumber ? ` ${result.housenumber}` : ""
-                        }`
+                        ? `${result.street}${
+                            result.housenumber ? ` ${result.housenumber}` : ""
+                          }`
                         : result.name?.split(",")[0]}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">

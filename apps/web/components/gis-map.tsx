@@ -98,11 +98,16 @@ export function GISMap() {
     pixelPosition: { x: number; y: number };
   } | null>(null);
 
+  // Zone drawing mode state
+  const [isDrawingZone, setIsDrawingZone] = useState(false);
+  const [isEditingZone, setIsEditingZone] = useState(false);
+
   // Ref for hover timeout to prevent flickering
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Refs for stable map click handler
   const interactionModeRef = useRef(state.interactionMode);
+  const isDrawingZoneRef = useRef(isDrawingZone);
   const selectedVehicleRef = useRef(state.selectedVehicle);
   const selectedVehicleIdRef = useRef(selectedVehicleId);
   const addVehicleAtRef = useRef(addVehicleAt);
@@ -152,10 +157,12 @@ export function GISMap() {
     [setSelectedVehicleId],
   );
 
-  // Sync refs for stable map click handler
   useEffect(() => {
     interactionModeRef.current = state.interactionMode;
   }, [state.interactionMode]);
+  useEffect(() => {
+    isDrawingZoneRef.current = isDrawingZone;
+  }, [isDrawingZone]);
   useEffect(() => {
     selectedVehicleRef.current = state.selectedVehicle;
   }, [state.selectedVehicle]);
@@ -169,8 +176,13 @@ export function GISMap() {
     addJobAtRef.current = addJobAt;
   }, [addJobAt]);
 
-  const { customPOIs, addCustomPOI, addCustomZone, removeCustomPOI, clearAllCustomPOIs } =
-    useCustomPOI();
+  const {
+    customPOIs,
+    addCustomPOI,
+    addCustomZone,
+    removeCustomPOI,
+    clearAllCustomPOIs,
+  } = useCustomPOI();
 
   const {
     routeData,
@@ -308,7 +320,10 @@ export function GISMap() {
       case "pick-zone":
         // Add point to zone and keep picking mode active
         dispatch({ type: "ADD_ZONE_POINT", payload: coords });
-        dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: true });
+        // Don't reopen dialog when actively drawing - let toolbar handle UI
+        if (!isDrawingZoneRef.current) {
+          dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: true });
+        }
         // Don't clear interaction mode - keep picking points
         break;
       case "pick-job":
@@ -361,12 +376,14 @@ export function GISMap() {
     dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-zone" });
     dispatch({ type: "CLEAR_ZONE_POINTS" });
     dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false }); // Close dialog to allow map clicks
+    setIsDrawingZone(true); // Enter dedicated drawing mode
   }, []);
 
   const handleContinueZonePicking = useCallback(() => {
     dispatch({ type: "SET_INTERACTION_MODE", payload: "pick-zone" });
     // Don't clear points - just close dialog to continue picking
     dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
+    setIsDrawingZone(true); // Enter drawing mode
   }, []);
 
   const handleStartPickingJob = useCallback(() => {
@@ -520,15 +537,67 @@ export function GISMap() {
       coordinates: any,
       desc?: string,
       zoneType?: string,
-      requiredTags?: string[]
+      requiredTags?: string[],
     ) => {
       addCustomZone(name, coordinates, desc, zoneType, requiredTags);
       dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
       dispatch({ type: "CLEAR_ZONE_POINTS" });
       dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+      setIsDrawingZone(false); // Exit drawing mode
     },
-    [addCustomZone],
+    [addCustomZone, dispatch],
   );
+
+  const handleConfirmZoneDrawing = useCallback(() => {
+    if (state.zonePoints.length >= 3) {
+      setIsDrawingZone(false);
+      // Reopen dialog for metadata entry with points preserved
+      dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: true });
+    }
+  }, [state.zonePoints.length, dispatch]);
+
+  const handleUndoZonePoint = useCallback(() => {
+    if (state.zonePoints.length > 0) {
+      const newPoints = state.zonePoints.slice(0, -1);
+      dispatch({ type: "CLEAR_ZONE_POINTS" });
+      newPoints.forEach((point) => {
+        dispatch({ type: "ADD_ZONE_POINT", payload: point });
+      });
+    }
+  }, [state.zonePoints, dispatch]);
+
+  const handleRemoveZonePoint = useCallback((index: number) => {
+    const newPoints = state.zonePoints.filter((_, i) => i !== index);
+    dispatch({ type: "CLEAR_ZONE_POINTS" });
+    newPoints.forEach((point) => {
+      dispatch({ type: "ADD_ZONE_POINT", payload: point });
+    });
+    // Exit editing mode if less than 3 points
+    if (newPoints.length < 3) {
+      setIsEditingZone(false);
+    }
+  }, [state.zonePoints, dispatch]);
+
+  const handleUpdateZonePoint = useCallback((index: number, newCoords: [number, number]) => {
+    const newPoints = [...state.zonePoints];
+    newPoints[index] = newCoords;
+    dispatch({ type: "CLEAR_ZONE_POINTS" });
+    newPoints.forEach((point) => {
+      dispatch({ type: "ADD_ZONE_POINT", payload: point });
+    });
+  }, [state.zonePoints, dispatch]);
+
+  const handleCancelZoneDrawing = useCallback(() => {
+    if (state.zonePoints.length > 0) {
+      const confirmCancel = window.confirm(
+        "¿Descartar los puntos dibujados y cancelar la zona?",
+      );
+      if (!confirmCancel) return;
+    }
+    setIsDrawingZone(false);
+    dispatch({ type: "CLEAR_ZONE_POINTS" });
+    dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+  }, [state.zonePoints.length, dispatch]);
 
   const handleOpenAddJobChange = useCallback(
     (open: boolean) => {
@@ -546,13 +615,19 @@ export function GISMap() {
     (open: boolean) => {
       dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: open });
       if (!open) {
-        dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
-        dispatch({ type: "CLEAR_ZONE_POINTS" });
-        if (state.interactionMode === "pick-poi" || state.interactionMode === "pick-zone")
-          dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+        // Only clear points and mode if not actively drawing
+        if (!isDrawingZone) {
+          dispatch({ type: "SET_PICKED_POI_COORDS", payload: null });
+          dispatch({ type: "CLEAR_ZONE_POINTS" });
+          if (
+            state.interactionMode === "pick-poi" ||
+            state.interactionMode === "pick-zone"
+          )
+            dispatch({ type: "SET_INTERACTION_MODE", payload: null });
+        }
       }
     },
-    [state.interactionMode],
+    [state.interactionMode, isDrawingZone, dispatch],
   );
 
   const handleOpenAddStopChange = useCallback(
@@ -598,6 +673,38 @@ export function GISMap() {
 
   // Memoize hasRoute to avoid object recreation
   const hasRoute = useMemo(() => !!routeData, [routeData]);
+
+  // Keyboard shortcuts for zone drawing
+  useEffect(() => {
+    if (!isDrawingZone) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Esc: Cancel drawing
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancelZoneDrawing();
+      }
+      // Ctrl+Z: Undo last point
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        handleUndoZonePoint();
+      }
+      // Enter: Confirm drawing (if >= 3 points)
+      if (e.key === "Enter" && state.zonePoints.length >= 3) {
+        e.preventDefault();
+        handleConfirmZoneDrawing();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    isDrawingZone,
+    state.zonePoints.length,
+    handleConfirmZoneDrawing,
+    handleUndoZonePoint,
+    handleCancelZoneDrawing,
+  ]);
 
   return (
     <div className="relative flex h-full w-full">
@@ -680,6 +787,9 @@ export function GISMap() {
           pickedJobCoords={state.pickedJobCoords}
           zonePoints={state.zonePoints}
           interactionMode={state.interactionMode}
+          isEditingZone={isEditingZone}
+          onRemoveZonePoint={handleRemoveZonePoint}
+          onUpdateZonePoint={handleUpdateZonePoint}
           onZonesUpdate={handleZonesUpdate}
           isInteracting={!!state.interactionMode || isCalculatingRoute}
           onVehicleTypeChange={updateVehicleType}
@@ -688,6 +798,67 @@ export function GISMap() {
           onVehicleHover={handleVehicleHover}
           onVehicleHoverOut={handleVehicleHoverOut}
         />
+
+        {/* Zone Drawing Toolbar - Minimal */}
+        {isDrawingZone && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-card/95 border border-border/50 rounded-xl shadow-lg p-4 backdrop-blur-sm flex items-center gap-4 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            {/* Compact Counter */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 rounded-lg">
+              <div className={`h-3 w-3 rounded-full ${state.zonePoints.length >= 3 ? "bg-green-500" : "bg-yellow-500"} animate-pulse`} />
+              <span className="text-sm font-bold text-foreground">{state.zonePoints.length}</span>
+            </div>
+
+            {/* Divider */}
+            <div className="h-6 w-px bg-border/30" />
+
+            {/* Action Buttons - Bigger */}
+            <button
+              onClick={handleUndoZonePoint}
+              disabled={state.zonePoints.length === 0}
+              className="p-2.5 rounded-lg hover:bg-secondary/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm font-bold text-foreground"
+              title="Deshacer (Ctrl+Z)"
+            >
+              ↶
+            </button>
+
+            <button
+              onClick={() => setIsEditingZone(!isEditingZone)}
+              disabled={state.zonePoints.length < 3}
+              className={`p-2.5 rounded-lg text-sm font-bold transition-colors ${
+                isEditingZone
+                  ? "bg-blue-500/20 text-blue-600 border border-blue-500/30"
+                  : "hover:bg-secondary/50 text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+              }`}
+              title="Ajustar puntos"
+            >
+              ✎
+            </button>
+
+            <button
+              onClick={handleCancelZoneDrawing}
+              className="p-2.5 rounded-lg hover:bg-destructive/10 text-destructive/70 hover:text-destructive transition-colors text-sm font-bold"
+              title="Cancelar (Esc)"
+            >
+              ✕
+            </button>
+
+            <button
+              onClick={handleConfirmZoneDrawing}
+              disabled={state.zonePoints.length < 3}
+              className="px-3 py-2.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-white text-sm font-bold shadow-sm"
+              title="Confirmar (Enter)"
+            >
+              ✓
+            </button>
+          </div>
+        )}
+
+        {/* Cursor styling during zone drawing */}
+        {isDrawingZone && (
+          <style>{`
+            #map { cursor: crosshair !important; }
+          `}</style>
+        )}
 
         <AddJobDialog
           isOpen={state.isAddJobOpen}
@@ -708,6 +879,8 @@ export function GISMap() {
           onContinueZonePicking={handleContinueZonePicking}
           pickedCoords={state.pickedPOICoords}
           zonePoints={state.zonePoints}
+          isDrawingZone={isDrawingZone}
+          isEditingZone={isEditingZone}
         />
 
         <RouteErrorAlert

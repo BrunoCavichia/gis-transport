@@ -328,7 +328,6 @@ const Step3Content = memo(
 Step3Content.displayName = "Step3Content";
 
 export const AddStopDialog = memo(function AddStopDialog({
-  vehicleId,
   vehicleLabel,
   open,
   onOpenChange,
@@ -392,6 +391,8 @@ export const AddStopDialog = memo(function AddStopDialog({
     (coords: [number, number], address: string) => {
       setLatitude(coords[0].toFixed(6));
       setLongitude(coords[1].toFixed(6));
+      setLabel(address);
+      setError(null);
     },
     [],
   );

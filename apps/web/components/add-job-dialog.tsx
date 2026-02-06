@@ -397,6 +397,8 @@ export const AddJobDialog = memo(function AddJobDialog({
     (coords: [number, number], address: string) => {
       setLatitude(coords[0].toFixed(6));
       setLongitude(coords[1].toFixed(6));
+      setLabel(address);
+      setError(null);
     },
     [],
   );

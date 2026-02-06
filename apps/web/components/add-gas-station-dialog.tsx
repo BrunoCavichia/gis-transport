@@ -1,6 +1,5 @@
 "use client";
 
-import { MAP_CENTER } from "@/lib/config";
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   Fuel,
-  Target,
   Loader2,
   ChevronRight,
   ChevronLeft,
@@ -113,7 +111,6 @@ Step1Content.displayName = "Step1Content";
 // Step 2: Seleccionar vehículo
 const Step2Content = memo(
   ({
-    gasStation,
     vehicles,
     isLoading,
     onBack,
@@ -191,7 +188,6 @@ const Step3Content = memo(
     gasStation,
     selectedVehicle,
     isLoading,
-    onBack,
     onSubmit,
   }: {
     gasStation: POI;
