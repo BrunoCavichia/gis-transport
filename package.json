@@ -9,7 +9,7 @@
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api dev",
     "dev": "pnpm --parallel dev",
-    "build": "pnpm --filter \"*\" build",
+    "build": "pnpm install --force && pnpm -w run db:generate && pnpm --filter \"*\" build",
     "test": "pnpm --filter \"*\" test",
     "lint": "pnpm --filter \"*\" lint",
     "db:push": "prisma db push --schema packages/database/prisma/schema.prisma",
