@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "./dist/prisma-client";
 import { GisDashboardData, VehicleType, Zone, Driver } from "@gis/shared";
 
 export interface IGisRepository {
