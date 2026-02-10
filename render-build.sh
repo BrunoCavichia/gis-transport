@@ -8,7 +8,7 @@ echo "=== [2/6] Installing dependencies ==="
 pnpm install --frozen-lockfile
 
 echo "=== [3/6] Generating Prisma Client ==="
-pnpm exec prisma generate --schema packages/database/prisma/schema.prisma
+cd packages/database && pnpm exec prisma generate && cd ../..
 
 echo "=== [4/6] Building packages/shared ==="
 cd packages/shared && npx tsc && cd ../..
