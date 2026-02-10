@@ -311,6 +311,15 @@ export class PrismaGisRepository implements IGisRepository {
   }
 }
 
-// Singleton instance for default use
-export const prisma = new PrismaClient();
+// Singleton instance for default use with proper Next.js pattern
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
 export const repository = new PrismaGisRepository(prisma);
