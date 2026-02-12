@@ -71,6 +71,7 @@ interface MapContainerProps {
   pickedPOICoords?: [number, number] | null;
   pickedJobCoords?: [number, number] | null;
   zonePoints?: [number, number][]; // For zone drawing preview
+  zoneIsClosed?: boolean; // Whether zone polygon has been explicitly closed
   interactionMode?: string | null; // To know when in zone picking mode
   isEditingZone?: boolean; // For zone editing mode
   onRemoveZonePoint?: (index: number) => void; // Callback to remove a specific zone point
@@ -111,6 +112,7 @@ export default function MapContainer({
   pickedPOICoords,
   pickedJobCoords,
   zonePoints = [],
+  zoneIsClosed = false,
   interactionMode,
   isEditingZone = false,
   onRemoveZonePoint,
@@ -276,6 +278,7 @@ export default function MapContainer({
           points={zonePoints}
           visible={interactionMode === "pick-zone"}
           isEditing={isEditingZone}
+          isClosed={zoneIsClosed}
           onRemovePoint={onRemoveZonePoint}
           onUpdatePoint={onUpdateZonePoint}
         />

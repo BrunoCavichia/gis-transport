@@ -15,13 +15,10 @@ import {
   Edit2,
   Check,
   MapPin,
-  Hash,
   Gauge,
   Copy,
   CheckCircle2,
   Camera,
-  ChevronLeft,
-  ChevronRight,
   ZoomIn,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -68,7 +65,7 @@ const ENVIRONMENTAL_TAGS = VEHICLE_TYPES.map((vehicleType) => {
         return "bg-gray-500";
     }
   })();
-  return { id, label, color, description: vehicleType.description };
+  return { id, label, color };
 });
 
 export function VehicleDetailsPanel({
@@ -164,20 +161,6 @@ export function VehicleDetailsPanel({
     return () => controller.abort();
   }, [vehicle?.position?.[0], vehicle?.position?.[1]]);
 
-  // Navigation for multiple photos (kept for lightbox compatibility)
-  const streetViewNav = useCallback((dir: 1 | -1) => {
-    setSvState((prev) => {
-      if (prev.status !== "resolved") return prev;
-      const len = prev.photos.length;
-      const next = prev.activeIndex + dir;
-      return {
-        ...prev,
-        activeIndex: next < 0 ? len - 1 : next >= len ? 0 : next,
-        imgLoaded: false,
-      };
-    });
-  }, []);
-
   if (!vehicle) return null;
 
   const [lat, lon] = vehicle?.position || [0, 0];
@@ -233,18 +216,6 @@ export function VehicleDetailsPanel({
     setEditingLicensePlate(false);
   };
 
-  const handleUnassignDriver = () => {
-    if (onAssignDriver && driver) {
-      onAssignDriver(vehicle.id, null);
-    }
-  };
-
-  const handleAssignDriver = (newDriver: Driver) => {
-    if (onAssignDriver) {
-      onAssignDriver(vehicle.id, newDriver);
-    }
-  };
-
   const copyToClipboard = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedField(fieldName);
@@ -252,60 +223,101 @@ export function VehicleDetailsPanel({
     });
   };
 
-  const availableDrivers = drivers.filter(
-    (d: Driver) => d.isAvailable === true && d.id !== driver?.id,
-  );
-
   return (
     <>
       <div
         className={cn(
-          "fixed top-3 right-3 bottom-3 w-[360px] max-w-[calc(100vw-100px)] bg-background border border-border/40 rounded-2xl shadow-xl z-40 transition-all duration-200 ease-out transform flex flex-col overflow-hidden",
+          "fixed top-3 right-3 bottom-3 w-[360px] max-w-[calc(100vw-100px)] bg-background/95 backdrop-blur-lg border border-border/30 rounded-2xl shadow-lg z-40 transition-all duration-200 ease-out transform flex flex-col overflow-hidden",
           isOpen && !lightboxOpen
             ? "translate-x-0 opacity-100"
             : "translate-x-full opacity-0 pointer-events-none",
         )}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Truck className="h-4 w-4 text-primary" />
-            </div>
+        <div className="p-4 pb-3 flex flex-col gap-3 border-b border-border/10 bg-gradient-to-b from-primary/3 to-transparent shrink-0">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-foreground leading-none">
+              <h2 className="text-sm font-bold text-foreground leading-none">
                 Ficha del Vehículo
               </h2>
-              <p className="text-[9px] text-muted-foreground/60 mt-0.5 font-mono">
-                {String(vehicle.id).slice(0, 20)}
+              <p className="text-[10px] text-muted-foreground uppercase opacity-70 mt-1">
+                ID: {String(vehicle.id).slice(0, 20)}
               </p>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
         </div>
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {/* Identity & Registration */}
-          <Card className="bg-card border border-border/30 rounded-lg p-0 overflow-hidden">
+          <Card className="bg-card border border-border/30 rounded-xl p-0 overflow-hidden">
             <div className="px-3 py-2 border-b border-border/20 flex items-center gap-1.5">
-              <Hash className="h-3 w-3 text-muted-foreground/70" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Identificación
+              <Truck className="h-3 w-3 text-primary" />
+              <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                Identidad del Vehículo
               </span>
             </div>
             <div className="p-3 space-y-2.5">
-              {/* License Plate */}
-              <div className="flex items-center justify-between p-2.5 bg-muted/15 rounded-md group">
+              {/* Alias - PRIMARY */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-primary/5 to-transparent border border-primary/10 hover:border-primary/20 hover:shadow-sm transition-all group">
                 <div className="flex-1">
-                  <Label className="text-[9px] font-medium text-muted-foreground/70 uppercase tracking-wide">
+                  <Label className="text-xs text-muted-foreground font-medium">
+                    Alias / Nombre
+                  </Label>
+                  {editingAlias ? (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Input
+                        value={aliasValue}
+                        onChange={(e) => setAliasValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveAlias();
+                          if (e.key === "Escape") {
+                            setAliasValue(vehicle.label || "");
+                            setEditingAlias(false);
+                          }
+                        }}
+                        className="h-6 text-xs flex-1"
+                        placeholder="Nombre del vehículo..."
+                        autoFocus
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={handleSaveAlias}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-bold text-foreground mt-0.5 tracking-wider">
+                      {vehicle.label || "Sin alias"}
+                    </p>
+                  )}
+                </div>
+                {!editingAlias && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground"
+                    onClick={() => setEditingAlias(true)}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+
+              {/* License Plate - SECONDARY */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/30 hover:border-primary/15 hover:shadow-sm transition-all group">
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground font-medium">
                     Matrícula
                   </Label>
                   {editingLicensePlate ? (
@@ -322,7 +334,7 @@ export function VehicleDetailsPanel({
                             setEditingLicensePlate(false);
                           }
                         }}
-                        className="h-6 text-xs font-mono uppercase flex-1"
+                        className="h-6 text-xs uppercase flex-1"
                         placeholder="0000 ABC"
                         autoFocus
                       />
@@ -336,7 +348,7 @@ export function VehicleDetailsPanel({
                       </Button>
                     </div>
                   ) : (
-                    <p className="text-xs font-semibold font-mono text-foreground mt-0.5 tracking-wide">
+                    <p className="text-sm  font-bold text-foreground mt-0.5 tracking-wider">
                       {vehicle.licensePlate || "Sin matrícula"}
                     </p>
                   )}
@@ -370,135 +382,180 @@ export function VehicleDetailsPanel({
                   </div>
                 )}
               </div>
+            </div>
+          </Card>
 
-              {/* Alias */}
-              <div className="flex items-center justify-between p-2.5 bg-muted/15 rounded-md">
-                <div className="flex-1">
-                  <Label className="text-[9px] font-medium text-muted-foreground/70 uppercase tracking-wide">
-                    Alias / Nombre
-                  </Label>
-                  {editingAlias ? (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Input
-                        value={aliasValue}
-                        onChange={(e) => setAliasValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSaveAlias();
-                          if (e.key === "Escape") {
-                            setAliasValue(vehicle.label || "");
-                            setEditingAlias(false);
-                          }
-                        }}
-                        className="h-6 text-xs flex-1"
-                        placeholder="Nombre del vehículo..."
-                        autoFocus
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={handleSaveAlias}
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-xs font-semibold text-foreground mt-0.5">
-                      {vehicle.label || "Sin alias"}
-                    </p>
-                  )}
-                </div>
-                {!editingAlias && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-muted-foreground"
-                    onClick={() => setEditingAlias(true)}
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </Button>
+          {/* Vehicle Status (Prominent) */}
+          <Card className="bg-gradient-to-r from-emerald-50/10 via-card to-card border border-emerald-200/20 rounded-xl p-0 overflow-hidden">
+            <div className="px-3 py-2 border-b border-emerald-200/10 bg-gradient-to-r from-emerald-50/20 to-transparent flex items-center gap-1.5">
+              <div
+                className={cn(
+                  "h-4 w-4 rounded-full flex items-center justify-center",
+                  metrics?.status === "active"
+                    ? "bg-emerald-100 border border-emerald-300"
+                    : metrics?.status === "maintenance"
+                      ? "bg-orange-100 border border-orange-300"
+                      : "bg-zinc-100 border border-zinc-300",
                 )}
+              >
+                <div
+                  className={cn(
+                    "h-2 w-2 rounded-full",
+                    metrics?.status === "active"
+                      ? "bg-emerald-500"
+                      : metrics?.status === "maintenance"
+                        ? "bg-orange-500"
+                        : "bg-zinc-500",
+                  )}
+                />
               </div>
-
-              {/* Vehicle Type + Powertrain (read-only metadata) */}
-              <div className="grid grid-cols-2 gap-1.5">
-                <div className="p-2 bg-muted/10 rounded-md border border-border/15">
-                  <Label className="text-[8px] font-medium text-muted-foreground/60 uppercase tracking-wide">
-                    Categoría
-                  </Label>
-                  <p className="text-[10px] font-semibold text-foreground mt-0.5">
-                    {vehicle.type.label}
-                  </p>
-                </div>
-                <div className="p-2 bg-muted/10 rounded-md border border-border/15">
-                  <Label className="text-[8px] font-medium text-muted-foreground/60 uppercase tracking-wide">
-                    Propulsión
-                  </Label>
-                  <p className="text-[10px] font-semibold text-foreground mt-0.5">
-                    {isElectric ? "Eléctrico" : "Combustión"}
-                  </p>
-                </div>
+              <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                Estado Operativo
+              </span>
+            </div>
+            <div className="p-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-foreground">
+                  {metrics?.status === "active"
+                    ? "Operativo"
+                    : metrics?.status === "maintenance"
+                      ? "En Mantenimiento"
+                      : metrics?.status === "offline"
+                        ? "Desconectado"
+                        : "Inactivo"}
+                </p>
+                <p className="text-[8px] text-muted-foreground/60 font-medium mt-0.5">
+                  {lastUpdateTime
+                    ? `Actualizado: ${lastUpdateTime}`
+                    : "Sin historial"}
+                </p>
               </div>
-
-              {/* Status + Odometer row */}
-              <div className="grid grid-cols-2 gap-1.5">
-                <div className="p-2 bg-muted/10 rounded-md border border-border/15">
-                  <Label className="text-[8px] font-medium text-muted-foreground/60 uppercase tracking-wide">
-                    Estado
-                  </Label>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <div
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        metrics?.status === "active"
-                          ? "bg-emerald-500"
-                          : metrics?.status === "maintenance"
-                            ? "bg-orange-500"
-                            : "bg-zinc-400",
-                      )}
-                    />
-                    <p className="text-[10px] font-semibold text-foreground">
-                      {metrics?.status === "active"
-                        ? "Activo"
-                        : metrics?.status === "maintenance"
-                          ? "Mant."
-                          : metrics?.status === "offline"
-                            ? "Offline"
-                            : "Inactivo"}
-                    </p>
-                  </div>
-                </div>
-                <div className="p-2 bg-muted/10 rounded-md border border-border/15">
-                  <Label className="text-[8px] font-medium text-muted-foreground/60 uppercase tracking-wide">
-                    Odómetro
-                  </Label>
-                  <p className="text-[10px] font-semibold text-foreground mt-0.5 font-mono">
-                    {odometerKm ? `${odometerKm} km` : "—"}
-                  </p>
-                </div>
+              <div
+                className={cn(
+                  "px-3 py-1.5 rounded-lg font-semibold text-[9px] text-white",
+                  metrics?.status === "active"
+                    ? "bg-emerald-500/80"
+                    : metrics?.status === "maintenance"
+                      ? "bg-orange-500/80"
+                      : "bg-zinc-500/80",
+                )}
+              >
+                {metrics?.status === "active"
+                  ? "OK"
+                  : metrics?.status === "maintenance"
+                    ? "MANT"
+                    : "OFF"}
               </div>
             </div>
           </Card>
 
+          {/* Vehicle Specs: Category, Propulsion, Odometer */}
+          <Card className="bg-card border border-border/30 rounded-xl p-0 overflow-hidden">
+            <div className="px-3 py-2 border-b border-border/20 flex items-center gap-1.5">
+              <Gauge className="h-3 w-3 text-muted-foreground/70" />
+              <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                Especificaciones
+              </span>
+            </div>
+            <div className="p-3 space-y-2.5">
+              {/* Category + Propulsion */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="p-2.5 bg-card rounded-lg border border-border/30 hover:border-primary/15 transition-all">
+                  <Label className="text-xs text-muted-foreground font-medium">
+                    Categoría
+                  </Label>
+                  <p className="text-sm font-bold text-foreground mt-0.5">
+                    {vehicle.type.label}
+                  </p>
+                </div>
+                <div className="p-2.5 bg-card rounded-lg border border-border/30 hover:border-primary/15 transition-all">
+                  <Label className="text-xs text-muted-foreground font-medium">
+                    Propulsión
+                  </Label>
+                  <p className="text-sm font-bold text-foreground mt-0.5">
+                    {isElectric ? "Eléctrico" : "Combustión"}
+                  </p>
+                </div>
+              </div>
+              {/* Odometer - Prominent */}
+              <div className="p-3 rounded-lg border border-border/20">
+                <Label className="text-xs font-medium text-foreground/70">
+                  Distancia Total
+                </Label>
+                <p className="text-sm font-bold text-foreground mt-1">
+                  {odometerKm ? `${odometerKm} km` : "Sin datos"}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Driver Assignment */}
+          <Card className="bg-card border border-border/30 rounded-xl p-0 overflow-hidden">
+            <div className="px-3 py-2 border-b border-border/20 flex items-center gap-1.5">
+              <Users className="h-3 w-3 text-muted-foreground/70" />
+              <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                Conductor
+              </span>
+            </div>
+            <div className="p-3">
+              {driver ? (
+                <div
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() =>
+                    onViewDriverProfile && onViewDriverProfile(driver.id)
+                  }
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate">
+                      {driver.name}
+                    </p>
+                    <p className="text-[8px] text-muted-foreground/60 font-medium mt-0.5">
+                      {driver.licenseNumber || `ID: ${driver.id.slice(-6)}`}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[8px] font-semibold ml-2 flex-shrink-0"
+                  >
+                    {driver.isAvailable ? "Disponible" : "Asignado"}
+                  </Badge>
+                </div>
+              ) : (
+                <div className="p-3 text-center rounded-lg bg-muted/20 border border-border/20">
+                  <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                    Sin conductor asignado
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+
           {/* Environmental Label */}
-          <Card className="bg-card border border-border/30 rounded-lg p-0 overflow-hidden">
+          <Card className="bg-card border border-border/30 rounded-xl p-0 overflow-hidden">
             <div className="px-3 py-2 border-b border-border/20 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Tag className="h-3 w-3 text-muted-foreground/70" />
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
                   Etiqueta Ambiental
                 </span>
               </div>
               <Badge
                 className={cn(
                   currentTag.color,
-                  "text-white font-semibold text-[8px] px-1.5 h-4",
+                  "text-gray-900 dark:text-gray-50 font-semibold text-[8px] px-1.5 h-4",
                 )}
               >
                 {currentTag.label}
               </Badge>
             </div>
-            <div className="p-3">
+            <div className="p-3 space-y-3">
+              {/* Current Selection Display */}
+              <div className="p-3 text-center rounded-lg bg-muted/20 border border-border/20">
+                <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                  Etiqueta:
+                </p>
+              </div>
+              {/* Tag Selection Grid */}
               <div className="grid grid-cols-5 gap-1.5">
                 {ENVIRONMENTAL_TAGS.map((tag) => {
                   const isSelected = currentTag.id === tag.id;
@@ -508,256 +565,139 @@ export function VehicleDetailsPanel({
                       variant="outline"
                       size="sm"
                       className={cn(
-                        "h-7 text-[10px] font-semibold px-1 rounded transition-all",
+                        "h-8 text-[12px] font-bold px-1 rounded-lg transition-all duration-200 relative overflow-hidden group",
                         isSelected
-                          ? cn(tag.color, "text-black ring-1")
-                          : "hover:bg-muted/50",
+                          ? cn(
+                              tag.color,
+                              "text-black",
+                              "shadow-lg ring-2 ring-offset-1 ring-white/30 scale-105",
+                            )
+                          : "border-border/40 text-gray-600", // también negro cuando no está seleccionado
                       )}
                       onClick={() => {
                         if (onChangeEnvironmentalTag && !isSelected) {
                           onChangeEnvironmentalTag(vehicle.id, tag.id);
                         }
                       }}
+                      title={tag.label}
                     >
-                      {tag.id === "none" ? "—" : tag.label}
+                      <span className="relative z-10 font-semibold">
+                        {tag.id === "none" ? "—" : tag.label.substring(0, 2)}
+                      </span>
                     </Button>
                   );
                 })}
               </div>
-              <p className="text-[8px] text-muted-foreground/40 mt-1.5 leading-relaxed">
-                {currentTag.description ||
-                  "Sin clasificación ambiental asignada."}
-              </p>
             </div>
           </Card>
 
           {/* Position & Coordinates */}
-          <Card className="bg-card border border-border/30 rounded-lg p-0 overflow-hidden">
+          <Card className="bg-card border border-border/30 rounded-xl p-0 overflow-hidden">
             <div className="px-3 py-2 border-b border-border/20 flex items-center gap-1.5">
               <MapPin className="h-3 w-3 text-muted-foreground/70" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+              <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
                 Posición
               </span>
             </div>
-            <div className="p-3">
-              <div className="flex items-center justify-between p-2 bg-muted/10 rounded-md border border-border/15 group">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <Label className="text-[8px] font-medium text-muted-foreground/60 uppercase tracking-wide">
-                        Lat
-                      </Label>
-                      <p className="text-[10px] font-semibold font-mono text-foreground">
-                        {lat.toFixed(6)}°
-                      </p>
-                    </div>
-                    <div className="h-5 w-px bg-border/20" />
-                    <div>
-                      <Label className="text-[8px] font-medium text-muted-foreground/60 uppercase tracking-wide">
-                        Lon
-                      </Label>
-                      <p className="text-[10px] font-semibold font-mono text-foreground">
-                        {lon.toFixed(6)}°
-                      </p>
-                    </div>
-                  </div>
-                  {lastUpdateTime && (
-                    <p className="text-[8px] text-muted-foreground/40 font-mono">
-                      Ult: {lastUpdateTime}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() =>
-                    copyToClipboard(
-                      `${lat.toFixed(6)}, ${lon.toFixed(6)}`,
-                      "coords",
-                    )
-                  }
-                >
-                  {copiedField === "coords" ? (
-                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
-                  ) : (
-                    <Copy className="h-2.5 w-2.5" />
-                  )}
-                </Button>
-              </div>
-
+            <div className="p-3 space-y-2">
               {/* Street-Level Imagery — KartaView */}
-              <div className="mt-2.5">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1">
-                    <Camera className="h-2.5 w-2.5 text-muted-foreground/50" />
-                    <span className="text-[8px] font-semibold text-muted-foreground/50 uppercase tracking-wide">
-                      Vista de Calle
+              <div
+                className={cn(
+                  "relative rounded-lg overflow-hidden border transition-all aspect-[16/9]",
+                  svState.status === "resolved"
+                    ? "border-primary/30 cursor-pointer group/sv bg-muted/10 hover:border-primary/50 hover:shadow-md"
+                    : "border-border/20 bg-muted/5",
+                )}
+                onClick={() =>
+                  svState.status === "resolved" && setLightboxOpen(true)
+                }
+              >
+                {/* State: Searching — animated placeholder */}
+                {svState.status === "searching" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-muted/5 to-muted/10">
+                    <div className="p-3 bg-primary/10 rounded-full animate-pulse">
+                      <Camera className="h-5 w-5 text-primary/50" />
+                    </div>
+                    <span className="text-[9px] text-muted-foreground/50 font-medium">
+                      Buscando vista de calle…
                     </span>
-                    {svState.status === "resolved" &&
-                      svState.photos[svState.activeIndex] && (
-                        <span className="text-[6px] font-mono text-muted-foreground/25 ml-0.5">
-                          {svState.photos[
-                            svState.activeIndex
-                          ].distanceM.toFixed(0)}
-                          m
-                        </span>
-                      )}
                   </div>
-                  {svState.status === "resolved" &&
-                    svState.photos.length > 1 && (
-                      <div className="flex items-center gap-0.5">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-4 w-4 text-muted-foreground/40 hover:text-foreground"
-                          onClick={() => streetViewNav(-1)}
-                        >
-                          <ChevronLeft className="h-2.5 w-2.5" />
-                        </Button>
-                        <span className="text-[7px] font-mono text-muted-foreground/30 tabular-nums">
-                          {svState.activeIndex + 1}/{svState.photos.length}
-                        </span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-4 w-4 text-muted-foreground/40 hover:text-foreground"
-                          onClick={() => streetViewNav(1)}
-                        >
-                          <ChevronRight className="h-2.5 w-2.5" />
-                        </Button>
-                      </div>
-                    )}
-                </div>
+                )}
 
-                <div
-                  className={cn(
-                    "relative rounded-md overflow-hidden border border-border/15 bg-muted/5 aspect-[16/9]",
-                    svState.status === "resolved" && "cursor-pointer group/sv",
-                  )}
-                  onClick={() =>
-                    svState.status === "resolved" && setLightboxOpen(true)
-                  }
-                >
-                  {/* State: Searching — animated placeholder */}
-                  {svState.status === "searching" && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-muted/5">
-                      <div className="relative">
-                        <Camera className="h-5 w-5 text-muted-foreground/15" />
-                      </div>
-                      <span className="text-[8px] text-muted-foreground/30 font-medium ">
-                        Buscando imagen…
-                      </span>
-                    </div>
-                  )}
-
-                  {/* State: Resolved — show the best (first) image immediately */}
-                  {svState.status === "resolved" &&
-                    svState.photos[svState.activeIndex] && (
-                      <>
-                        {!svState.imgLoaded && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-0">
-                            <div className="h-3 w-3 border-2 border-primary/15 border-t-primary/50 rounded-full animate-spin" />
-                            <span className="text-[7px] text-muted-foreground/25 font-medium">
-                              Cargando…
-                            </span>
-                          </div>
-                        )}
-                        <img
-                          key={`${svState.activeIndex}-${svState.photos[svState.activeIndex].imageUrl}`}
-                          src={svState.photos[svState.activeIndex].imageUrl}
-                          alt="Vista de calle"
-                          className={cn(
-                            "w-full h-full object-cover transition-opacity duration-200",
-                            svState.imgLoaded ? "opacity-100" : "opacity-0",
-                          )}
-                          loading="eager"
-                          onLoad={() =>
-                            setSvState((prev) =>
-                              prev.status === "resolved"
-                                ? { ...prev, imgLoaded: true }
-                                : prev,
-                            )
-                          }
-                          onError={(e) => {
-                            if (svState.status !== "resolved") return;
-                            const img = e.currentTarget;
-                            const thumb =
-                              svState.photos[svState.activeIndex].thumbUrl;
-                            if (thumb && img.src !== thumb) {
-                              img.src = thumb;
-                            } else {
-                              setSvState((prev) =>
-                                prev.status === "resolved"
-                                  ? { ...prev, imgLoaded: true }
-                                  : prev,
-                              );
-                            }
-                          }}
-                        />
-                        {/* Gradient overlay with metadata */}
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/50 to-transparent px-2 pb-1 pt-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[7px] font-semibold text-white/85">
-                              {svState.photos[svState.activeIndex].shotDate
-                                ? new Date(
-                                    svState.photos[svState.activeIndex]
-                                      .shotDate,
-                                  ).toLocaleDateString("es-ES", {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  })
-                                : ""}
-                            </span>
-                            <span className="text-[7px] font-mono text-white/60">
-                              {svState.photos[
-                                svState.activeIndex
-                              ].heading.toFixed(0)}
-                              °
-                            </span>
-                          </div>
+                {/* State: Resolved — show the best (first) image immediately */}
+                {svState.status === "resolved" &&
+                  svState.photos[svState.activeIndex] && (
+                    <>
+                      {!svState.imgLoaded && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-b from-muted/10 to-muted/5 z-10">
+                          <div className="h-4 w-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                          <span className="text-[8px] text-muted-foreground/40 font-medium">
+                            Cargando imagen…
+                          </span>
                         </div>
-                        {/* Zoom hint on hover */}
-                        <div className="absolute inset-0 bg-black/0 group-hover/sv:bg-black/15 transition-colors flex items-center justify-center opacity-0 group-hover/sv:opacity-100 pointer-events-none">
-                          <ZoomIn className="h-4 w-4 text-white/75 drop-shadow" />
+                      )}
+                      <img
+                        key={`${svState.activeIndex}-${svState.photos[svState.activeIndex].imageUrl}`}
+                        src={svState.photos[svState.activeIndex].imageUrl}
+                        alt={`Street view de ${vehicle.label || vehicle.licensePlate}`}
+                        className="w-full h-full object-cover"
+                        onLoad={() =>
+                          setSvState((s) => ({ ...s, imgLoaded: true }))
+                        }
+                      />
+                      {/* Image Counter + Fullscreen Hint */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 flex items-center justify-between">
+                        <div className="text-[10px] text-white font-semibold">
+                          {svState.activeIndex + 1} de {svState.photos.length}
                         </div>
-                      </>
-                    )}
-
-                  {/* State: Empty — no images in this area */}
-                  {svState.status === "empty" && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                      <Camera className="h-4 w-4 text-muted-foreground/10" />
-                      <span className="text-[8px] text-muted-foreground/25 font-medium">
-                        Sin imágenes disponibles
-                      </span>
-                    </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[8px] text-white/70">
+                            Click para ampliar
+                          </span>
+                          <ZoomIn className="h-4 w-4 text-white/70 opacity-0 group-hover/sv:opacity-100 transition-opacity" />
+                        </div>
+                      </div>
+                    </>
                   )}
 
-                  {/* State: Error — fetch failed */}
-                  {svState.status === "error" && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                      <Camera className="h-4 w-4 text-red-400/15" />
-                      <span className="text-[8px] text-muted-foreground/25 font-medium">
-                        Error al obtener imágenes
+                {/* State: Empty — No images available for this location */}
+                {svState.status === "empty" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-gradient-to-b from-muted/8 to-muted/5">
+                    <div className="p-2.5 bg-muted/20 rounded-full">
+                      <Camera className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                    <div className="text-center px-4">
+                      <span className="text-[9px] text-muted-foreground/60 font-medium block">
+                        Sin cobertura de imágenes
+                      </span>
+                      <span className="text-[8px] text-muted-foreground/40">
+                        en esta ubicación
                       </span>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* State: Idle — panel just opened, no position yet */}
-                  {svState.status === "idle" && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                      <Camera className="h-4 w-4 text-muted-foreground/8" />
-                      <span className="text-[8px] text-muted-foreground/20 font-medium">
-                        Esperando posición
-                      </span>
+                {/* State: Error — Failed to fetch images */}
+                {svState.status === "error" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-red-50/10 to-muted/5">
+                    <div className="p-2.5 bg-red-500/10 rounded-full">
+                      <Camera className="h-5 w-5 text-red-500/40" />
                     </div>
-                  )}
-                </div>
-                <p className="text-[6px] text-muted-foreground/20 mt-0.5 text-right tracking-wide">
-                  KartaView
-                </p>
+                    <span className="text-[9px] text-red-600/50 font-medium">
+                      Error al cargar imagen
+                    </span>
+                  </div>
+                )}
+
+                {/* State: Idle — Initial state, no request sent yet */}
+                {svState.status === "idle" && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-muted/3">
+                    <Camera className="h-5 w-5 text-muted-foreground/15" />
+                    <span className="text-[8px] text-muted-foreground/20 font-medium">
+                      Sin cargador activo
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </Card>

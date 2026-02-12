@@ -65,8 +65,10 @@ interface AddCustomPOIDialogV2Props {
   onStartPicking?: () => void;
   onStartZonePicking?: () => void;
   onContinueZonePicking?: () => void;
+  onCloseShape?: () => void;
   pickedCoords?: [number, number] | null;
   zonePoints?: [number, number][];
+  zoneIsClosed?: boolean;
   mapCenter?: [number, number];
   isLoading?: boolean;
   isDrawingZone?: boolean;
@@ -88,8 +90,10 @@ export function AddCustomPOIDialogV2({
   onStartPicking,
   onStartZonePicking,
   onContinueZonePicking,
+  onCloseShape,
   pickedCoords,
   zonePoints = [],
+  zoneIsClosed = false,
   isLoading = false,
   isDrawingZone = false,
   isEditingZone = false,
@@ -97,6 +101,7 @@ export function AddCustomPOIDialogV2({
 }: AddCustomPOIDialogV2Props) {
   const [mode, setMode] = useState<EntityMode>("point");
   const [step, setStep] = useState(1);
+  const [zoneShapeClosed, setZoneShapeClosed] = useState(false);
 
   // Point POI fields
   const [latitude, setLatitude] = useState("");
@@ -146,6 +151,7 @@ export function AddCustomPOIDialogV2({
     setDescription("");
     setError("");
     setRequiredTags([]);
+    setZoneShapeClosed(false);
   }, []);
 
   const handleCancel = useCallback(() => {
@@ -162,6 +168,7 @@ export function AddCustomPOIDialogV2({
   const handleModeChange = useCallback(
     (newMode: EntityMode) => {
       setMode(newMode);
+      setZoneShapeClosed(false);
       handleReset();
     },
     [handleReset],
@@ -250,6 +257,15 @@ export function AddCustomPOIDialogV2({
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   }, []);
+
+  const handleCloseZoneShape = useCallback(() => {
+    if (zonePoints.length < 3) {
+      setError("A zone requires at least 3 points");
+      return;
+    }
+    setZoneShapeClosed(true);
+    onCloseShape?.();
+  }, [zonePoints.length, onCloseShape]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -754,6 +770,20 @@ export function AddCustomPOIDialogV2({
                       )}
                     </div>
                   </div>
+
+                  {/* Close Shape Button - only show when in drawing mode and not yet closed */}
+                  {!isEditingZone && !zoneShapeClosed && zonePoints.length >= 3 && (
+                    <div className="pt-4 border-t border-border/50">
+                      <Button
+                        type="button"
+                        className="w-full h-12 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        onClick={handleCloseZoneShape}
+                      >
+                        <Pentagon className="h-4 w-4 mr-2" />
+                        Cerrar Forma y Continuar
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </>

@@ -72,7 +72,6 @@ export const VehicleTypeSchema = z.object({
   id: z.string(),
   label: z.string(),
   tags: z.array(z.string()),
-  description: z.string(),
   vroomType: z.literal("car"),
 });
 export type VehicleType = z.infer<typeof VehicleTypeSchema>;

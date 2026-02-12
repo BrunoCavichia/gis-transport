@@ -111,6 +111,7 @@ export function GISMap() {
   // Zone drawing mode state
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [isEditingZone, setIsEditingZone] = useState(false);
+  const [zoneIsClosed, setZoneIsClosed] = useState(false);
   const [editingZoneData, setEditingZoneData] = useState<{
     id: string;
     name: string;
@@ -459,6 +460,7 @@ export function GISMap() {
     dispatch({ type: "CLEAR_ZONE_POINTS" });
     dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false }); // Close dialog to allow map clicks
     setIsDrawingZone(true); // Enter dedicated drawing mode
+    setZoneIsClosed(false); // Reset closed state when starting a new zone
   }, []);
 
   const handleContinueZonePicking = useCallback(() => {
@@ -466,6 +468,10 @@ export function GISMap() {
     // Don't clear points - just close dialog to continue picking
     dispatch({ type: "SET_IS_ADD_CUSTOM_POI_OPEN", payload: false });
     setIsDrawingZone(true); // Enter drawing mode
+  }, []);
+
+  const handleCloseZoneShape = useCallback(() => {
+    setZoneIsClosed(true);
   }, []);
 
   const handleStartPickingJob = useCallback(() => {
@@ -765,6 +771,7 @@ export function GISMap() {
       dispatch({ type: "CLEAR_ZONE_POINTS" });
       dispatch({ type: "SET_INTERACTION_MODE", payload: null });
       setIsDrawingZone(false);
+      setZoneIsClosed(false);
       setEditingZoneData(null);
     },
     [addCustomZone, updateCustomPOI, editingZoneData, dispatch],
@@ -823,6 +830,7 @@ export function GISMap() {
       if (!confirmCancel) return;
     }
     setIsDrawingZone(false);
+    setZoneIsClosed(false);
     setEditingZoneData(null);
     dispatch({ type: "CLEAR_ZONE_POINTS" });
     dispatch({ type: "SET_INTERACTION_MODE", payload: null });
@@ -1019,6 +1027,7 @@ export function GISMap() {
           pickedPOICoords={state.pickedPOICoords}
           pickedJobCoords={state.pickedJobCoords}
           zonePoints={state.zonePoints}
+          zoneIsClosed={zoneIsClosed}
           interactionMode={state.interactionMode}
           isEditingZone={isEditingZone}
           onRemoveZonePoint={handleRemoveZonePoint}
@@ -1108,8 +1117,10 @@ export function GISMap() {
           onStartPicking={handleStartPicking}
           onStartZonePicking={handleStartZonePicking}
           onContinueZonePicking={handleContinueZonePicking}
+          onCloseShape={handleCloseZoneShape}
           pickedCoords={state.pickedPOICoords}
           zonePoints={state.zonePoints}
+          zoneIsClosed={zoneIsClosed}
           isDrawingZone={isDrawingZone}
           isEditingZone={isEditingZone}
           editingZoneData={editingZoneData}

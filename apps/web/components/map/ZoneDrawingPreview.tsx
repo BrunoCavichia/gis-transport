@@ -6,6 +6,7 @@ interface ZoneDrawingPreviewProps {
   points: [number, number][];
   visible: boolean;
   isEditing?: boolean;
+  isClosed?: boolean; // Whether the polygon has been explicitly closed
   onRemovePoint?: (index: number) => void;
   onUpdatePoint?: (index: number, newCoords: [number, number]) => void;
 }
@@ -41,6 +42,7 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
   points,
   visible,
   isEditing = false,
+  isClosed = false,
   onRemovePoint,
   onUpdatePoint,
 }: ZoneDrawingPreviewProps) {
@@ -120,7 +122,7 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
         );
       })}
 
-      {/* Draw lines connecting the points */}
+      {/* Draw lines connecting the points (open polyline) */}
       {points.length > 1 && (
         <Polyline
           positions={points}
@@ -131,8 +133,8 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
         />
       )}
 
-      {/* Draw a line from last point to first to show the closing edge */}
-      {points.length > 2 && (
+      {/* Draw a line from last point to first to show the closing edge (ONLY when closed) */}
+      {isClosed && points.length > 2 && (
         <Polyline
           positions={[points[points.length - 1], points[0]]}
           color={isEditing ? "#ef4444" : "#3b82f6"}
@@ -142,8 +144,8 @@ export const ZoneDrawingPreview = memo(function ZoneDrawingPreview({
         />
       )}
 
-      {/* Draw the filled polygon if we have at least 3 points */}
-      {points.length >= 3 && (
+      {/* Draw the filled polygon (ONLY when explicitly closed) */}
+      {isClosed && points.length >= 3 && (
         <Polygon
           positions={points}
           pathOptions={{
