@@ -1,12 +1,10 @@
 "use client";
 
-import { MAP_CENTER } from "@/lib/config";
 import {
   useState,
   useEffect,
   useMemo,
   useCallback,
-  memo,
   FormEvent,
 } from "react";
 import dynamic from "next/dynamic";
@@ -93,7 +91,6 @@ export function AddCustomPOIDialogV2({
   onCloseShape,
   pickedCoords,
   zonePoints = [],
-  zoneIsClosed = false,
   isLoading = false,
   isDrawingZone = false,
   isEditingZone = false,
@@ -772,18 +769,20 @@ export function AddCustomPOIDialogV2({
                   </div>
 
                   {/* Close Shape Button - only show when in drawing mode and not yet closed */}
-                  {!isEditingZone && !zoneShapeClosed && zonePoints.length >= 3 && (
-                    <div className="pt-4 border-t border-border/50">
-                      <Button
-                        type="button"
-                        className="w-full h-12 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                        onClick={handleCloseZoneShape}
-                      >
-                        <Pentagon className="h-4 w-4 mr-2" />
-                        Cerrar Forma y Continuar
-                      </Button>
-                    </div>
-                  )}
+                  {!isEditingZone &&
+                    !zoneShapeClosed &&
+                    zonePoints.length >= 3 && (
+                      <div className="pt-4 border-t border-border/50">
+                        <Button
+                          type="button"
+                          className="w-full h-12 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                          onClick={handleCloseZoneShape}
+                        >
+                          <Pentagon className="h-4 w-4 mr-2" />
+                          Cerrar Forma y Continuar
+                        </Button>
+                      </div>
+                    )}
                 </div>
               )}
             </>

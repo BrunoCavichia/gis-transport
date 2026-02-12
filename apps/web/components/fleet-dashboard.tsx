@@ -523,7 +523,7 @@ export function FleetDashboard({
 
       {/* Vehicle Detail Sheet - Local dashboard state, independent from gis-map panels */}
       {dashboardVehicleId && (
-        <div className="absolute inset-0 z-50 pointer-events-auto">
+        <div className="absolute inset-0 z-50 pointer-events-auto bg-background border-l border-border/40 shadow-lg overflow-hidden">
           <VehicleDetailSheet
             vehicle={vehicles.find((v) => v.id === dashboardVehicleId) || null}
             metrics={

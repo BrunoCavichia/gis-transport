@@ -116,7 +116,12 @@ interface SidebarProps {
   onNavigateConsumed?: () => void;
 }
 
-export type SidebarTab = "fleet" | "layers" | "dashboard" | "drivers" | "settings";
+export type SidebarTab =
+  | "fleet"
+  | "layers"
+  | "dashboard"
+  | "drivers"
+  | "settings";
 
 interface NavigationRailProps {
   activeTab: SidebarTab;
@@ -710,16 +715,21 @@ export const Sidebar = memo(
     const [selectedDriverId, setSelectedDriverId] = useState<string | null>(
       null,
     );
-    
+
     // Persisted toggle state for drivers tab dropdowns
-    const [driversExpandedGroups, setDriversExpandedGroups] = useState<Record<string, boolean>>({
+    const [driversExpandedGroups, setDriversExpandedGroups] = useState<
+      Record<string, boolean>
+    >({
       available: false,
       assigned: false,
     });
 
-    const handleToggleDriverGroup = useCallback((group: string, isExpanded: boolean) => {
-      setDriversExpandedGroups((prev) => ({ ...prev, [group]: isExpanded }));
-    }, []);
+    const handleToggleDriverGroup = useCallback(
+      (group: string, isExpanded: boolean) => {
+        setDriversExpandedGroups((prev) => ({ ...prev, [group]: isExpanded }));
+      },
+      [],
+    );
 
     // Derived state for selected driver (ensures data is always fresh)
     const selectedDriver = useMemo(
@@ -809,11 +819,7 @@ export const Sidebar = memo(
               ? cn(
                   "opacity-100 translate-x-0",
                   activeTab === "dashboard"
-                    ? selectedVehicleId !== null
-                      ? "w-[36rem]"
-                      : fleetVehicles.length > 3
-                        ? "w-[32rem]"
-                        : "w-80"
+                    ? "w-[25rem]"
                     : activeTab === "drivers"
                       ? selectedDriver
                         ? "w-80"
