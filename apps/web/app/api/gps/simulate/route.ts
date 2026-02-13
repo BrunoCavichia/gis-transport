@@ -13,7 +13,7 @@ declare global {
   // eslint-disable-next-line no-var
   var gpsSimulation:
     | {
-      routes: Record<string, [number, number][]>;
+      routes: Record<string, any>;
       jobs: any[];
       completedJobs: Set<string>;
       positions: Record<

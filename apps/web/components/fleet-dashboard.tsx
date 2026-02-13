@@ -7,6 +7,8 @@
 import { useMemo, useEffect, useRef, memo } from "react";
 import type { POI, FleetVehicle, FleetJob, Driver } from "@gis/shared";
 import type { Alert } from "@/lib/utils";
+import { useAlertLogs } from "@/hooks/use-alert-logs";
+import { getAlertStyles } from "@/lib/utils";
 
 import {
   Battery,
@@ -27,7 +29,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 
-import MapPreview from "./map-preview";
+import dynamic from "next/dynamic";
+const MapPreview = dynamic(() => import("./map-preview"), { ssr: false });
 import type { RouteData } from "@gis/shared";
 
 interface FleetDashboardProps {
@@ -57,31 +60,78 @@ interface FleetDashboardProps {
   routeData?: RouteData | null;
 }
 
+const AlertLogsSection = ({ vehicleId, vehicleLabel }: { vehicleId: string | number | null; vehicleLabel?: string }) => {
+  const { getVehicleLogs } = useAlertLogs();
+  const logs = useMemo(() => (vehicleId ? getVehicleLogs(vehicleId) : []), [vehicleId, getVehicleLogs]);
+
+  return (
+    <div className="bg-card border border-border/40 rounded-2xl overflow-hidden flex flex-col shadow-sm min-h-0">
+      <div className="px-5 py-4 border-b border-border/10 flex items-center justify-between bg-muted/20">
+        <Label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Alertas y Seguridad</Label>
+        <Badge variant="outline" className="text-[8px] font-bold border-red-500/20 text-red-600 bg-red-50 uppercase">Historial de Logs</Badge>
+      </div>
+      <div className="flex-1 relative min-h-0">
+        <ScrollArea className="h-full w-full">
+          <div className="p-5 space-y-4">
+            {vehicleId && logs.length > 0 ? (
+              logs.map((log, idx) => {
+                const styles = getAlertStyles(log.severity as any);
+                const timeStr = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                return (
+                  <div key={`${log.id}-${idx}`} className={cn("flex gap-4 p-3 border rounded-xl transition-all hover:opacity-80", styles.bg, styles.border)}>
+                    <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0", styles.badge.split(' ')[0])}>
+                      <AlertTriangle className={cn("h-4 w-4", styles.icon)} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("text-[10px] font-black uppercase tracking-tight", styles.icon)}>{log.alertTitle}</span>
+                        <span className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-tighter">— {timeStr}</span>
+                      </div>
+                      <p className="text-[11px] font-bold text-foreground mt-0.5 leading-snug">{log.message}</p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 opacity-30">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2" />
+                <p className="text-[10px] font-bold uppercase tracking-widest">{vehicleId ? "Sin alertas registradas" : "Seleccione un vehículo"}</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
+  );
+};
+
 export const FleetDashboard = memo(function FleetDashboard({
   vehicles,
   jobs = [],
   vehicleAlerts = {},
+  isTracking,
   addStopToVehicle,
   startRouting,
+  isAddStopOpen,
+  setIsAddStopOpen,
   onStartPickingStop,
   pickedStopCoords,
+  onAddStopSubmit,
   drivers,
   selectedVehicleId,
   onSelectVehicle,
   onAssignDriver,
   gasStations = [],
-  isGasStationLayerVisible = true,
+  isGasStationLayerVisible,
   onToggleGasStationLayer,
-  routeData = null,
+  routeData,
 }: FleetDashboardProps) {
-  // Local state for auto-selection syncing with dashboard interaction
+  // Sync local selection with parent
   const [localSelectedId, setLocalSelectedId] = useState<string | number | null>(selectedVehicleId ?? null);
 
-  // Sync with prop
   useEffect(() => {
-    if (selectedVehicleId !== undefined) {
-      setLocalSelectedId(selectedVehicleId);
-    }
+    setLocalSelectedId(selectedVehicleId ?? null);
   }, [selectedVehicleId]);
 
   // Local state for add-stop dialog
@@ -90,6 +140,13 @@ export const FleetDashboard = memo(function FleetDashboard({
 
   // Job type filter
   const [jobTypeFilter, setJobTypeFilter] = useState<"all" | "standard" | "custom">("all");
+  // Vehicle assignment filter
+  const [vehicleAssignmentFilter, setVehicleAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
+
+  const selectedVehicle = useMemo(
+    () => vehicles.find((v) => String(v.id) === String(localSelectedId)) || null,
+    [vehicles, localSelectedId],
+  );
 
   useEffect(() => {
     if (pickedStopCoords && waitingForPickRef.current && localSelectedId) {
@@ -149,7 +206,6 @@ export const FleetDashboard = memo(function FleetDashboard({
     };
   }, [vehicles, jobs, vehicleAlerts]);
 
-  const selectedVehicle = useMemo(() => vehicles.find(v => v.id === localSelectedId) || null, [vehicles, localSelectedId]);
 
   if (vehicles.length === 0) {
     return (
@@ -211,40 +267,82 @@ export const FleetDashboard = memo(function FleetDashboard({
 
           {/* Vehicle List Section - flex-1 basis-0 for absolute stability */}
           <div className="flex-1 basis-0 flex flex-col min-h-0 bg-card/30 border border-border/30 rounded-2xl overflow-hidden shadow-inner translate-z-0">
-            <div className="p-4 py-3 border-b border-border/10 bg-muted/20 flex items-center justify-between shrink-0">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Flota Conectada</Label>
-              <Badge variant="outline" className="text-[8px] font-bold border-primary/20 text-primary bg-primary/5">{vehicles.length}</Badge>
+            <div className="p-4 py-3 border-b border-border/10 bg-muted/20 flex flex-col gap-2 shrink-0">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Flota Conectada</Label>
+                <Badge variant="outline" className="text-[8px] font-bold border-primary/20 text-primary bg-primary/5">
+                  {vehicles.length}
+                </Badge>
+              </div>
+              <div className="flex gap-1.5 bg-background/40 p-1 rounded-lg border border-border/5">
+                {(["all", "assigned", "unassigned"] as const).map((filter) => {
+                  const count = vehicles.filter(v => {
+                    const hasJob = jobs.some(j => String(j.assignedVehicleId) === String(v.id));
+                    if (filter === "assigned") return hasJob;
+                    if (filter === "unassigned") return !hasJob;
+                    return true;
+                  }).length;
+
+                  return (
+                    <button
+                      key={filter}
+                      onClick={() => setVehicleAssignmentFilter(filter)}
+                      className={cn(
+                        "flex-1 px-1.5 py-1 text-[7.5px] font-black uppercase tracking-tight rounded-md transition-all flex items-center justify-center gap-1",
+                        vehicleAssignmentFilter === filter
+                          ? "bg-primary text-white shadow-sm"
+                          : "text-muted-foreground/60 hover:text-foreground hover:bg-background/80"
+                      )}
+                    >
+                      {filter === "all" ? "Todos" : filter === "assigned" ? "Asignados" : "Libres"}
+                      <span className={cn(
+                        "text-[6px] opacity-40 px-1 rounded-full",
+                        vehicleAssignmentFilter === filter ? "bg-white/20" : "bg-muted"
+                      )}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               <ScrollArea className="h-full w-full">
                 <div className="p-3 space-y-2">
-                  {vehicles.map((v) => (
-                    <div
-                      key={v.id}
-                      onClick={() => handleRowClick(v.id)}
-                      className={cn(
-                        "group relative border rounded-xl p-3 transition-all cursor-pointer overflow-hidden flex items-center gap-3",
-                        localSelectedId === v.id
-                          ? "bg-primary/5 border-primary/40 shadow-sm"
-                          : "bg-background border-border/40 hover:border-primary/20 hover:bg-muted/30"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-10 w-10 rounded-lg flex items-center justify-center shrink-0 border transition-all",
-                        localSelectedId === v.id ? "bg-primary/10 border-primary/20 text-primary" : "bg-muted/50 border-border/10 text-muted-foreground/40"
-                      )}>
-                        <Truck className="h-5 w-5" />
-                      </div>
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <h3 className="text-xs font-black truncate uppercase tracking-tight">{v.label}</h3>
-                          {vehicleAlerts[v.id]?.length > 0 && <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />}
+                  {vehicles
+                    .filter((v) => {
+                      const hasJob = jobs.some(j => String(j.assignedVehicleId) === String(v.id));
+                      if (vehicleAssignmentFilter === "assigned") return hasJob;
+                      if (vehicleAssignmentFilter === "unassigned") return !hasJob;
+                      return true;
+                    })
+                    .map((v) => (
+                      <div
+                        key={v.id}
+                        onClick={() => handleRowClick(v.id)}
+                        className={cn(
+                          "group relative border rounded-xl p-3 transition-all cursor-pointer overflow-hidden flex items-center gap-3",
+                          localSelectedId === v.id
+                            ? "bg-primary/5 border-primary/40 shadow-sm"
+                            : "bg-background border-border/40 hover:border-primary/20 hover:bg-muted/30"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-10 w-10 rounded-lg flex items-center justify-center shrink-0 border transition-all",
+                          localSelectedId === v.id ? "bg-primary/10 border-primary/20 text-primary" : "bg-muted/50 border-border/10 text-muted-foreground/40"
+                        )}>
+                          <Truck className="h-5 w-5" />
                         </div>
-                        <span className="text-[9px] font-mono text-muted-foreground/50">{v.licensePlate || "SIN PLACA"}</span>
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="text-xs font-black truncate uppercase tracking-tight">{v.label}</h3>
+                            {vehicleAlerts[v.id]?.length > 0 && <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />}
+                          </div>
+                          <span className="text-[9px] font-mono text-muted-foreground/50">{v.licensePlate || "SIN PLACA"}</span>
+                        </div>
+                        {localSelectedId === v.id && <ChevronRight className="h-4 w-4 text-primary shrink-0" />}
                       </div>
-                      {localSelectedId === v.id && <ChevronRight className="h-4 w-4 text-primary shrink-0" />}
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </ScrollArea>
             </div>
@@ -453,40 +551,8 @@ export const FleetDashboard = memo(function FleetDashboard({
               </div>
             </div>
 
-            {/* Alert Logs Section */}
-            <div className="bg-card border border-border/40 rounded-2xl overflow-hidden flex flex-col shadow-sm min-h-0">
-              <div className="px-5 py-4 border-b border-border/10 flex items-center justify-between bg-muted/20">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-widest">Alertas y Seguridad</Label>
-                <Badge variant="outline" className="text-[8px] font-bold border-red-500/20 text-red-600 bg-red-50 uppercase">Alertas Críticas</Badge>
-              </div>
-              <div className="flex-1 relative min-h-0">
-                <ScrollArea className="h-full w-full">
-                  <div className="p-5 space-y-4">
-                    {localSelectedId && vehicleAlerts[localSelectedId]?.length > 0 ? (
-                      (vehicleAlerts[localSelectedId] || []).map((alert, idx) => (
-                        <div key={`${localSelectedId}-${idx}`} className="flex gap-4 p-3 bg-red-50/20 border border-red-100/30 rounded-xl transition-all hover:bg-red-50/40">
-                          <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
-                            <AlertTriangle className="h-4 w-4 text-red-600" />
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black uppercase text-red-700 tracking-tight">{selectedVehicle?.label}</span>
-                              <span className="text-[8px] font-bold text-muted-foreground/40 uppercase tracking-tighter">— Hace pocos mins</span>
-                            </div>
-                            <p className="text-[11px] font-bold text-foreground mt-0.5 leading-snug">{alert.message}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-10 opacity-30">
-                        <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2" />
-                        <p className="text-[10px] font-bold uppercase tracking-widest">{localSelectedId ? "Sin alertas para este vehículo" : "Seleccione un vehículo"}</p>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
+            {/* Alert Logs Section (Historical) */}
+            <AlertLogsSection vehicleId={localSelectedId} vehicleLabel={selectedVehicle?.label} />
           </div>
         </div>
 

@@ -833,7 +833,7 @@ export const Sidebar = memo(
                 activeTab === "dashboard"
                   ? "w-[calc(100vw-10rem)] h-[calc(100vh-3rem)]"
                   : cn(
-                    "max-h-[calc(100vh-6rem)]",
+                    "h-[calc(100vh-6rem)]",
                     activeTab === "drivers"
                       ? selectedDriver
                         ? "w-80"
